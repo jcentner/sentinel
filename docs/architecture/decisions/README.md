@@ -1,0 +1,46 @@
+# Architecture Decision Records
+
+This directory tracks significant architecture and design decisions for Local Repo Sentinel.
+
+## Format
+
+We use a lightweight ADR format based on [MADR](https://adr.github.io/madr/):
+
+```markdown
+# ADR-NNN: Title
+
+**Status**: Proposed | Accepted | Deprecated | Superseded by ADR-NNN
+**Date**: YYYY-MM-DD
+**Deciders**: Who was involved
+
+## Context
+What is the issue we're facing? What forces are at play?
+
+## Decision
+What did we decide to do?
+
+## Consequences
+What are the positive, negative, and neutral consequences?
+
+## Alternatives considered
+What other options were evaluated and why were they rejected?
+```
+
+## Index
+
+| ADR | Title | Status | Date |
+|-----|-------|--------|------|
+| [001](001-local-first-execution.md) | Local-first execution model | Accepted | 2026-03-28 |
+| [002](002-deterministic-detectors-first.md) | Deterministic detectors as primary signal source | Accepted | 2026-03-28 |
+| [003](003-model-agnostic-via-ollama.md) | Model-agnostic design via Ollama | Accepted | 2026-03-28 |
+| [004](004-sqlite-state-from-day-one.md) | SQLite persistent state from day one | Accepted | 2026-03-28 |
+| [005](005-docs-drift-first-class-detector.md) | Docs-drift as a first-class detector category | Accepted | 2026-03-28 |
+| [006](006-copilot-agent-primary-dev-tool.md) | GitHub Copilot agent mode as primary development tool | Accepted | 2026-03-28 |
+
+## Creating a new ADR
+
+1. Copy the template above
+2. Number sequentially (next: 007)
+3. Create `NNN-short-kebab-title.md`
+4. Add to the index table above
+5. Record the decision in the commit that implements it where possible

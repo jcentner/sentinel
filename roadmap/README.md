@@ -1,0 +1,69 @@
+# Roadmap
+
+## Overview
+
+Local Repo Sentinel development follows a phased approach. Each phase has a planning doc, implementation plan, review, and completion checklist — see the [Prompt Guide](../.github/prompts/PROMPT-GUIDE.md) for the development workflow.
+
+## Phases
+
+| Phase | Title | Status | Description |
+|-------|-------|--------|-------------|
+| 0 | Project Foundation | **Complete** | Vision, architecture docs, ADRs, dev workflow, prompt system |
+| 1 | MVP Core | Not started | Core pipeline: 2-3 detectors, LLM judge, SQLite state, morning report |
+| 2 | Docs-Drift Detector | Not started | First-class docs-drift detection (ADR-005) |
+| 3 | Refinement | Not started | False-positive tuning, report UX, dedup improvements |
+| 4 | Extended Detectors | Not started | SQL anti-patterns, Semgrep, complexity, dead-code |
+| 5 | GitHub Integration | Not started | Issue creation from approved findings |
+
+## Phase details
+
+Phase planning docs live in `roadmap/phases/` and are created via the `/phase-plan` prompt.
+
+### Phase 0: Project Foundation (Current)
+- Project vision and strategy docs
+- Architecture overview and detector interface design
+- ADR system with 6 initial decisions
+- Development workflow (prompts, agents, instructions)
+- Open questions, tech debt, and glossary systems
+- Competitive analysis and critical review
+
+### Phase 1: MVP Core (Next)
+- Resolve OQ-001 (implementation language)
+- Resolve OQ-007 (eval criteria)
+- Core run loop: trigger → detect → gather context → judge → report
+- 2-3 initial detectors: `lint-runner`, `todo-scanner`, `dep-audit`
+- SQLite state store with finding fingerprinting
+- LLM judge via Ollama
+- Morning report (markdown)
+- CLI to run and review
+
+### Phase 2: Docs-Drift Detector
+- Docs-drift extraction (README, JSDoc, config docs)
+- LLM comparison for semantic drift
+- Stale reference detection (deterministic)
+- Confidence scoring per drift pattern
+
+### Phase 3: Refinement
+- False-positive suppression UX
+- Finding persistence scoring (recurring = higher confidence)
+- Report format improvements
+- Incremental run optimization
+
+### Phase 4: Extended Detectors
+- SQL anti-pattern detection (SQLFluff + LLM)
+- Semgrep integration
+- Git-hotspot analysis
+- Complexity/dead-code heuristics
+
+### Phase 5: GitHub Integration
+- GitHub API issue creation
+- Approval workflow
+- Issue dedup against existing GitHub issues
+- Rate limiting and error handling
+
+## Future (unscheduled)
+- Multi-repo support
+- Web UI for report review and approval
+- Watch mode (continuous development)
+- Custom detector plugin system
+- Team mode / shared findings
