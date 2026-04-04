@@ -127,3 +127,14 @@ class TestReportGeneration:
         from sentinel import __version__
         report = generate_report([_make_finding()], _make_run())
         assert f"v{__version__}" in report
+
+    def test_finding_shows_fingerprint_id(self):
+        f = _make_finding(fingerprint="abc123def456")
+        report = generate_report([f], _make_run())
+        assert "[abc123def456]" in report
+
+    def test_finding_without_fingerprint_ok(self):
+        f = _make_finding()
+        report = generate_report([f], _make_run())
+        # Should not crash, just no ID shown
+        assert "Test finding" in report

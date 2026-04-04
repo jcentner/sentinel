@@ -117,7 +117,12 @@ def _format_finding_line(finding: Finding) -> str:
         if v == "likely_false_positive":
             verdict = " ⚠️ FP?"
 
-    return f"- **{finding.title}** — {location} (confidence: {confidence_pct}%){recurring}{verdict}"
+    # Include fingerprint as ID for suppress/approve commands
+    fid = ""
+    if finding.fingerprint:
+        fid = f" `[{finding.fingerprint}]`"
+
+    return f"- **{finding.title}** — {location} (confidence: {confidence_pct}%){recurring}{verdict}{fid}"
 
 
 def _format_evidence_block(finding: Finding) -> str:
