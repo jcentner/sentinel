@@ -197,3 +197,100 @@ class TestEndToEnd:
 
         lint_findings = [f for f in findings if f.detector == "lint-runner"]
         assert len(lint_findings) >= 1  # At least unused import(s)
+
+
+class TestDocsDriftIntegration:
+    """Integration tests for docs-drift detector in the full pipeline."""
+
+    def test_docs_drift_finds_stale_links(self, tmp_path):
+        """Docs-drift detector surfaces stale links in full pipeline."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+
+        # Initialize git repo
+        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=str(repo), capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=str(repo), capture_output=True,
+        )
+
+        # README with a broken link
+        (repo / "README.md").write_text(
+            "# My Project\n\nSee [guide](docs/guide.md) for setup.\n"
+        )
+        subprocess.run(["git", "add", "-A"], cwd=str(repo), capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            cwd=str(repo), capture_output=True,
+        )
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        conn = get_connection(db_dir / "test.db")
+        out = tmp_path / "report.md"
+
+        try:
+            _run, findings, report = run_scan(
+                str(repo), conn, skip_judge=True, output_path=str(out),
+            )
+
+            drift_findings = [f for f in findings if f.detector == "docs-drift"]
+            assert len(drift_findings) >= 1
+            assert any("guide" in f.title for f in drift_findings)
+            assert "docs-drift" in report
+        finally:
+            conn.close()
+
+    def test_docs_drift_dep_drift_in_pipeline(self, tmp_path):
+        """Dependency drift findings appear in the pipeline."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+
+        subprocess.run(["git", "init"], cwd=str(repo), capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=str(repo), capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=str(repo), capture_output=True,
+        )
+
+        # pyproject.toml with click
+        (repo / "pyproject.toml").write_text(
+            '[project]\nname = "demo"\ndependencies = [\n'
+            '    "click>=8.0",\n'
+            "]\n"
+        )
+        # README mentions flask (not in deps)
+        (repo / "README.md").write_text(
+            "# Demo\n\n```bash\npip install click flask\n```\n"
+        )
+        subprocess.run(["git", "add", "-A"], cwd=str(repo), capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            cwd=str(repo), capture_output=True,
+        )
+
+        db_dir = tmp_path / "db"
+        db_dir.mkdir()
+        conn = get_connection(db_dir / "test.db")
+        out = tmp_path / "report.md"
+
+        try:
+            _run, findings, _report = run_scan(
+                str(repo), conn, skip_judge=True, output_path=str(out),
+            )
+
+            dep_drift = [
+                f for f in findings
+                if f.context and f.context.get("pattern") == "dependency-drift"
+            ]
+            assert len(dep_drift) == 1
+            assert "flask" in dep_drift[0].title.lower()
+        finally:
+            conn.close()
