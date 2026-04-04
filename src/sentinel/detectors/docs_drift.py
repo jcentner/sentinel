@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
 from pathlib import Path
+
+import httpx
 
 from sentinel.detectors.base import Detector
 from sentinel.models import (
@@ -73,7 +76,7 @@ class DocsDriftDetector(Detector):
 
     @property
     def tier(self) -> DetectorTier:
-        return DetectorTier.DETERMINISTIC
+        return DetectorTier.LLM_ASSISTED
 
     @property
     def categories(self) -> list[str]:
@@ -106,6 +109,12 @@ class DocsDriftDetector(Detector):
             basename = md_file.name.upper()
             if basename in ("README.MD", "CONTRIBUTING.MD", "INSTALL.MD", "GETTING-STARTED.MD"):
                 findings.extend(self._check_dependency_drift(content, rel_path, repo_root))
+
+            # LLM-assisted doc-code comparison (when available)
+            if not context.config.get("skip_judge"):
+                findings.extend(
+                    self._check_doc_code_drift(content, rel_path, repo_root, context.config)
+                )
 
         return findings
 
@@ -512,3 +521,195 @@ class DocsDriftDetector(Detector):
     def _normalize_pkg(name: str) -> str:
         """Normalize a package name for comparison (PEP 503)."""
         return re.sub(r"[-_.]+", "-", name).lower().strip()
+
+    # ── LLM-assisted doc-code comparison ───────────────────────────
+
+    _DOC_CODE_PROMPT = (
+        "You are a documentation accuracy checker. Compare the following documentation "
+        "code block against the actual source code and determine if the documentation "
+        "is accurate.\n\n"
+        "## Documentation (from {doc_path})\n"
+        "```\n{doc_block}\n```\n\n"
+        "## Actual source code (from {code_path})\n"
+        "```\n{code_content}\n```\n\n"
+        "Respond ONLY with a JSON object (no markdown, no explanation):\n"
+        '{{"is_accurate": true/false, "issue": "One sentence describing the drift if inaccurate, or empty string"}}'
+    )
+
+    def _check_doc_code_drift(
+        self, content: str, doc_path: str, repo_root: Path, config: dict
+    ) -> list[Finding]:
+        """Use LLM to compare code blocks in docs against actual source files."""
+        ollama_url = config.get("ollama_url", "http://localhost:11434")
+        model = config.get("model", "qwen3:4b")
+
+        if not self._check_ollama(ollama_url):
+            return []
+
+        findings: list[Finding] = []
+        pairs = self._extract_doc_code_pairs(content, doc_path, repo_root)
+
+        for doc_block, code_path, code_content, line_num in pairs:
+            try:
+                result = self._llm_compare(
+                    doc_block, doc_path, code_path, code_content, model, ollama_url
+                )
+                if result and not result.get("is_accurate", True):
+                    issue = result.get("issue", "Documentation may not match implementation")
+                    findings.append(
+                        Finding(
+                            detector=self.name,
+                            category="docs-drift",
+                            severity=Severity.LOW,
+                            confidence=0.65,
+                            title=f"Doc-code drift: {doc_path} vs {code_path}",
+                            description=(
+                                f"LLM comparison found potential drift between documentation "
+                                f"in {doc_path} and source code in {code_path}: {issue}"
+                            ),
+                            evidence=[
+                                Evidence(
+                                    type=EvidenceType.DOC,
+                                    source=doc_path,
+                                    content=doc_block[:500],
+                                    line_range=(line_num, line_num),
+                                ),
+                                Evidence(
+                                    type=EvidenceType.CODE,
+                                    source=code_path,
+                                    content=code_content[:500],
+                                ),
+                            ],
+                            file_path=doc_path,
+                            line_start=line_num,
+                            context={
+                                "pattern": "doc-code-drift",
+                                "code_path": code_path,
+                                "llm_issue": issue,
+                            },
+                        )
+                    )
+            except Exception:
+                logger.debug("LLM comparison failed for %s block at line %d", doc_path, line_num)
+
+        return findings
+
+    def _extract_doc_code_pairs(
+        self, content: str, doc_path: str, repo_root: Path
+    ) -> list[tuple[str, str, str, int]]:
+        """Extract (doc_block, code_path, code_content, line_num) pairs.
+
+        Looks for code blocks in markdown that reference importable modules or
+        CLI commands and tries to find the corresponding source.
+        """
+        pairs: list[tuple[str, str, str, int]] = []
+
+        for match in _FENCED_BLOCK.finditer(content):
+            lang = match.group(1).lower()
+            block = match.group(2).strip()
+            # Calculate line number of the code block
+            line_num = content[:match.start()].count("\n") + 1
+
+            if lang in ("python", "py"):
+                # Look for import statements or function calls that reference source files
+                referenced = self._find_referenced_source(block, repo_root)
+                if referenced:
+                    pairs.append((block, referenced[0], referenced[1], line_num))
+            elif lang in ("bash", "sh", "shell", "console"):
+                # Look for CLI commands that reference the project
+                referenced = self._find_cli_source(block, repo_root)
+                if referenced:
+                    pairs.append((block, referenced[0], referenced[1], line_num))
+
+        return pairs
+
+    @staticmethod
+    def _find_referenced_source(
+        block: str, repo_root: Path
+    ) -> tuple[str, str] | None:
+        """Find source file referenced by a Python code block."""
+        # Look for import patterns: from X import Y, import X
+        imports = re.findall(r"(?:from|import)\s+([\w.]+)", block)
+        for imp in imports:
+            # Convert module path to file path
+            parts = imp.split(".")
+            for i in range(len(parts), 0, -1):
+                candidate = repo_root / "src" / "/".join(parts[:i])
+                py_file = candidate.with_suffix(".py")
+                init_file = candidate / "__init__.py"
+                for path in (py_file, init_file):
+                    if path.exists():
+                        try:
+                            content = path.read_text(encoding="utf-8", errors="ignore")
+                            rel = str(path.relative_to(repo_root))
+                            return (rel, content[:2000])
+                        except OSError:
+                            pass
+        return None
+
+    @staticmethod
+    def _find_cli_source(
+        block: str, repo_root: Path
+    ) -> tuple[str, str] | None:
+        """Find CLI entry point source for a bash code block."""
+        # Look for the project's CLI command
+        cli_py = repo_root / "src" / "sentinel" / "cli.py"
+        if cli_py.exists() and "sentinel" in block:
+            try:
+                content = cli_py.read_text(encoding="utf-8", errors="ignore")
+                return ("src/sentinel/cli.py", content[:2000])
+            except OSError:
+                pass
+        return None
+
+    @staticmethod
+    def _check_ollama(ollama_url: str) -> bool:
+        """Check if Ollama is reachable."""
+        try:
+            resp = httpx.get(f"{ollama_url}/api/tags", timeout=5.0)
+            return resp.status_code == 200
+        except (httpx.ConnectError, httpx.TimeoutException):
+            return False
+
+    @staticmethod
+    def _llm_compare(
+        doc_block: str,
+        doc_path: str,
+        code_path: str,
+        code_content: str,
+        model: str,
+        ollama_url: str,
+    ) -> dict | None:
+        """Ask the LLM to compare a doc block against source code."""
+        prompt = DocsDriftDetector._DOC_CODE_PROMPT.format(
+            doc_path=doc_path,
+            doc_block=doc_block[:1000],
+            code_path=code_path,
+            code_content=code_content[:2000],
+        )
+
+        resp = httpx.post(
+            f"{ollama_url}/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.1, "num_predict": 256},
+            },
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+
+        data = resp.json()
+        text = data.get("response", "").strip()
+
+        # Extract JSON from response
+        try:
+            # Try to find JSON in the response
+            json_match = re.search(r"\{.*\}", text, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        return None

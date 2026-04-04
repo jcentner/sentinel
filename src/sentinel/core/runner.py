@@ -47,6 +47,11 @@ def run_scan(
         scope=scope,
         changed_files=changed_files,
         target_paths=target_paths,
+        config={
+            "ollama_url": ollama_url,
+            "model": model,
+            "skip_judge": skip_judge,
+        },
     )
 
     # 3. Run detectors (error-isolated per detector)

@@ -18,7 +18,7 @@ class TestDocsDriftProperties:
         assert detector.name == "docs-drift"
 
     def test_tier(self, detector):
-        assert detector.tier == DetectorTier.DETERMINISTIC
+        assert detector.tier == DetectorTier.LLM_ASSISTED
 
     def test_categories(self, detector):
         assert "docs-drift" in detector.categories
@@ -363,3 +363,107 @@ class TestScopeFiltering:
         )
         findings = detector.detect(ctx)
         assert all(f.file_path == "docs/guide.md" for f in findings)
+
+
+class TestDocCodeDrift:
+    """Tests for LLM-assisted doc-code comparison (mocked Ollama)."""
+
+    def test_skipped_when_skip_judge(self, detector, tmp_path):
+        """LLM comparison is skipped when skip_judge is set."""
+        (tmp_path / "src").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel" / "cli.py").write_text("def main(): pass\n")
+        (tmp_path / "README.md").write_text(
+            "# Proj\n\n```bash\nsentinel scan .\n```\n"
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"skip_judge": True},
+        )
+        findings = detector.detect(ctx)
+        # No doc-code-drift findings because skip_judge is set
+        drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
+        assert len(drift) == 0
+
+    def test_skipped_when_ollama_unavailable(self, detector, tmp_path, monkeypatch):
+        """LLM comparison gracefully degrades when Ollama is not running."""
+        (tmp_path / "src").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel" / "cli.py").write_text("def main(): pass\n")
+        (tmp_path / "README.md").write_text(
+            "# Proj\n\n```bash\nsentinel scan .\n```\n"
+        )
+
+        from sentinel.detectors import docs_drift
+
+        monkeypatch.setattr(docs_drift.DocsDriftDetector, "_check_ollama", staticmethod(lambda _: False))
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"skip_judge": False},
+        )
+        findings = detector.detect(ctx)
+        drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
+        assert len(drift) == 0
+
+    def test_produces_finding_on_drift(self, detector, tmp_path, monkeypatch):
+        """LLM comparison produces a finding when drift is detected."""
+        (tmp_path / "src").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel" / "cli.py").write_text(
+            "import click\n\n@click.command()\ndef main(): pass\n"
+        )
+        (tmp_path / "README.md").write_text(
+            "# Proj\n\n```bash\nsentinel scan --format json .\n```\n"
+        )
+
+        from sentinel.detectors import docs_drift
+
+        monkeypatch.setattr(docs_drift.DocsDriftDetector, "_check_ollama", staticmethod(lambda _: True))
+        monkeypatch.setattr(
+            docs_drift.DocsDriftDetector,
+            "_llm_compare",
+            staticmethod(lambda *_args, **_kw: {
+                "is_accurate": False,
+                "issue": "--format json flag does not exist in the CLI",
+            }),
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"skip_judge": False, "model": "test", "ollama_url": "http://fake"},
+        )
+        findings = detector.detect(ctx)
+        drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
+        assert len(drift) == 1
+        assert drift[0].confidence == 0.65
+        assert "--format json" in drift[0].context["llm_issue"]
+
+    def test_no_finding_when_accurate(self, detector, tmp_path, monkeypatch):
+        """LLM comparison produces no finding when docs are accurate."""
+        (tmp_path / "src").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel" / "cli.py").write_text(
+            "import click\n\n@click.command()\ndef main(): pass\n"
+        )
+        (tmp_path / "README.md").write_text(
+            "# Proj\n\n```bash\nsentinel scan .\n```\n"
+        )
+
+        from sentinel.detectors import docs_drift
+
+        monkeypatch.setattr(docs_drift.DocsDriftDetector, "_check_ollama", staticmethod(lambda _: True))
+        monkeypatch.setattr(
+            docs_drift.DocsDriftDetector,
+            "_llm_compare",
+            staticmethod(lambda *_args, **_kw: {"is_accurate": True, "issue": ""}),
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"skip_judge": False, "model": "test", "ollama_url": "http://fake"},
+        )
+        findings = detector.detect(ctx)
+        drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
+        assert len(drift) == 0
