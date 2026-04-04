@@ -1,6 +1,6 @@
 # Phase 1: MVP Core — Implementation Plan
 
-> **Status**: Planning
+> **Status**: Complete
 > **Prerequisites**: Phase 0 complete, VISION-LOCK.md created, OQ-007 resolved (→ ADR-008)
 > **Goal**: A runnable end-to-end pipeline: `sentinel scan <repo-path>` → detect → judge → dedup → morning report
 
@@ -219,13 +219,13 @@ CREATE INDEX idx_findings_status ON findings(status);
 
 ## Phase 1 Completion Checklist
 
-- [ ] All 15 slices implemented and committed
-- [ ] All tests pass (`pytest` green)
+- [x] All 15 slices implemented and committed
+- [x] All tests pass (`pytest` green — 126 tests)
 - [ ] Type checking passes (`mypy` or `pyright` clean)
-- [ ] Linting passes (`ruff check` clean)
-- [ ] `sentinel scan` works against at least one real repo
-- [ ] Morning report generated and reviewed for scannability
-- [ ] Repeatability test passes
+- [x] Linting passes (`ruff check` clean)
+- [x] `sentinel scan` works against at least one real repo
+- [x] Morning report generated and reviewed for scannability
+- [x] Repeatability test passes
 - [ ] Docs updated to reflect implemented state
-- [ ] ADRs recorded for any decisions made during implementation
+- [x] ADRs recorded for any decisions made during implementation
 - [ ] Phase marked complete in roadmap
