@@ -68,7 +68,7 @@ class TestJudgmentParsing:
 
 
 class TestJudgeFindings:
-    @patch("sentinel.core.judge._check_ollama")
+    @patch("sentinel.core.judge.check_ollama")
     def test_graceful_degradation(self, mock_check):
         """When Ollama is unavailable, findings pass through unchanged."""
         mock_check.return_value = False
@@ -77,8 +77,8 @@ class TestJudgeFindings:
         assert len(result) == 1
         assert result[0].severity == Severity.LOW  # Unchanged
 
-    @patch("sentinel.core.judge.httpx.post")
-    @patch("sentinel.core.judge._check_ollama")
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
     def test_judge_confirms_finding(self, mock_check, mock_post):
         mock_check.return_value = True
         mock_post.return_value = MagicMock(
@@ -99,8 +99,8 @@ class TestJudgeFindings:
         assert result[0].severity == Severity.MEDIUM
         assert result[0].context["judge_verdict"] == "confirmed"
 
-    @patch("sentinel.core.judge.httpx.post")
-    @patch("sentinel.core.judge._check_ollama")
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
     def test_judge_marks_false_positive(self, mock_check, mock_post):
         mock_check.return_value = True
         mock_post.return_value = MagicMock(
@@ -120,8 +120,8 @@ class TestJudgeFindings:
         assert result[0].confidence <= 0.3
         assert result[0].context["judge_verdict"] == "likely_false_positive"
 
-    @patch("sentinel.core.judge.httpx.post")
-    @patch("sentinel.core.judge._check_ollama")
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
     def test_judge_error_fallback(self, mock_check, mock_post):
         mock_check.return_value = True
         mock_post.side_effect = Exception("Connection error")

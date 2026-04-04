@@ -6,10 +6,10 @@ import json
 import logging
 import os
 import re
+import tomllib
 from pathlib import Path
 
-import httpx
-
+from sentinel.core.ollama import check_ollama
 from sentinel.detectors.base import Detector
 from sentinel.models import (
     DetectorContext,
@@ -107,11 +107,14 @@ class DocsDriftDetector(Detector):
 
             # Dependency drift detection (only for README / CONTRIBUTING / install docs)
             basename = md_file.name.upper()
-            if basename in ("README.MD", "CONTRIBUTING.MD", "INSTALL.MD", "GETTING-STARTED.MD"):
+            is_key_doc = basename in (
+                "README.MD", "CONTRIBUTING.MD", "INSTALL.MD", "GETTING-STARTED.MD",
+            )
+            if is_key_doc:
                 findings.extend(self._check_dependency_drift(content, rel_path, repo_root))
 
-            # LLM-assisted doc-code comparison (when available)
-            if not context.config.get("skip_judge"):
+            # LLM-assisted doc-code comparison (only for key docs, when available)
+            if is_key_doc and not context.config.get("skip_llm"):
                 findings.extend(
                     self._check_doc_code_drift(content, rel_path, repo_root, context.config)
                 )
@@ -270,10 +273,6 @@ class DocsDriftDetector(Detector):
         # Skip template/example paths
         if _is_template_path(path_text):
             return None
-        # Should have a file extension or be a directory path
-        if "." not in path_text.split("/")[-1] and not path_text.endswith("/"):
-            # Could be a directory reference — check it
-            pass
 
         resolved = (repo_root / path_text).resolve()
         # Safety: only check within repo
@@ -424,54 +423,27 @@ class DocsDriftDetector(Detector):
 
     @staticmethod
     def _parse_pyproject_deps(path: Path) -> set[str]:
-        """Extract dependency names from pyproject.toml (basic TOML parsing)."""
+        """Extract dependency names from pyproject.toml using stdlib tomllib."""
         deps: set[str] = set()
         try:
-            content = path.read_text(encoding="utf-8")
-        except OSError:
+            with open(path, "rb") as f:
+                data = tomllib.load(f)
+        except (OSError, tomllib.TOMLDecodeError):
             return deps
 
-        # Simple regex-based extraction — handles most common patterns
-        # Match lines like: "click>=8.0", "httpx>=0.27",
-        in_deps = False
-        in_optional = False
-        for line in content.splitlines():
-            stripped = line.strip()
+        # Main dependencies
+        for dep_str in data.get("project", {}).get("dependencies", []):
+            name = re.split(r"[>=<\[!~;]", dep_str)[0].strip()
+            if name:
+                deps.add(name)
 
-            if stripped == "dependencies = [" or stripped.startswith("dependencies = ["):
-                in_deps = True
-                # Check for inline list
-                if "[" in stripped and "]" in stripped:
-                    for m in re.finditer(r'"([^"]+)"', stripped):
-                        name = re.split(r"[>=<\[!~;]", m.group(1))[0].strip()
-                        if name:
-                            deps.add(name)
-                    in_deps = False
-                continue
-
-            if re.match(r'\w+\s*=\s*\[', stripped) and in_optional:
-                in_deps = True
-                continue
-
-            if stripped.startswith("[project.optional-dependencies"):
-                in_optional = True
-                continue
-
-            if in_optional and stripped.startswith("[") and not stripped.startswith("[project.optional"):
-                in_optional = False
-                in_deps = False
-                continue
-
-            if in_deps:
-                if stripped == "]":
-                    in_deps = False
-                    continue
-                # Extract package name from quoted string
-                m = re.match(r'"([^"]+)"', stripped)
-                if m:
-                    name = re.split(r"[>=<\[!~;]", m.group(1))[0].strip()
-                    if name:
-                        deps.add(name)
+        # Optional dependencies (all groups)
+        optional = data.get("project", {}).get("optional-dependencies", {})
+        for group_deps in optional.values():
+            for dep_str in group_deps:
+                name = re.split(r"[>=<\[!~;]", dep_str)[0].strip()
+                if name:
+                    deps.add(name)
 
         return deps
 
@@ -494,7 +466,6 @@ class DocsDriftDetector(Detector):
     def _parse_package_json(path: Path) -> set[str]:
         deps: set[str] = set()
         try:
-            import json
             data = json.loads(path.read_text(encoding="utf-8"))
             for key in ("dependencies", "devDependencies", "peerDependencies"):
                 if key in data and isinstance(data[key], dict):
@@ -509,11 +480,10 @@ class DocsDriftDetector(Detector):
         pyproject = repo_root / "pyproject.toml"
         if pyproject.exists():
             try:
-                content = pyproject.read_text(encoding="utf-8")
-                m = re.search(r'^name\s*=\s*"([^"]+)"', content, re.MULTILINE)
-                if m:
-                    return m.group(1)
-            except OSError:
+                with open(pyproject, "rb") as f:
+                    data = tomllib.load(f)
+                return data.get("project", {}).get("name", "")
+            except (OSError, tomllib.TOMLDecodeError):
                 pass
         return ""
 
@@ -524,18 +494,6 @@ class DocsDriftDetector(Detector):
 
     # ── LLM-assisted doc-code comparison ───────────────────────────
 
-    _DOC_CODE_PROMPT = (
-        "You are a documentation accuracy checker. Compare the following documentation "
-        "code block against the actual source code and determine if the documentation "
-        "is accurate.\n\n"
-        "## Documentation (from {doc_path})\n"
-        "```\n{doc_block}\n```\n\n"
-        "## Actual source code (from {code_path})\n"
-        "```\n{code_content}\n```\n\n"
-        "Respond ONLY with a JSON object (no markdown, no explanation):\n"
-        '{{"is_accurate": true/false, "issue": "One sentence describing the drift if inaccurate, or empty string"}}'
-    )
-
     def _check_doc_code_drift(
         self, content: str, doc_path: str, repo_root: Path, config: dict
     ) -> list[Finding]:
@@ -543,7 +501,7 @@ class DocsDriftDetector(Detector):
         ollama_url = config.get("ollama_url", "http://localhost:11434")
         model = config.get("model", "qwen3:4b")
 
-        if not self._check_ollama(ollama_url):
+        if not check_ollama(ollama_url):
             return []
 
         findings: list[Finding] = []
@@ -652,24 +610,20 @@ class DocsDriftDetector(Detector):
         block: str, repo_root: Path
     ) -> tuple[str, str] | None:
         """Find CLI entry point source for a bash code block."""
-        # Look for the project's CLI command
-        cli_py = repo_root / "src" / "sentinel" / "cli.py"
-        if cli_py.exists() and "sentinel" in block:
+        # Resolve the project name dynamically
+        project_name = DocsDriftDetector._get_project_name(repo_root)
+        if not project_name:
+            return None
+        # Look for the project's CLI module
+        cli_py = repo_root / "src" / project_name / "cli.py"
+        if cli_py.exists() and project_name in block:
             try:
                 content = cli_py.read_text(encoding="utf-8", errors="ignore")
-                return ("src/sentinel/cli.py", content[:2000])
+                rel = str(cli_py.relative_to(repo_root))
+                return (rel, content[:2000])
             except OSError:
                 pass
         return None
-
-    @staticmethod
-    def _check_ollama(ollama_url: str) -> bool:
-        """Check if Ollama is reachable."""
-        try:
-            resp = httpx.get(f"{ollama_url}/api/tags", timeout=5.0)
-            return resp.status_code == 200
-        except (httpx.ConnectError, httpx.TimeoutException):
-            return False
 
     @staticmethod
     def _llm_compare(
@@ -681,11 +635,19 @@ class DocsDriftDetector(Detector):
         ollama_url: str,
     ) -> dict | None:
         """Ask the LLM to compare a doc block against source code."""
-        prompt = DocsDriftDetector._DOC_CODE_PROMPT.format(
-            doc_path=doc_path,
-            doc_block=doc_block[:1000],
-            code_path=code_path,
-            code_content=code_content[:2000],
+        import httpx
+
+        # Use safe string substitution — doc/code content may contain { or }
+        prompt = (
+            "You are a documentation accuracy checker. Compare the following documentation "
+            "code block against the actual source code and determine if the documentation "
+            "is accurate.\n\n"
+            f"## Documentation (from {doc_path})\n"
+            f"```\n{doc_block[:1000]}\n```\n\n"
+            f"## Actual source code (from {code_path})\n"
+            f"```\n{code_content[:2000]}\n```\n\n"
+            "Respond ONLY with a JSON object (no markdown, no explanation):\n"
+            '{"is_accurate": true/false, "issue": "One sentence describing the drift if inaccurate, or empty string"}'
         )
 
         resp = httpx.post(

@@ -368,8 +368,9 @@ class TestScopeFiltering:
 class TestDocCodeDrift:
     """Tests for LLM-assisted doc-code comparison (mocked Ollama)."""
 
-    def test_skipped_when_skip_judge(self, detector, tmp_path):
-        """LLM comparison is skipped when skip_judge is set."""
+    def test_skipped_when_skip_llm(self, detector, tmp_path):
+        """LLM comparison is skipped when skip_llm is set."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "sentinel"\n')
         (tmp_path / "src").mkdir(parents=True)
         (tmp_path / "src" / "sentinel").mkdir(parents=True)
         (tmp_path / "src" / "sentinel" / "cli.py").write_text("def main(): pass\n")
@@ -379,15 +380,16 @@ class TestDocCodeDrift:
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"skip_judge": True},
+            config={"skip_llm": True},
         )
         findings = detector.detect(ctx)
-        # No doc-code-drift findings because skip_judge is set
+        # No doc-code-drift findings because skip_llm is set
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
         assert len(drift) == 0
 
     def test_skipped_when_ollama_unavailable(self, detector, tmp_path, monkeypatch):
         """LLM comparison gracefully degrades when Ollama is not running."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "sentinel"\n')
         (tmp_path / "src").mkdir(parents=True)
         (tmp_path / "src" / "sentinel").mkdir(parents=True)
         (tmp_path / "src" / "sentinel" / "cli.py").write_text("def main(): pass\n")
@@ -397,11 +399,11 @@ class TestDocCodeDrift:
 
         from sentinel.detectors import docs_drift
 
-        monkeypatch.setattr(docs_drift.DocsDriftDetector, "_check_ollama", staticmethod(lambda _: False))
+        monkeypatch.setattr(docs_drift, "check_ollama", lambda _: False)
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"skip_judge": False},
+            config={"skip_llm": False},
         )
         findings = detector.detect(ctx)
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
@@ -409,6 +411,7 @@ class TestDocCodeDrift:
 
     def test_produces_finding_on_drift(self, detector, tmp_path, monkeypatch):
         """LLM comparison produces a finding when drift is detected."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "sentinel"\n')
         (tmp_path / "src").mkdir(parents=True)
         (tmp_path / "src" / "sentinel").mkdir(parents=True)
         (tmp_path / "src" / "sentinel" / "cli.py").write_text(
@@ -420,7 +423,7 @@ class TestDocCodeDrift:
 
         from sentinel.detectors import docs_drift
 
-        monkeypatch.setattr(docs_drift.DocsDriftDetector, "_check_ollama", staticmethod(lambda _: True))
+        monkeypatch.setattr(docs_drift, "check_ollama", lambda _: True)
         monkeypatch.setattr(
             docs_drift.DocsDriftDetector,
             "_llm_compare",
@@ -432,7 +435,7 @@ class TestDocCodeDrift:
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"skip_judge": False, "model": "test", "ollama_url": "http://fake"},
+            config={"skip_llm": False, "model": "test", "ollama_url": "http://fake"},
         )
         findings = detector.detect(ctx)
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
@@ -442,6 +445,7 @@ class TestDocCodeDrift:
 
     def test_no_finding_when_accurate(self, detector, tmp_path, monkeypatch):
         """LLM comparison produces no finding when docs are accurate."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "sentinel"\n')
         (tmp_path / "src").mkdir(parents=True)
         (tmp_path / "src" / "sentinel").mkdir(parents=True)
         (tmp_path / "src" / "sentinel" / "cli.py").write_text(
@@ -453,7 +457,7 @@ class TestDocCodeDrift:
 
         from sentinel.detectors import docs_drift
 
-        monkeypatch.setattr(docs_drift.DocsDriftDetector, "_check_ollama", staticmethod(lambda _: True))
+        monkeypatch.setattr(docs_drift, "check_ollama", lambda _: True)
         monkeypatch.setattr(
             docs_drift.DocsDriftDetector,
             "_llm_compare",
@@ -462,7 +466,7 @@ class TestDocCodeDrift:
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"skip_judge": False, "model": "test", "ollama_url": "http://fake"},
+            config={"skip_llm": False, "model": "test", "ollama_url": "http://fake"},
         )
         findings = detector.detect(ctx)
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]

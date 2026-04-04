@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
-import httpx
-
+from sentinel.core.ollama import check_ollama
 from sentinel.models import Finding, Severity
 
 logger = logging.getLogger(__name__)
@@ -54,7 +53,7 @@ def judge_findings(
     if not findings:
         return findings
 
-    if not _check_ollama(ollama_url):
+    if not check_ollama(ollama_url):
         logger.warning("Ollama not available — passing through raw findings")
         return findings
 
@@ -70,19 +69,12 @@ def judge_findings(
     return judged
 
 
-def _check_ollama(ollama_url: str) -> bool:
-    """Check if Ollama is reachable."""
-    try:
-        resp = httpx.get(f"{ollama_url}/api/tags", timeout=5.0)
-        return resp.status_code == 200
-    except (httpx.ConnectError, httpx.TimeoutException):
-        return False
-
-
 def _judge_single(
     finding: Finding, model: str, ollama_url: str
 ) -> Finding:
     """Send a single finding to the LLM judge and return enriched finding."""
+    import httpx
+
     prompt = _build_prompt(finding)
 
     resp = httpx.post(

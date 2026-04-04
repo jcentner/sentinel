@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-> **Status**: Active — implemented in Phase 1 MVP. See [VISION-REVISION-001](../vision/VISION-REVISION-001.md) for pipeline order changes.
+> **Status**: Active — implemented in Phase 1 MVP, updated for Phase 2 (docs-drift). See [VISION-REVISION-001](../vision/VISION-REVISION-001.md) for pipeline order changes.
 
 ## High-level data flow
 

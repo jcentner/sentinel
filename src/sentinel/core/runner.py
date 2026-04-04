@@ -50,7 +50,7 @@ def run_scan(
         config={
             "ollama_url": ollama_url,
             "model": model,
-            "skip_judge": skip_judge,
+            "skip_llm": skip_judge,
         },
     )
 

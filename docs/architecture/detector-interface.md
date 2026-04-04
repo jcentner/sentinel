@@ -1,6 +1,6 @@
 # Detector Interface Specification
 
-> **Status**: Active — implemented in Phase 1 MVP.
+> **Status**: Active — implemented in Phase 1 MVP. Updated for Phase 2 (docs-drift detector).
 
 ## Design principle
 
@@ -80,14 +80,24 @@ DetectorContext:
 
 ## Planned detectors (MVP)
 
-| Detector | Tier | Categories | Description |
-|----------|------|------------|-------------|
-| `lint-runner` | Deterministic | code-quality | Wraps ESLint, ruff, etc. and normalizes output |
-| `test-runner` | Deterministic | test-health | Runs test suite, captures failures |
-| `todo-scanner` | Deterministic | todo-fixme | Grep for TODO/FIXME/HACK with age from git blame |
-| `dep-audit` | Deterministic | dependency | Wraps npm audit, pip-audit |
-| `docs-drift` | Deterministic + LLM | docs-drift | Compares docs ↔ code, docs ↔ docs for consistency |
-| `git-hotspots` | Heuristic | git-health | Identifies high-churn files, long-untouched files |
+| Detector | Tier | Categories | Status | Description |
+|----------|------|------------|--------|-------------|
+| `lint-runner` | Deterministic | code-quality | ✅ Implemented | Wraps ESLint, ruff, etc. and normalizes output |
+| `test-runner` | Deterministic | test-health | Planned | Runs test suite, captures failures |
+| `todo-scanner` | Deterministic | todo-fixme | ✅ Implemented | Grep for TODO/FIXME/HACK with age from git blame |
+| `dep-audit` | Deterministic | dependency | ✅ Implemented | Wraps npm audit, pip-audit |
+| `docs-drift` | Deterministic + LLM | docs-drift | ✅ Implemented | Compares docs ↔ code, docs ↔ docs for consistency |
+| `git-hotspots` | Heuristic | git-health | Planned | Identifies high-churn files, long-untouched files |
+
+### docs-drift implementation notes
+
+The docs-drift detector has three detection modes:
+
+1. **Stale reference detection** (deterministic): Broken markdown links and missing inline code paths, with dual resolution (doc-relative and repo-root-relative).
+2. **Dependency drift** (deterministic): Compares `pip install`/`npm install` commands in key docs (README, CONTRIBUTING, INSTALL) against `pyproject.toml`/`requirements.txt`/`package.json`.
+3. **Doc-code comparison** (LLM-assisted, optional): Uses Ollama to compare code blocks in key docs against actual source files. Gracefully degrades when Ollama is unavailable.
+
+The tier is `LLM_ASSISTED` because the LLM comparison is available, but the primary signal comes from deterministic checks (modes 1 and 2). LLM comparison is limited to key documentation files to bound cost per scan.
 
 ## Planned detectors (Phase 2+)
 

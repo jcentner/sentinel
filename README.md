@@ -55,7 +55,7 @@ The `[detectors]` extra installs ruff and pip-audit for full detector coverage.
 sentinel scan /path/to/repo
 ```
 
-This produces a markdown report at `/path/to/repo/.sentinel/report.md`.
+This produces a markdown report at `/path/to/repo/.sentinel/report-<run-id>.md`.
 
 **Scan without the LLM judge** (if Ollama is not running):
 

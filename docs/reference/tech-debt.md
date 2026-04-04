@@ -48,6 +48,14 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Confusing runtime errors from bad config instead of clear validation messages.
 **Proposed resolution**: Add type checks at config load time or use a validation library.
 
+### TD-005: TODO comments in markdown are invisible
+**Status**: Active
+**Severity**: Low
+**Introduced**: Phase 2
+**Description**: The TODO scanner skips `.md` files (to avoid false positives from docs-drift's domain), and the docs-drift detector doesn't scan for TODO/FIXME comments in markdown. HTML comment TODOs (`<!-- TODO: ... -->`) in markdown are invisible to both detectors.
+**Impact**: TODO comments in markdown documentation are never surfaced.
+**Proposed resolution**: Either add a markdown-aware TODO pattern to the TODO scanner (only matching HTML comments) or add a simple TODO check to the docs-drift detector.
+
 ## Resolved
 
 (None yet)
