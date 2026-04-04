@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC
 
 from sentinel.models import (
     Evidence,
@@ -70,14 +71,14 @@ def suppress_finding(
     conn: sqlite3.Connection, fingerprint: str, reason: str | None = None
 ) -> None:
     """Add a fingerprint to the suppression list."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     conn.execute(
         """
         INSERT OR IGNORE INTO suppressions (fingerprint, reason, suppressed_at)
         VALUES (?, ?, ?)
         """,
-        (fingerprint, reason, datetime.now(timezone.utc).isoformat()),
+        (fingerprint, reason, datetime.now(UTC).isoformat()),
     )
     # Also update status on any existing findings with this fingerprint
     conn.execute(

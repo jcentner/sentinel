@@ -1,6 +1,6 @@
 """Tests for Sentinel data models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -121,7 +121,7 @@ class TestFinding:
     def test_timestamp_auto(self):
         f = self._make_finding()
         assert isinstance(f.timestamp, datetime)
-        assert f.timestamp.tzinfo == timezone.utc
+        assert f.timestamp.tzinfo == UTC
 
 
 class TestDetectorContext:

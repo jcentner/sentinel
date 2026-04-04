@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sentinel.models import RunSummary, ScopeType
 
@@ -12,7 +12,7 @@ def create_run(
     conn: sqlite3.Connection, repo_path: str, scope: ScopeType = ScopeType.FULL
 ) -> RunSummary:
     """Create a new run record and return a RunSummary."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cur = conn.execute(
         "INSERT INTO runs (repo_path, started_at, scope) VALUES (?, ?, ?)",
         (repo_path, now.isoformat(), scope.value),
@@ -30,7 +30,7 @@ def complete_run(
     conn: sqlite3.Connection, run_id: int, finding_count: int
 ) -> None:
     """Mark a run as completed."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     conn.execute(
         "UPDATE runs SET completed_at = ?, finding_count = ? WHERE id = ?",
         (now.isoformat(), finding_count, run_id),

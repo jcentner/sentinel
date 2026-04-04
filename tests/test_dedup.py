@@ -16,7 +16,6 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
-    FindingStatus,
     Severity,
 )
 from sentinel.store.db import get_connection

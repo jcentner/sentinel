@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 import subprocess
-import tempfile
-from pathlib import Path
 
 import pytest
 
 from sentinel.core.runner import run_scan
-from sentinel.models import FindingStatus
 from sentinel.store.db import get_connection
 from sentinel.store.findings import (
-    get_finding_by_id,
     get_findings_by_run,
     suppress_finding,
 )
@@ -133,10 +129,10 @@ class TestEndToEnd:
         """Second run deduplicates against first run."""
         out1 = str(out_dir / "out1.md")
         out2 = str(out_dir / "out2.md")
-        run1, findings1, _ = run_scan(
+        _run1, findings1, _ = run_scan(
             str(test_repo), db_conn, skip_judge=True, output_path=out1,
         )
-        run2, findings2, report2 = run_scan(
+        _run2, findings2, _report2 = run_scan(
             str(test_repo), db_conn, skip_judge=True, output_path=out2,
         )
 
@@ -150,7 +146,7 @@ class TestEndToEnd:
         """Suppressed findings don't appear in subsequent runs."""
         out1 = str(out_dir / "out1.md")
         out2 = str(out_dir / "out2.md")
-        run1, findings1, _ = run_scan(
+        _run1, findings1, _ = run_scan(
             str(test_repo), db_conn, skip_judge=True, output_path=out1,
         )
         assert len(findings1) > 0
@@ -159,7 +155,7 @@ class TestEndToEnd:
         suppress_finding(db_conn, findings1[0].fingerprint, reason="FP")
 
         # Second run should have one fewer finding
-        run2, findings2, _ = run_scan(
+        _run2, findings2, _ = run_scan(
             str(test_repo), db_conn, skip_judge=True, output_path=out2,
         )
         assert len(findings2) == len(findings1) - 1

@@ -5,7 +5,7 @@ from __future__ import annotations
 import enum
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class Severity(str, enum.Enum):
@@ -96,7 +96,7 @@ class Finding:
     context: dict | None = None
     fingerprint: str = ""
     status: FindingStatus = FindingStatus.NEW
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.confidence <= 1.0:
@@ -140,7 +140,7 @@ class RunSummary:
 
     id: int | None = None
     repo_path: str = ""
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     scope: ScopeType = ScopeType.FULL
     finding_count: int = 0

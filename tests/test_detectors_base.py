@@ -4,7 +4,6 @@ import pytest
 
 from sentinel.detectors.base import (
     Detector,
-    _REGISTRY,
     get_all_detectors,
     get_detector,
     get_registry,

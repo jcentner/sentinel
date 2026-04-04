@@ -60,7 +60,7 @@ def scan(
     output_path = output or str(repo / config.output_dir / "report.md")
 
     try:
-        run, findings, report = run_scan(
+        run, findings, _report = run_scan(
             str(repo),
             conn,
             model=config.model,
@@ -108,8 +108,8 @@ def suppress(finding_id: int, reason: str | None, repo: str, db: str | None) -> 
 @click.option("--db", default=None, help="Database path")
 def approve(finding_id: int, repo: str, db: str | None) -> None:
     """Approve a finding (mark it for GitHub issue creation)."""
-    from sentinel.models import FindingStatus
     from sentinel.config import load_config
+    from sentinel.models import FindingStatus
     from sentinel.store.db import get_connection
     from sentinel.store.findings import get_finding_by_id, update_finding_status
 

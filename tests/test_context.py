@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from sentinel.core.context import gather_context
-from sentinel.models import Evidence, EvidenceType, Finding, Severity
+from sentinel.models import EvidenceType, Finding, Severity
 
 
 def _make_finding(**kwargs) -> Finding:

@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from sentinel.detectors.lint_runner import LintRunner
-from sentinel.models import DetectorContext, DetectorTier, Severity, ScopeType
+from sentinel.models import DetectorContext, DetectorTier, ScopeType, Severity
 
 
 @pytest.fixture

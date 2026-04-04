@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import subprocess
+from datetime import UTC
 from pathlib import Path
 
 from sentinel.detectors.base import Detector
@@ -194,10 +195,10 @@ class TodoScanner(Detector):
                     author_time = blame_line[len("author-time "):]
 
             if author and author_time:
-                from datetime import datetime, timezone
+                from datetime import datetime
 
                 try:
-                    ts = datetime.fromtimestamp(int(author_time), tz=timezone.utc)
+                    ts = datetime.fromtimestamp(int(author_time), tz=UTC)
                     return f"Added by {author} on {ts.strftime('%Y-%m-%d')}"
                 except (ValueError, OSError):
                     return f"Added by {author}"

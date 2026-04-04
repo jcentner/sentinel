@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -112,7 +111,7 @@ class TestRunner:
 
     def test_empty_findings(self, db_conn, repo):
         detector = _MockDetector([])
-        run, findings, report = run_scan(
+        _run, findings, report = run_scan(
             str(repo), db_conn,
             detectors=[detector],
             skip_judge=True,
@@ -124,7 +123,7 @@ class TestRunner:
         """A failing detector should not abort the run."""
         good = _MockDetector([_sample_finding()])
         bad = _FailingDetector()
-        run, findings, report = run_scan(
+        _run, findings, _report = run_scan(
             str(repo), db_conn,
             detectors=[bad, good],
             skip_judge=True,
@@ -135,14 +134,14 @@ class TestRunner:
         detector = _MockDetector([_sample_finding()])
 
         # First run
-        run1, findings1, _ = run_scan(
+        _run1, _findings1, _ = run_scan(
             str(repo), db_conn,
             detectors=[detector],
             skip_judge=True,
         )
 
         # Second run — same finding should be marked recurring
-        run2, findings2, _ = run_scan(
+        _run2, findings2, _ = run_scan(
             str(repo), db_conn,
             detectors=[detector],
             skip_judge=True,

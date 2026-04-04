@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from sentinel.core.report import generate_report
 from sentinel.models import (
     Evidence,

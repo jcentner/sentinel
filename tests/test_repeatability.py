@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import subprocess
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -119,8 +117,8 @@ class TestRepeatability:
             r2 = out2.read_text()
 
             # Strip the timestamp line (which does vary) and compare
-            lines1 = [l for l in r1.splitlines() if not l.startswith("**Scan**:")]
-            lines2 = [l for l in r2.splitlines() if not l.startswith("**Scan**:")]
+            lines1 = [line for line in r1.splitlines() if not line.startswith("**Scan**:")]
+            lines2 = [line for line in r2.splitlines() if not line.startswith("**Scan**:")]
             assert lines1 == lines2
 
         finally:

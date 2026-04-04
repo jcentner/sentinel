@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 import pytest
 
 from sentinel.detectors.todo_scanner import TodoScanner
-from sentinel.models import DetectorContext, DetectorTier, Severity, ScopeType
+from sentinel.models import DetectorContext, DetectorTier, ScopeType, Severity
 
 
 @pytest.fixture

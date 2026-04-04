@@ -98,6 +98,6 @@ def run_scan(
 
 def _ensure_detectors_loaded() -> None:
     """Import all built-in detector modules to trigger registration."""
+    import sentinel.detectors.dep_audit
+    import sentinel.detectors.lint_runner
     import sentinel.detectors.todo_scanner  # noqa: F401
-    import sentinel.detectors.lint_runner  # noqa: F401
-    import sentinel.detectors.dep_audit  # noqa: F401
