@@ -14,32 +14,6 @@ _DEFAULT_MODEL = "qwen3.5:4b"
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _TIMEOUT = 60.0
 
-_JUDGE_PROMPT = """\
-You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.
-
-## Finding
-- **Detector**: {detector}
-- **Category**: {category}
-- **Severity (detector's assessment)**: {severity}
-- **Confidence**: {confidence}
-- **Title**: {title}
-- **Description**: {description}
-- **File**: {file_path}
-- **Line**: {line_start}
-
-## Evidence
-{evidence_text}
-
-## Your Task
-Respond ONLY with a JSON object (no markdown, no explanation):
-{{
-  "is_real": true/false,
-  "adjusted_severity": "low"/"medium"/"high"/"critical",
-  "summary": "One sentence explaining your judgment",
-  "reasoning": "Brief reasoning for your assessment"
-}}
-"""
-
 
 def judge_findings(
     findings: list[Finding],
@@ -121,16 +95,33 @@ def _build_prompt(finding: Finding) -> str:
     for e in finding.evidence:
         evidence_text += f"\n### {e.type.value} from {e.source}\n```\n{e.content}\n```\n"
 
-    return _JUDGE_PROMPT.format(
-        detector=finding.detector,
-        category=finding.category,
-        severity=finding.severity.value,
-        confidence=finding.confidence,
-        title=finding.title,
-        description=finding.description,
-        file_path=finding.file_path or "(none)",
-        line_start=finding.line_start or "(none)",
-        evidence_text=evidence_text or "(no evidence)",
+    if not evidence_text:
+        evidence_text = "(no evidence)"
+
+    # Use f-string instead of .format() to avoid crashes when evidence
+    # content contains { or } characters (e.g., JSON, dicts, f-strings)
+    return (
+        "You are a code quality judge. Analyze this finding from an automated "
+        "code scanner and determine if it represents a real issue worth addressing.\n\n"
+        "## Finding\n"
+        f"- **Detector**: {finding.detector}\n"
+        f"- **Category**: {finding.category}\n"
+        f"- **Severity (detector's assessment)**: {finding.severity.value}\n"
+        f"- **Confidence**: {finding.confidence}\n"
+        f"- **Title**: {finding.title}\n"
+        f"- **Description**: {finding.description}\n"
+        f"- **File**: {finding.file_path or '(none)'}\n"
+        f"- **Line**: {finding.line_start or '(none)'}\n\n"
+        "## Evidence\n"
+        f"{evidence_text}\n\n"
+        "## Your Task\n"
+        "Respond ONLY with a JSON object (no markdown, no explanation):\n"
+        '{\n'
+        '  "is_real": true/false,\n'
+        '  "adjusted_severity": "low"/"medium"/"high"/"critical",\n'
+        '  "summary": "One sentence explaining your judgment",\n'
+        '  "reasoning": "Brief reasoning for your assessment"\n'
+        '}'
     )
 
 
