@@ -10,7 +10,7 @@ from sentinel.models import Finding, Severity
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "qwen3:4b"
+_DEFAULT_MODEL = "qwen3.5:4b"
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _TIMEOUT = 60.0
 
@@ -83,7 +83,8 @@ def _judge_single(
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.1, "num_predict": 256},
+            "think": False,
+            "options": {"temperature": 0.1, "num_predict": 512},
         },
         timeout=_TIMEOUT,
     )

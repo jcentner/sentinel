@@ -26,7 +26,7 @@ def run_scan(
     changed_files: list[str] | None = None,
     target_paths: list[str] | None = None,
     detectors: list[Detector] | None = None,
-    model: str = "qwen3:4b",
+    model: str = "qwen3.5:4b",
     ollama_url: str = "http://localhost:11434",
     output_path: str | None = None,
     skip_judge: bool = False,

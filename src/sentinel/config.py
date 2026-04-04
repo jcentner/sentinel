@@ -11,7 +11,7 @@ from pathlib import Path
 class SentinelConfig:
     """Runtime configuration for Sentinel."""
 
-    model: str = "qwen3:4b"
+    model: str = "qwen3.5:4b"
     ollama_url: str = "http://localhost:11434"
     db_path: str = ".sentinel/sentinel.db"
     output_dir: str = ".sentinel"

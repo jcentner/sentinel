@@ -656,7 +656,8 @@ class DocsDriftDetector(Detector):
                 "model": model,
                 "prompt": prompt,
                 "stream": False,
-                "options": {"temperature": 0.1, "num_predict": 256},
+                "think": False,
+                "options": {"temperature": 0.1, "num_predict": 512},
             },
             timeout=60.0,
         )
