@@ -43,6 +43,22 @@ _SKIP_DIRS = frozenset({
     ".ruff_cache", "dist", "build", ".egg-info", ".sentinel",
 })
 
+# Template/example path patterns to ignore
+_TEMPLATE_PATH_PARTS = frozenset({
+    "path", "to", "your", "example", "sample", "placeholder",
+})
+
+
+def _is_template_path(path: str) -> bool:
+    """Check if a path looks like a template/example placeholder."""
+    lower = path.lower().replace("\\", "/")
+    parts = set(lower.split("/"))
+    # If the path contains generic placeholder words, it's likely a template
+    if len(parts & _TEMPLATE_PATH_PARTS) >= 2:
+        return True
+    # Check for variable placeholders like {var}, <var>, $var, or -N-/-NNN- patterns
+    return bool(re.search(r"(?:\{[^}]+\}|<[^>]+>|\$[A-Za-z]|-N(?:NN)?-|-N(?:NN)?\.)", path))
+
 
 class DocsDriftDetector(Detector):
     """Detect documentation inconsistencies: stale references, dependency drift."""
@@ -173,19 +189,33 @@ class DocsDriftDetector(Detector):
         if not file_part:
             return None  # Pure anchor link like (#section)
 
-        # Resolve relative to the doc file's directory
-        resolved = (doc_dir / file_part).resolve()
+        # Skip obvious template/example paths
+        if _is_template_path(file_part):
+            return None
 
-        # Safety: only check within repo
+        # Try resolving relative to the document's directory (standard markdown)
+        resolved_doc_rel = (doc_dir / file_part).resolve()
+        # Also try resolving relative to repo root (common GitHub convention)
+        resolved_repo_rel = (repo_root / file_part).resolve()
+
+        repo_resolved = repo_root.resolve()
+
+        # Check both resolution strategies — if either finds the file, it's valid
+        for resolved in (resolved_doc_rel, resolved_repo_rel):
+            try:
+                resolved.relative_to(repo_resolved)
+            except ValueError:
+                continue  # Outside repo, skip this resolution
+            if resolved.exists():
+                return None  # Link is valid via this resolution strategy
+
+        # Neither resolution found the file — report as stale
+        # Use the repo-root relative path for the error message if possible
         try:
-            resolved.relative_to(repo_root.resolve())
+            rel_target = str(resolved_doc_rel.relative_to(repo_resolved))
         except ValueError:
-            return None  # Link points outside repo, skip
+            rel_target = file_part
 
-        if resolved.exists():
-            return None  # Link is valid
-
-        rel_target = str(resolved.relative_to(repo_root.resolve()))
         return Finding(
             detector=self.name,
             category="docs-drift",
@@ -194,7 +224,7 @@ class DocsDriftDetector(Detector):
             title=f"Stale link: [{link_text}]({target})",
             description=(
                 f"Documentation {doc_path}:{line_num} links to `{target}` "
-                f"but `{rel_target}` does not exist."
+                f"but the path does not exist (checked relative to document and repo root)."
             ),
             evidence=[
                 Evidence(
@@ -227,6 +257,9 @@ class DocsDriftDetector(Detector):
             return None
         # Must look like a specific file (not a glob or variable)
         if any(c in path_text for c in "*?{}$<>"):
+            return None
+        # Skip template/example paths
+        if _is_template_path(path_text):
             return None
         # Should have a file extension or be a directory path
         if "." not in path_text.split("/")[-1] and not path_text.endswith("/"):

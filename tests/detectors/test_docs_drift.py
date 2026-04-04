@@ -158,6 +158,35 @@ class TestStaleReferences:
         assert len(findings) == 1
         assert findings[0].file_path == "docs/guide.md"
 
+    def test_repo_root_relative_links(self, detector, tmp_path):
+        """FP prevention: links relative to repo root (common GitHub convention)."""
+        (tmp_path / ".github").mkdir()
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "guide.md").write_text("# Guide\n")
+
+        # Link in .github/ uses docs/ which is repo-root relative, not doc-relative
+        (tmp_path / ".github" / "instructions.md").write_text(
+            "See [guide](docs/guide.md) for details.\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        # Should not flag — docs/guide.md exists at repo root
+        link_findings = [f for f in findings if f.context.get("pattern") == "stale-reference"]
+        assert len(link_findings) == 0
+
+    def test_ignores_template_paths(self, detector, tmp_path):
+        """FP prevention: template/example paths like 'path/to/file.md' should be ignored."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Format: [text](path/to/file.md)\n"
+            "Example: `path/to/your/module.py`\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        assert len(findings) == 0
+
 
 class TestDependencyDrift:
     """Tests for dependency drift detection."""
