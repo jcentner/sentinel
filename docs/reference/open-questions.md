@@ -15,12 +15,6 @@ Tracked questions that need resolution before or during implementation. Each que
 
 ## Open
 
-### OQ-001: What language should Sentinel itself be written in?
-**Status**: Open
-**Priority**: High
-**Context**: The target repos are primarily TypeScript and some Python. Sentinel needs to interact with many CLI tools, parse ASTs, manage SQLite, call Ollama HTTP API, and generate markdown. Both Python and TypeScript are viable. Python has richer ML/NLP ecosystem; TypeScript aligns with the primary target repos.
-**Current thinking**: Leaning Python — better library ecosystem for the retrieval/embedding stack, tree-sitter bindings, SQLite support. TypeScript is viable but adds friction for ML-adjacent work.
-
 ### OQ-002: What is the report delivery mechanism?
 **Status**: Open
 **Priority**: Medium
@@ -59,4 +53,6 @@ Tracked questions that need resolution before or during implementation. Each que
 
 ## Resolved
 
-(None yet)
+### OQ-001: What language should Sentinel itself be written in?
+**Status**: Resolved (→ ADR-007)
+**Resolution**: Python. See ADR-007 for full rationale.
