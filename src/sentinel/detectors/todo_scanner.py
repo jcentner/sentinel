@@ -40,7 +40,7 @@ _SKIP_EXTENSIONS = frozenset({
 _SKIP_DIRS = frozenset({
     ".git", ".hg", ".svn", "__pycache__", "node_modules",
     ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
-    ".ruff_cache", "dist", "build", ".egg-info",
+    ".ruff_cache", "dist", "build", ".egg-info", ".sentinel",
 })
 
 

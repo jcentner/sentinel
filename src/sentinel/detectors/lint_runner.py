@@ -61,7 +61,8 @@ class LintRunner(Detector):
         repo_root = Path(context.repo_root)
 
         # Build command
-        cmd = ["ruff", "check", "--output-format=json", "--no-fix"]
+        cmd = ["ruff", "check", "--output-format=json", "--no-fix",
+               "--exclude", ".sentinel"]
 
         # Scope: specific files or whole repo
         targets = self._get_targets(context, repo_root)
