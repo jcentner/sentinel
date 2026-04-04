@@ -6,7 +6,7 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 
 ## What it does
 
-- Runs deterministic detectors: TODO/FIXME scanner, linter (ruff), dependency audit (pip-audit)
+- Runs deterministic detectors: TODO/FIXME scanner, linter (ruff), dependency audit (pip-audit), docs-drift checker
 - Gathers contextual evidence per finding (surrounding code, git history, related tests)
 - Uses a local LLM via Ollama as a judgment/summarization layer (optional — degrades gracefully)
 - Fingerprints and deduplicates findings across runs via SQLite
@@ -26,7 +26,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**Phase 1 (MVP) complete** — Core pipeline is working end-to-end with 3 detectors, LLM judge, SQLite state, morning report, and CLI. See the [roadmap](roadmap/) for what's next.
+**Phase 2 (Docs-Drift) complete** — 4 detectors, LLM judge, and docs-drift detection with stale references, dependency drift, and LLM-assisted doc-code comparison. See the [roadmap](roadmap/) for what's next.
 
 ## Quick Start
 

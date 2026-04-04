@@ -1,97 +1,79 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-04 (Session 2)
+> Last updated: 2026-04-04 (Session 3)
 
-## Session 2 Summary
+## Session 3 Summary
 
 ### Current Objective
-Implement all 15 Phase 1 MVP slices — full pipeline from project scaffolding to end-to-end tests.
+Complete Phase 2 (Docs-Drift Detector), update README, and begin Phase 3 refinement.
 
 ### What Was Accomplished
-All 15 implementation slices completed and committed:
-
-1. **Project Scaffolding**: pyproject.toml, src layout, venv, CLI skeleton
-2. **Data Models**: Finding, Evidence, DetectorContext, RunSummary + enums
-3. **SQLite State Store**: schema, migrations, CRUD for findings/runs/suppressions
-4. **Detector Base + Registry**: Abstract Detector class, auto-registration
-5. **TODO Scanner**: Scans for TODO/FIXME/HACK/XXX with git blame age, comment-context filtering
-6. **Lint Runner**: Wraps ruff, JSON output parsing, severity mapping
-7. **Dep Audit**: Wraps pip-audit, Python project detection
-8. **Fingerprinting + Dedup**: Content-based SHA256 fingerprints, suppression filtering, recurring markers
-9. **Context Gatherer**: Surrounding code, related test files, git log
-10. **LLM Judge**: Ollama integration, structured prompts, graceful degradation
-11. **Morning Report**: Markdown with severity groups, collapsible evidence, FP/recurring markers
-12. **Pipeline Runner**: Full orchestration with per-detector error isolation
-13. **CLI**: scan, suppress, approve, history commands + config loading
-14. **E2E Integration Test**: 8 tests with real git repo and full pipeline
-15. **Repeatability Test**: 3 tests verifying deterministic output
-
-Additional:
-- Ruff lint fully clean
-- 126 tests all passing
-- Smoke tested `sentinel scan` on a real directory
+1. **Verified baseline**: 129 tests passing, lint clean, `sentinel scan .` working
+2. **Updated README**: Installation/usage instructions, status updated from "pre-development"
+3. **Marked Phase 1 complete** in roadmap
+4. **Created Phase 2 plan**: 6 implementation slices for docs-drift detector
+5. **Implemented all Phase 2 slices**:
+   - Stale reference detection (broken markdown links, missing inline code paths)
+   - Dependency drift detection (README install commands vs pyproject.toml/requirements.txt/package.json)
+   - LLM-assisted doc-code comparison (compares doc code blocks against actual source)
+   - Repo-root relative link resolution (reduces false positives)
+   - Template/example path filtering (reduces false positives)
+   - Integration tests for docs-drift in the full pipeline
+6. **Self-scan validation**: Reduced from 17 to 1 docs-drift finding on own repo
+7. **165 tests** all passing, ruff lint clean
 
 ### Repository State
 - **Phase 0 (Foundation)**: Complete
-- **Phase 1 (MVP Core)**: **Implementation complete** — all 15 slices done
-- **Implementation code**: 12 Python modules in `src/sentinel/`
-- **Test code**: 11 test files, 126 tests
-- **Vision lock**: Created, baselined (Session 1)
-- **Open questions**: 5 open (OQ-002 through OQ-006), 2 resolved
+- **Phase 1 (MVP Core)**: Complete — 3 detectors, LLM judge, SQLite state, morning report
+- **Phase 2 (Docs-Drift)**: **Complete** — docs-drift detector with 3 detection patterns
+- **Implementation code**: 13 Python modules in `src/sentinel/`
+- **Test code**: 12 test files, 165 tests
+- **Vision lock**: Created, baselined (Session 1), one revision (VISION-REVISION-001)
+- **Open questions**: 4 open (OQ-002, OQ-004, OQ-005, OQ-006), 3 resolved
 - **ADRs**: 8 accepted
 - **Lint**: Clean (ruff)
+- **Detectors**: todo-scanner, lint-runner, dep-audit, docs-drift
 
 ### Test Results
 ```
-126 passed in 1.48s
+165 passed in 2.95s
 ruff check: All checks passed
 ```
 
 ### Decisions Made This Session
-1. Used venv for Python isolation (externally-managed environment)
-2. TODO scanner requires comment-marker prefix to avoid matching function names like `hack()`
-3. `.sentinel` directory added to skip lists in todo-scanner and lint-runner
-4. Default model: `qwen3:4b` (configurable via CLI/config)
-5. Report output: markdown with `<details>` collapsible evidence blocks
+1. Docs-drift link resolution: try both doc-relative and repo-root-relative (common GitHub pattern)
+2. Template path filtering: skip paths with placeholder words (path/to/) and variable patterns (-N-)
+3. Tier classification: docs-drift is `llm-assisted` tier (has both deterministic and LLM patterns)
+4. Runner passes Ollama config to detectors via DetectorContext.config dict
+5. Doc-code comparison confidence: 0.65 (lower than deterministic patterns at 0.80-0.95)
 
 ### What Remains / Next Priority
-Phase 1 acceptance criteria checklist:
-- [x] `sentinel scan <repo-path>` runs and produces a markdown morning report
-- [x] At least 3 detectors produce findings: todo-scanner, lint-runner, dep-audit
-- [x] Findings stored in SQLite with fingerprinting and deduplication
-- [x] LLM Judge evaluates via Ollama; system degrades without it
-- [x] Second run produces identical findings (repeatability for Tier 1)
-- [x] `sentinel suppress <finding-id>` excludes from future reports
-- [x] `sentinel history` shows past runs
-- [x] Morning report is scannable: one line per finding, expandable evidence
-- [x] All core modules have unit tests; detectors have TP and FP test cases
-
-**Next steps (Phase 1 completion)**:
-1. Run mypy type checking (optional for MVP — may have strict mode issues)
-2. Test `sentinel scan` against Sentinel's own repo
-3. Update README with installation and usage instructions
-4. Mark Phase 1 as complete in roadmap
-5. Begin Phase 2 planning (docs-drift detector)
+**Phase 3: Refinement** — next steps:
+1. FP tuning: review todo-scanner results on test data strings in test files
+2. Finding persistence scoring (recurring = higher confidence)
+3. Report format improvements
+4. Incremental run optimization
+5. Consider Phase 4 detectors (git-hotspots, semgrep)
 
 ### Blocked Items
 None.
 
 ### Files Created This Session
-**Source modules** (12 files):
-- `src/sentinel/__init__.py`, `cli.py`, `config.py`, `models.py`
-- `src/sentinel/core/`: `__init__.py`, `context.py`, `dedup.py`, `judge.py`, `report.py`, `runner.py`
-- `src/sentinel/detectors/`: `__init__.py`, `base.py`, `todo_scanner.py`, `lint_runner.py`, `dep_audit.py`
-- `src/sentinel/store/`: `__init__.py`, `db.py`, `findings.py`, `runs.py`
+- `roadmap/phases/phase-2-docs-drift.md` — Phase 2 implementation plan
+- `src/sentinel/detectors/docs_drift.py` — docs-drift detector (stale refs, dep drift, LLM comparison)
+- `tests/detectors/test_docs_drift.py` — 34 tests for docs-drift detector
 
-**Test files** (11 files):
-- `tests/conftest.py`, `test_models.py`, `test_store.py`, `test_dedup.py`
-- `tests/test_context.py`, `test_judge.py`, `test_report.py`, `test_runner.py`
-- `tests/test_integration.py`, `test_repeatability.py`
-- `tests/detectors/`: `test_todo_scanner.py`, `test_lint_runner.py`, `test_dep_audit.py`
-- `tests/test_detectors_base.py`
+### Files Modified This Session
+- `README.md` — updated with installation, usage, status
+- `roadmap/README.md` — Phase 1 complete, Phase 2 complete, Phase 3 in progress
+- `src/sentinel/core/runner.py` — added docs_drift import, pass Ollama config to DetectorContext
+- `tests/test_integration.py` — added docs-drift integration tests
 
-**Config**:
-- `pyproject.toml`
+## Session 2 Summary (Previous)
+- Implemented all 15 Phase 1 MVP slices
+- 126 tests, ruff clean
+- Full pipeline: 3 detectors → fingerprint → dedup → context → judge → report
+- CLI: scan, suppress, approve, history commands
 
 ## Session 1 Summary (Previous)
 - Created VISION-LOCK.md, CURRENT-STATE.md, agent-improvement-log.md
