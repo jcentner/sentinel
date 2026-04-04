@@ -9,7 +9,7 @@ Local Repo Sentinel development follows a phased approach. Each phase has a plan
 | Phase | Title | Status | Description |
 |-------|-------|--------|-------------|
 | 0 | Project Foundation | **Complete** | Vision, architecture docs, ADRs, dev workflow, prompt system |
-| 1 | MVP Core | Not started | Core pipeline: 2-3 detectors, LLM judge, SQLite state, morning report |
+| 1 | MVP Core | **Planning** | Core pipeline: 2-3 detectors, LLM judge, SQLite state, morning report |
 | 2 | Docs-Drift Detector | Not started | First-class docs-drift detection (ADR-005) |
 | 3 | Refinement | Not started | False-positive tuning, report UX, dedup improvements |
 | 4 | Extended Detectors | Not started | SQL anti-patterns, Semgrep, complexity, dead-code |
@@ -28,8 +28,8 @@ Phase planning docs live in `roadmap/phases/` and are created via the `/phase-pl
 - Competitive analysis and critical review
 
 ### Phase 1: MVP Core (Next)
-- Resolve OQ-001 (implementation language)
-- Resolve OQ-007 (eval criteria)
+- ~~Resolve OQ-001 (implementation language)~~ → ADR-007
+- ~~Resolve OQ-007 (eval criteria)~~ → ADR-008
 - Core run loop: trigger → detect → gather context → judge → report
 - 2-3 initial detectors: `lint-runner`, `todo-scanner`, `dep-audit`
 - SQLite state store with finding fingerprinting

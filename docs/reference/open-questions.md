@@ -45,14 +45,15 @@ Tracked questions that need resolution before or during implementation. Each que
 **Context**: Detecting queries that should use CTEs, N+1 patterns, etc. SQLFluff handles SQL style linting. Semantic anti-patterns (CTE suggestions, cross-file N+1) require understanding intent.
 **Current thinking**: Phase 2. Build as a pluggable detector: SQLFluff for deterministic SQL lint, LLM-assisted prompt for semantic suggestions. Don't build a SQL parser.
 
-### OQ-007: What eval criteria should be defined before building?
-**Status**: Open
-**Priority**: High
-**Context**: Without measurable criteria, we can't write an honest blog post or evaluate whether Sentinel is working. Need to define metrics before writing code.
-**Current thinking**: Precision at k (of the top-k findings, how many are real?), false positive rate per run, time-to-review the morning report, findings-per-run that lead to actual issues.
-
 ## Resolved
 
 ### OQ-001: What language should Sentinel itself be written in?
 **Status**: Resolved (→ ADR-007)
 **Resolution**: Python. See ADR-007 for full rationale.
+
+### OQ-007: What eval criteria should be defined before building?
+**Status**: Resolved (→ ADR-008)
+**Priority**: High
+**Context**: Without measurable criteria, we can't write an honest blog post or evaluate whether Sentinel is working. Need to define metrics before writing code.
+**Current thinking**: Precision at k (of the top-k findings, how many are real?), false positive rate per run, time-to-review the morning report, findings-per-run that lead to actual issues.
+**Resolution**: Formalized as ADR-008. Six metrics defined: precision@k (≥70%), FP rate (<30%), review time (<2min), findings→issues (track only), detector coverage (≥3 categories), repeatability (100% for deterministic).

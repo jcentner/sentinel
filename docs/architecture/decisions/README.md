@@ -37,11 +37,12 @@ What other options were evaluated and why were they rejected?
 | [005](005-docs-drift-first-class-detector.md) | Docs-drift as a first-class detector category | Accepted | 2026-03-28 |
 | [006](006-copilot-agent-primary-dev-tool.md) | GitHub Copilot agent mode as primary development tool | Accepted | 2026-03-28 |
 | [007](007-python-implementation-language.md) | Python as implementation language | Accepted | 2026-04-03 |
+| [008](008-evaluation-criteria.md) | Evaluation criteria defined before implementation | Accepted | 2026-04-04 |
 
 ## Creating a new ADR
 
 1. Copy the template above
-2. Number sequentially (next: 008)
+2. Number sequentially (next: 009)
 3. Create `NNN-short-kebab-title.md`
 4. Add to the index table above
 5. Record the decision in the commit that implements it where possible
