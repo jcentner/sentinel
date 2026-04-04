@@ -55,7 +55,12 @@ def _register(cls: type[Detector]) -> None:
         instance = cls()
         _REGISTRY[instance.name] = cls
     except Exception:
-        # If instantiation fails, register by class name as fallback
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Detector %s failed to instantiate — registering by class name",
+            cls.__name__,
+        )
         _REGISTRY[cls.__name__] = cls
 
 

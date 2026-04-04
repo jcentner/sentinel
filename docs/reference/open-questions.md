@@ -22,10 +22,11 @@ Tracked questions that need resolution before or during implementation. Each que
 **Current thinking**: Start with markdown file + CLI for approve/suppress. Web UI is Phase 2+.
 
 ### OQ-003: How should finding fingerprints be computed?
-**Status**: Open
+**Status**: Resolved (→ implementation in `src/sentinel/core/dedup.py`)
 **Priority**: Medium
 **Context**: Deduplication requires a stable fingerprint per finding. If a file moves or line numbers shift, the fingerprint shouldn't change for the same conceptual finding. Hash over (detector, category, normalized-content) rather than (file, line) seems right but needs design.
 **Current thinking**: Hash of (detector_name, category, file_path, key_content_normalized). Accept that file renames break dedup and handle with a "similar finding" heuristic.
+**Resolution**: SHA256 hash of `(detector, category, file_path, normalized_content)`, truncated to 16 hex chars. Detector-specific normalization: dep-audit uses `vuln_id:package`, lint-runner uses `rule:file_path:title`, others use the finding title. Line number changes do not break fingerprints. File renames do break fingerprints (acceptable for MVP).
 
 ### OQ-004: What embedding model and vector store should be used?
 **Status**: Open

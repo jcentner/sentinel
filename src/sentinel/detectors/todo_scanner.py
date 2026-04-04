@@ -22,8 +22,8 @@ from sentinel.models import (
 logger = logging.getLogger(__name__)
 
 # Matches TODO, FIXME, HACK, XXX after a comment marker
-# Requires a comment prefix (#, //, /*, *, --, <!--) earlier on the same line
-_COMMENT_PREFIX = re.compile(r"(#|//|/\*|\*|--|<!--|%|;)")
+# Requires a comment prefix (#, //, /*, --, <!--) earlier on the same line
+_COMMENT_PREFIX = re.compile(r"(#|//|/\*|^\s*\*|--|<!--)")
 _TODO_PATTERN = re.compile(
     r"\b(TODO|FIXME|HACK|XXX)\s*[:(]?\s*(.*)", re.IGNORECASE
 )

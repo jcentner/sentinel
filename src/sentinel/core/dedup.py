@@ -70,9 +70,9 @@ def _normalize_content(finding: Finding) -> str:
     if finding.context and "vuln_id" in finding.context:
         content = f"{finding.context['vuln_id']}:{finding.context.get('package', '')}"
 
-    # For lint-runner, include the rule code
+    # For lint-runner, include the rule code and title for uniqueness
     if finding.context and "rule" in finding.context:
-        content = f"{finding.context['rule']}:{finding.file_path or ''}"
+        content = f"{finding.context['rule']}:{finding.file_path or ''}:{finding.title}"
 
     # Normalize whitespace
     content = re.sub(r"\s+", " ", content).strip().lower()

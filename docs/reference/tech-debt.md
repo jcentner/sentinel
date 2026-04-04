@@ -16,7 +16,37 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 
 ## Active
 
-(No tech debt yet — project is pre-implementation.)
+### TD-001: Context gatherer uses file-proximity only
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Phase 1
+**Description**: The context gatherer uses simple file-proximity heuristics (±5 lines, naming-convention test file matching, git log) instead of embedding-based retrieval.
+**Impact**: Lower-quality context for LLM judge, reducing judgment accuracy.
+**Proposed resolution**: Add embeddings via Qwen3-Embedding-0.6B + SQLite-vec in Phase 2 (see OQ-004).
+
+### TD-002: Sync detector interface
+**Status**: Active
+**Severity**: Low
+**Introduced**: Phase 1
+**Description**: Detectors use synchronous `detect()` rather than `async detect()` as originally spec'd. All current detectors call subprocesses synchronously.
+**Impact**: Detectors run sequentially. No parallelism.
+**Proposed resolution**: Migrate to async in Phase 2 when concurrent detector execution matters. Spec updated to reflect sync for now.
+
+### TD-003: No schema migration system
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Phase 1
+**Description**: The SQLite store tracks a `SCHEMA_VERSION` integer but has no migration framework. Schema changes require manual SQL scripts or database recreation.
+**Impact**: Upgrading between versions may lose data.
+**Proposed resolution**: Add a simple migration runner (ordered SQL files or Python functions keyed by version) before Phase 2 adds new tables.
+
+### TD-004: Config values not type-validated
+**Status**: Active
+**Severity**: Low
+**Introduced**: Phase 1
+**Description**: `load_config()` reads `sentinel.toml` values but does not validate types. `skip_judge = "yes"` or `model = 42` would be silently accepted.
+**Impact**: Confusing runtime errors from bad config instead of clear validation messages.
+**Proposed resolution**: Add type checks at config load time or use a validation library.
 
 ## Resolved
 

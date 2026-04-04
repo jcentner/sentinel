@@ -1,6 +1,6 @@
 # Detector Interface Specification
 
-> **Status**: Draft — pre-implementation.
+> **Status**: Active — implemented in Phase 1 MVP.
 
 ## Design principle
 
@@ -12,17 +12,16 @@ Every detector outputs zero or more `Finding` objects:
 
 ```
 Finding:
-  id:           string        # Unique fingerprint for dedup (hash of location + category + key content)
-  detector:     string        # Which detector produced this (e.g., "eslint", "docs-drift", "todo-scan")
+  id:           string        # Unique fingerprint for dedup (hash of detector + category + file_path + key content)
+  detector:     string        # Which detector produced this (e.g., "lint-runner", "todo-scanner")
   category:     string        # Finding category (see categories below)
   severity:     "low" | "medium" | "high" | "critical"
   confidence:   float         # 0.0–1.0, how confident the detector is
   title:        string        # One-line summary
   description:  string        # Detailed explanation
-  location:
-    file:       string        # Relative path
-    line_start: int | null    # Optional line range
-    line_end:   int | null
+  file_path:    string | null # Relative path to the affected file
+  line_start:   int | null    # Optional start line
+  line_end:     int | null    # Optional end line
   evidence:     Evidence[]    # Supporting evidence items
   context:      object | null # Additional detector-specific metadata
   timestamp:    datetime      # When the finding was produced
@@ -32,7 +31,7 @@ Finding:
 
 ```
 Evidence:
-  type:     "code" | "doc" | "test" | "config" | "git_history" | "lint_output" | "diff"
+  type:     "code" | "doc" | "test" | "config" | "git_history" | "lint_output" | "audit_output" | "diff"
   source:   string        # File path or description
   content:  string        # The actual evidence text/snippet
   line_range: [int, int] | null
@@ -63,7 +62,7 @@ interface Detector:
   tier:        "deterministic" | "heuristic" | "llm-assisted"
   categories:  string[]           # Which categories it can produce
   
-  async detect(context: DetectorContext) -> Finding[]
+  detect(context: DetectorContext) -> Finding[]
 ```
 
 Where `DetectorContext` provides:
@@ -75,8 +74,9 @@ DetectorContext:
   changed_files: string[] | null  # For incremental runs
   target_paths:  string[] | null  # For targeted runs
   config:       object            # Detector-specific configuration
-  previous_run: RunSummary | null # For delta/trend detection
 ```
+
+> **Note**: The original spec included `previous_run: RunSummary | null` in DetectorContext for delta/trend detection. This is deferred to Phase 2 when trend-based detectors (e.g., git-hotspots) are implemented.
 
 ## Planned detectors (MVP)
 

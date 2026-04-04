@@ -48,6 +48,9 @@ class TestReportGeneration:
         assert "High issue" in report
         assert "Low issue" in report
         assert "**Findings**: 2" in report
+        # New/recurring stats
+        assert "**New**: 2" in report
+        assert "**Recurring**: 0" in report
 
     def test_severity_summary(self):
         findings = [
@@ -79,6 +82,8 @@ class TestReportGeneration:
         f = _make_finding(context={"recurring": True})
         report = generate_report([f], _make_run())
         assert "♻️" in report
+        # Recurring count in summary
+        assert "**Recurring**: 1" in report
 
     def test_fp_marker(self):
         f = _make_finding(context={"judge_verdict": "likely_false_positive"})
@@ -111,3 +116,14 @@ class TestReportGeneration:
         f = _make_finding(confidence=0.73)
         report = generate_report([f], _make_run())
         assert "73%" in report
+
+    def test_actions_section(self):
+        report = generate_report([_make_finding()], _make_run())
+        assert "sentinel suppress" in report
+        assert "sentinel approve" in report
+        assert "sentinel history" in report
+
+    def test_version_from_package(self):
+        from sentinel import __version__
+        report = generate_report([_make_finding()], _make_run())
+        assert f"v{__version__}" in report

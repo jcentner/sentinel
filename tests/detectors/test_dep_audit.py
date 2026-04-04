@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from sentinel.detectors.dep_audit import DepAudit
-from sentinel.models import DetectorContext, DetectorTier, Severity
+from sentinel.models import DetectorContext, DetectorTier, EvidenceType, Severity
 
 
 @pytest.fixture
@@ -114,6 +114,7 @@ class TestDepAudit:
         ctx = DetectorContext(repo_root=str(tmp_path))
         findings = auditor.detect(ctx)
         f = findings[0]
+        assert f.evidence[0].type == EvidenceType.AUDIT_OUTPUT
         assert f.evidence[0].content
         assert "requests" in f.evidence[0].content
         assert "2.31.0" in f.evidence[0].content  # Fix version present

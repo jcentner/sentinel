@@ -136,7 +136,7 @@ class DepAudit(Detector):
             description=f"Known vulnerability {vuln_id} in {pkg_name} {pkg_version}. {description}",
             evidence=[
                 Evidence(
-                    type=EvidenceType.LINT_OUTPUT,
+                    type=EvidenceType.AUDIT_OUTPUT,
                     source=f"pip-audit:{vuln_id}",
                     content=f"Package: {pkg_name}=={pkg_version}\n"
                             f"Vulnerability: {vuln_id}\n"

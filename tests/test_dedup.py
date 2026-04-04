@@ -97,6 +97,22 @@ class TestFingerprinting:
         )
         assert compute_fingerprint(f1) == compute_fingerprint(f2)
 
+    def test_lint_runner_same_file_different_violations(self):
+        """Two lint violations in the same file must get different fingerprints."""
+        f1 = _make_finding(
+            detector="lint-runner",
+            context={"rule": "F401"},
+            title="F401: os imported but unused",
+            file_path="src/main.py",
+        )
+        f2 = _make_finding(
+            detector="lint-runner",
+            context={"rule": "F401"},
+            title="F401: sys imported but unused",
+            file_path="src/main.py",
+        )
+        assert compute_fingerprint(f1) != compute_fingerprint(f2)
+
 
 class TestDeduplication:
     def test_filters_suppressed(self, db_conn):

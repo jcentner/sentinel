@@ -26,6 +26,7 @@ class EvidenceType(str, enum.Enum):
     CONFIG = "config"
     GIT_HISTORY = "git_history"
     LINT_OUTPUT = "lint_output"
+    AUDIT_OUTPUT = "audit_output"
     DIFF = "diff"
 
 
