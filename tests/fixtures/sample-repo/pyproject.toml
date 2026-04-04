@@ -1,0 +1,14 @@
+[project]
+name = "myapp"
+version = "0.1.0"
+dependencies = [
+    "click>=8.0",
+    "httpx>=0.27",
+    "sqlalchemy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]

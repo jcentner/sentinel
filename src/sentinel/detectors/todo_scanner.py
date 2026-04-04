@@ -24,8 +24,11 @@ logger = logging.getLogger(__name__)
 # Matches TODO, FIXME, HACK, XXX after a comment marker
 # Requires a comment prefix (#, //, /*, --, <!--) earlier on the same line
 _COMMENT_PREFIX = re.compile(r"(#|//|/\*|^\s*\*|--|<!--)")
+# Matches TODO, FIXME, HACK, XXX — non-greedy message capture to allow
+# finditer to find multiple tags on the same line.
 _TODO_PATTERN = re.compile(
-    r"\b(TODO|FIXME|HACK|XXX)\s*[:(]?\s*(.*)", re.IGNORECASE
+    r"\b(TODO|FIXME|HACK|XXX)\b\s*[:(]?\s*(.*?)(?=\b(?:TODO|FIXME|HACK|XXX)\b|$)",
+    re.IGNORECASE,
 )
 
 # Skip binary / generated files
@@ -108,63 +111,63 @@ class TodoScanner(Detector):
                 continue
 
             for line_num, line in enumerate(content.splitlines(), start=1):
-                match = _TODO_PATTERN.search(line)
-                if not match:
-                    continue
-                # Only count if the tag appears in a comment context
-                tag_start = match.start()
-                prefix = line[:tag_start]
-                comment_match = _COMMENT_PREFIX.search(prefix)
-                if not comment_match:
-                    continue
-                # Skip if the comment marker is inside a string literal
-                if _is_in_string_literal(line, prefix):
-                    continue
-                # Require the TODO tag to be near the comment marker.
-                # "# TODO: fix" → ok.  "# Should find TODOs" → skip.
-                chars_after_comment = tag_start - comment_match.end()
-                if chars_after_comment > 5:
-                    continue
-                tag = match.group(1).upper()
-                message = match.group(2).strip() or "(no description)"
-                rel_path = str(file_path.relative_to(repo_root))
+                for match in _TODO_PATTERN.finditer(line):
+                    # Only count if the tag appears in a comment context
+                    tag_start = match.start()
+                    prefix = line[:tag_start]
+                    # Find ALL comment markers in the prefix, use the LAST (nearest) one
+                    comment_matches = list(_COMMENT_PREFIX.finditer(prefix))
+                    if not comment_matches:
+                        continue
+                    nearest_comment = comment_matches[-1]
+                    # Skip if the nearest comment marker is inside a string literal
+                    if _is_in_string_literal(line, prefix):
+                        continue
+                    # Require the TODO tag to be near the comment marker.
+                    # "# TODO: fix" → ok.  "# Should find TODOs" → skip.
+                    chars_after_comment = tag_start - nearest_comment.end()
+                    if chars_after_comment > 5:
+                        continue
+                    tag = match.group(1).upper()
+                    message = match.group(2).strip() or "(no description)"
+                    rel_path = str(file_path.relative_to(repo_root))
 
-                blame_info = self._git_blame_line(repo_root, rel_path, line_num)
+                    blame_info = self._git_blame_line(repo_root, rel_path, line_num)
 
-                evidence = [
-                    Evidence(
-                        type=EvidenceType.CODE,
-                        source=rel_path,
-                        content=line.strip(),
-                        line_range=(line_num, line_num),
-                    )
-                ]
-                if blame_info:
-                    evidence.append(
+                    evidence = [
                         Evidence(
-                            type=EvidenceType.GIT_HISTORY,
+                            type=EvidenceType.CODE,
                             source=rel_path,
-                            content=blame_info,
+                            content=line.strip(),
+                            line_range=(line_num, line_num),
+                        )
+                    ]
+                    if blame_info:
+                        evidence.append(
+                            Evidence(
+                                type=EvidenceType.GIT_HISTORY,
+                                source=rel_path,
+                                content=blame_info,
+                            )
+                        )
+
+                    severity = self._tag_severity(tag)
+
+                    findings.append(
+                        Finding(
+                            detector=self.name,
+                            category="todo-fixme",
+                            severity=severity,
+                            confidence=0.9,
+                            title=f"{tag}: {message[:80]}",
+                            description=f"{tag} comment in {rel_path}:{line_num} — {message}",
+                            evidence=evidence,
+                            file_path=rel_path,
+                            line_start=line_num,
+                            line_end=line_num,
+                            context={"tag": tag, "blame": blame_info},
                         )
                     )
-
-                severity = self._tag_severity(tag)
-
-                findings.append(
-                    Finding(
-                        detector=self.name,
-                        category="todo-fixme",
-                        severity=severity,
-                        confidence=0.9,
-                        title=f"{tag}: {message[:80]}",
-                        description=f"{tag} comment in {rel_path}:{line_num} — {message}",
-                        evidence=evidence,
-                        file_path=rel_path,
-                        line_start=line_num,
-                        line_end=line_num,
-                        context={"tag": tag, "blame": blame_info},
-                    )
-                )
 
         return findings
 

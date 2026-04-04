@@ -138,8 +138,10 @@ def _format_evidence_block(finding: Finding) -> str:
         content = e.content
         content_lines = content.splitlines()
         if len(content_lines) > 20:
-            content = "\n".join(content_lines[:20]) + f"\n  ... ({len(content_lines) - 20} more lines)"
-        lines.append(f"  {content}")
+            content_lines = [*content_lines[:20], f"  ... ({len(content_lines) - 20} more lines)"]
+        # Indent each line of evidence content for proper markdown nesting
+        for cline in content_lines:
+            lines.append(f"  {cline}")
         lines.append("  ```")
         lines.append("")
 

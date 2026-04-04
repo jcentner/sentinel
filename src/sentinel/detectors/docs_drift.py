@@ -30,8 +30,8 @@ _MD_LINK = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 # Inline code paths: `path/to/something.ext` or `src/something`
 _INLINE_CODE_PATH = re.compile(r"`([a-zA-Z0-9_./-]+(?:\.[a-zA-Z0-9]+)?)`")
 
-# Fenced code blocks: ```lang\n...\n```
-_FENCED_BLOCK = re.compile(r"^```(\w*)\s*\n(.*?)^```", re.MULTILINE | re.DOTALL)
+# Fenced code blocks: optionally up to 3 spaces indent, ```lang\n...\n```
+_FENCED_BLOCK = re.compile(r"^ {0,3}```(\w*)\s*\n(.*?)^ {0,3}```", re.MULTILINE | re.DOTALL)
 
 # pip install commands inside code blocks
 _PIP_INSTALL = re.compile(r"pip\s+install\s+(.+)", re.IGNORECASE)
@@ -159,7 +159,16 @@ class DocsDriftDetector(Detector):
         doc_dir = (repo_root / doc_path).parent
         lines = content.splitlines()
 
+        in_fenced_block = False
         for line_num, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            # Track fenced code block state (``` with optional language tag)
+            if stripped.startswith("```"):
+                in_fenced_block = not in_fenced_block
+                continue
+            if in_fenced_block:
+                continue
+
             for match in _MD_LINK.finditer(line):
                 link_text = match.group(1)
                 link_target = match.group(2)
@@ -170,14 +179,13 @@ class DocsDriftDetector(Detector):
                 if finding:
                     findings.append(finding)
 
-            # Check inline code paths (only in non-code-block lines)
-            if not line.strip().startswith("```"):
-                for match in _INLINE_CODE_PATH.finditer(line):
-                    path_text = match.group(1)
-                    finding = self._check_inline_path(
-                        path_text, doc_path, repo_root, line_num, line,
-                    )
-                    if finding:
+            # Check inline code paths
+            for match in _INLINE_CODE_PATH.finditer(line):
+                path_text = match.group(1)
+                finding = self._check_inline_path(
+                    path_text, doc_path, doc_dir, repo_root, line_num, line,
+                )
+                if finding:
                         findings.append(finding)
 
         return findings
@@ -256,6 +264,7 @@ class DocsDriftDetector(Detector):
         self,
         path_text: str,
         doc_path: str,
+        doc_dir: Path,
         repo_root: Path,
         line_num: int,
         line: str,
@@ -274,15 +283,16 @@ class DocsDriftDetector(Detector):
         if _is_template_path(path_text):
             return None
 
-        resolved = (repo_root / path_text).resolve()
-        # Safety: only check within repo
-        try:
-            resolved.relative_to(repo_root.resolve())
-        except ValueError:
-            return None
-
-        if resolved.exists():
-            return None
+        # Dual resolution: try repo-root-relative and doc-dir-relative
+        repo_resolved = repo_root.resolve()
+        for base in (repo_root, doc_dir):
+            resolved = (base / path_text).resolve()
+            try:
+                resolved.relative_to(repo_resolved)
+            except ValueError:
+                continue  # Outside repo
+            if resolved.exists():
+                return None
 
         return Finding(
             detector=self.name,
@@ -499,7 +509,7 @@ class DocsDriftDetector(Detector):
     ) -> list[Finding]:
         """Use LLM to compare code blocks in docs against actual source files."""
         ollama_url = config.get("ollama_url", "http://localhost:11434")
-        model = config.get("model", "qwen3:4b")
+        model = config.get("model", "qwen3.5:4b")
 
         if not check_ollama(ollama_url):
             return []
