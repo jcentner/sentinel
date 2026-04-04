@@ -140,3 +140,47 @@ class TestTodoScanner:
             assert 0.0 <= f.confidence <= 1.0
             assert f.file_path is not None
             assert f.line_start is not None
+
+    def test_skips_string_literal_todos(self, scanner, tmp_path):
+        """TODO inside a Python string literal should NOT be flagged."""
+        (tmp_path / "test_data.py").write_text(
+            '# TODO: fix this real thing\n'
+            'test_input = "# TODO: not a real todo\\n"\n'
+            "another = '# FIXME: also not real\\n'\n"
+            "x = 1  # HACK: this is a real HACK comment\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+
+        # Should find: real TODO (line 1), real HACK (line 4)
+        # Should NOT find: string TODO (line 2), string FIXME (line 3)
+        assert len(findings) == 2
+        tags = {f.context["tag"] for f in findings}
+        assert tags == {"TODO", "HACK"}
+
+    def test_triple_quoted_string_not_confused(self, scanner, tmp_path):
+        """Regular comments after triple-quoted strings should be found."""
+        (tmp_path / "example.py").write_text(
+            '"""Module docstring."""\n'
+            "# TODO: after docstring\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+        assert len(findings) == 1
+        assert findings[0].context["tag"] == "TODO"
+
+    def test_skips_mid_sentence_mentions(self, scanner, tmp_path):
+        """TODO mentioned mid-sentence in a comment is not an action item."""
+        (tmp_path / "test_check.py").write_text(
+            "# Should find TODOs/FIXMEs and lint issues\n"
+            "x = 1  # At minimum: TODO, FIXME, HACK\n"
+            "# This is fine, it matches TODO patterns\n"
+            "# TODO: this IS a real todo\n"
+            "# FIXME: so is this\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+        # Only the direct TODO: and FIXME: at start of comment should match
+        assert len(findings) == 2
+        tags = {f.context["tag"] for f in findings}
+        assert tags == {"TODO", "FIXME"}

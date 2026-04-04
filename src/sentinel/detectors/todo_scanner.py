@@ -36,6 +36,9 @@ _SKIP_EXTENSIONS = frozenset({
     ".zip", ".gz", ".tar", ".bz2", ".7z",
     ".db", ".sqlite", ".sqlite3",
     ".lock",
+    # Documentation files: # and * are formatting, not comment syntax.
+    # Docs-drift detector handles documentation inconsistencies instead.
+    ".md", ".rst", ".adoc",
 })
 
 _SKIP_DIRS = frozenset({
@@ -43,6 +46,28 @@ _SKIP_DIRS = frozenset({
     ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
     ".ruff_cache", "dist", "build", ".egg-info", ".sentinel",
 })
+
+
+def _is_in_string_literal(line: str, prefix: str) -> bool:
+    """Heuristic: check if a comment marker is likely inside a string literal.
+
+    Counts unescaped quote characters before the comment marker.
+    If the number of quotes is odd, the marker is inside a string.
+    """
+    # Count unescaped single and double quotes in the prefix
+    for quote in ('"', "'"):
+        count = 0
+        i = 0
+        while i < len(prefix):
+            if prefix[i] == "\\" and i + 1 < len(prefix):
+                i += 2  # skip escaped char
+                continue
+            if prefix[i] == quote:
+                count += 1
+            i += 1
+        if count % 2 == 1:
+            return True
+    return False
 
 
 class TodoScanner(Detector):
@@ -89,7 +114,16 @@ class TodoScanner(Detector):
                 # Only count if the tag appears in a comment context
                 tag_start = match.start()
                 prefix = line[:tag_start]
-                if not _COMMENT_PREFIX.search(prefix):
+                comment_match = _COMMENT_PREFIX.search(prefix)
+                if not comment_match:
+                    continue
+                # Skip if the comment marker is inside a string literal
+                if _is_in_string_literal(line, prefix):
+                    continue
+                # Require the TODO tag to be near the comment marker.
+                # "# TODO: fix" → ok.  "# Should find TODOs" → skip.
+                chars_after_comment = tag_start - comment_match.end()
+                if chars_after_comment > 5:
                     continue
                 tag = match.group(1).upper()
                 message = match.group(2).strip() or "(no description)"
