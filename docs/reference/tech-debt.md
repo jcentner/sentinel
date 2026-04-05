@@ -17,12 +17,13 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 ## Active
 
 ### TD-001: Context gatherer uses file-proximity only
-**Status**: Active
+**Status**: Resolved (Session 9)
 **Severity**: Medium
 **Introduced**: Phase 1
 **Description**: The context gatherer uses simple file-proximity heuristics (±5 lines, naming-convention test file matching, git log) instead of embedding-based retrieval.
 **Impact**: Lower-quality context for LLM judge, reducing judgment accuracy.
 **Proposed resolution**: Add embeddings via Qwen3-Embedding-0.6B + SQLite-vec in Phase 2 (see OQ-004).
+**Resolution**: Embedding-based context gatherer implemented (ADR-009). Opt-in via `embed_model` config. Uses Ollama `/api/embed` endpoint, stores vectors as float32 BLOBs in SQLite (no sqlite-vec needed). Falls back to file-proximity heuristic when embeddings unavailable.
 
 ### TD-002: Sync detector interface
 **Status**: Active

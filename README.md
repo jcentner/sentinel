@@ -7,7 +7,7 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 ## What it does
 
 - Runs 5 detectors: TODO/FIXME scanner, linter (ruff), dependency audit (pip-audit), docs-drift checker, git churn hotspots
-- Gathers contextual evidence per finding (surrounding code, git history, related tests)
+- Gathers contextual evidence per finding (surrounding code, git history, related tests, semantic code search via embeddings)
 - Uses a local LLM via Ollama as a judgment/summarization layer (optional — degrades gracefully)
 - Fingerprints and deduplicates findings across runs via SQLite
 - Tracks finding persistence across runs (recurring findings get higher visibility)
@@ -29,7 +29,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 5 detectors, LLM judge, docs-drift detection, finding persistence, git churn hotspots, and GitHub issue creation. 281 tests, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 5 detectors, LLM judge, docs-drift detection, finding persistence, git churn hotspots, embedding-based semantic context, and GitHub issue creation. 316 tests, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
@@ -70,6 +70,18 @@ sentinel scan /path/to/repo --skip-judge
 
 ```bash
 sentinel scan /path/to/repo --incremental
+```
+
+**Scan with semantic context** (requires an Ollama embedding model):
+
+```bash
+sentinel scan /path/to/repo --embed-model nomic-embed-text
+```
+
+**Build the embedding index separately** (optional — scan auto-builds when `--embed-model` is used):
+
+```bash
+sentinel index /path/to/repo
 ```
 
 **Suppress a false positive:**

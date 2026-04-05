@@ -15,25 +15,6 @@ Tracked questions that need resolution before or during implementation. Each que
 
 ## Open
 
-### OQ-002: What is the report delivery mechanism?
-**Status**: Open
-**Priority**: Medium
-**Context**: The morning report needs to be scannable in under 2 minutes. Options: plain markdown file, terminal output, local web UI, notification (email/Slack/desktop). The approve/suppress UX depends on this choice.
-**Current thinking**: Start with markdown file + CLI for approve/suppress. Web UI is Phase 2+.
-
-### OQ-003: How should finding fingerprints be computed?
-**Status**: Resolved (→ implementation in `src/sentinel/core/dedup.py`)
-**Priority**: Medium
-**Context**: Deduplication requires a stable fingerprint per finding. If a file moves or line numbers shift, the fingerprint shouldn't change for the same conceptual finding. Hash over (detector, category, normalized-content) rather than (file, line) seems right but needs design.
-**Current thinking**: Hash of (detector_name, category, file_path, key_content_normalized). Accept that file renames break dedup and handle with a "similar finding" heuristic.
-**Resolution**: SHA256 hash of `(detector, category, file_path, normalized_content)`, truncated to 16 hex chars. Detector-specific normalization: dep-audit uses `vuln_id:package`, lint-runner uses `rule:file_path:title`, others use the finding title. Line number changes do not break fingerprints. File renames do break fingerprints (acceptable for MVP).
-
-### OQ-004: What embedding model and vector store should be used?
-**Status**: Open
-**Priority**: Medium
-**Context**: Context gathering requires embedding the repo and querying for relevant code/docs per finding. Qwen3-Embedding-0.6B is the current recommendation. Vector store options: SQLite-vec (minimal), LanceDB, Qdrant local.
-**Current thinking**: SQLite-vec to keep the single-dependency story clean. Evaluate if it's sufficient before adding another store.
-
 ### OQ-005: Should Sentinel support multi-repo in MVP?
 **Status**: Open
 **Priority**: Low
@@ -51,6 +32,24 @@ Tracked questions that need resolution before or during implementation. Each que
 ### OQ-001: What language should Sentinel itself be written in?
 **Status**: Resolved (→ ADR-007)
 **Resolution**: Python. See ADR-007 for full rationale.
+
+### OQ-002: What is the report delivery mechanism?
+**Status**: Resolved
+**Priority**: Medium
+**Context**: The morning report needs to be scannable in under 2 minutes. Options: plain markdown file, terminal output, local web UI, notification (email/Slack/desktop). The approve/suppress UX depends on this choice.
+**Resolution**: Markdown file output + CLI for approve/suppress/history commands. Report written to `.sentinel/report-{id}.md`. Web UI deferred to future phase.
+
+### OQ-003: How should finding fingerprints be computed?
+**Status**: Resolved (→ implementation in `src/sentinel/core/dedup.py`)
+**Priority**: Medium
+**Context**: Deduplication requires a stable fingerprint per finding. If a file moves or line numbers shift, the fingerprint shouldn't change for the same conceptual finding. Hash over (detector, category, normalized-content) rather than (file, line) seems right but needs design.
+**Resolution**: SHA256 hash of `(detector, category, file_path, normalized_content)`, truncated to 16 hex chars. Detector-specific normalization: dep-audit uses `vuln_id:package`, lint-runner uses `rule:file_path:title`, others use the finding title. Line number changes do not break fingerprints. File renames do break fingerprints (acceptable for MVP).
+
+### OQ-004: What embedding model and vector store should be used?
+**Status**: Resolved (→ ADR-009)
+**Priority**: Medium
+**Context**: Context gathering requires embedding the repo and querying for relevant code/docs per finding. Qwen3-Embedding-0.6B is the current recommendation. Vector store options: SQLite-vec (minimal), LanceDB, Qdrant local.
+**Resolution**: Configurable embedding model via Ollama `/api/embed` (default: nomic-embed-text). Vectors stored as float32 BLOBs in SQLite — no sqlite-vec extension needed. Brute-force cosine similarity in Python is fast enough for typical repo sizes. See ADR-009.
 
 ### OQ-007: What eval criteria should be defined before building?
 **Status**: Resolved (→ ADR-008)

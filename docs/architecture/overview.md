@@ -73,12 +73,22 @@ Compares fingerprints against the state store to:
 
 ### 4. Context Gatherer
 
-For each candidate finding, retrieves supporting context using file-proximity heuristics:
+For each candidate finding, retrieves supporting context using two strategies:
+
+**Heuristic context** (always active):
 - Surrounding code lines (±5 lines around the affected location)
 - Related test files (convention-based matching: `test_<module>.py`)
 - Recent git log for the affected file
 
-**Current implementation**: Heuristic-only (no embeddings). Upgrading to embedding-based retrieval is tracked as TD-001 / OQ-004.
+**Embedding-based semantic context** (opt-in via `embed_model` config):
+- Repo files are chunked (50-line windows with 10-line overlap) and embedded via Ollama `/api/embed`
+- Embeddings stored as float32 BLOBs in the SQLite `chunks` table
+- For each finding, the title + description are embedded and compared against all chunks via cosine similarity
+- Top-5 most relevant chunks (above similarity threshold 0.3) added as additional evidence
+- Incremental indexing: only re-embeds files whose content has changed
+- Falls back gracefully to heuristic-only if embeddings are unavailable
+
+See ADR-009 for full architecture decisions.
 
 ### 5. LLM Judge
 
@@ -128,7 +138,7 @@ Takes approved findings and creates GitHub issues. Only runs after explicit huma
 | Component | Runs on | Resource profile |
 |-----------|---------|-----------------|
 | Detectors | CPU | Lightweight — linters, grep, subprocess |
-| Context Gatherer | CPU | File reads, git log commands |
+| Context Gatherer | CPU + GPU (optional) | File reads, git log commands, Ollama embed API (when embeddings enabled) |
 | LLM Judge | GPU (8 GB VRAM) | Qwen3.5 4B Q4_K_M via Ollama (~2.8 GB) |
 | State Store | Disk | SQLite, negligible |
 | Report | CPU | Markdown generation |
