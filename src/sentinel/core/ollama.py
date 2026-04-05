@@ -57,7 +57,7 @@ def embed_texts(
             )
             return None
         data = resp.json()
-        embeddings = data.get("embeddings")
+        embeddings: list[list[float]] | None = data.get("embeddings")
         if not embeddings or not isinstance(embeddings, list):
             logger.warning("Ollama embed response missing 'embeddings' key")
             return None

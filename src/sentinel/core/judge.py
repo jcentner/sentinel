@@ -6,6 +6,7 @@ import json
 import logging
 import sqlite3
 import time
+from typing import Any
 
 from sentinel.core.ollama import check_ollama
 from sentinel.models import Finding, Severity
@@ -190,7 +191,7 @@ def _build_prompt(finding: Finding) -> str:
     )
 
 
-def _parse_judgment(text: str) -> dict | None:
+def _parse_judgment(text: str) -> dict[str, Any] | None:
     """Parse the JSON judgment from the LLM response."""
     # Try to extract JSON from the response
     text = text.strip()
@@ -209,7 +210,8 @@ def _parse_judgment(text: str) -> dict | None:
         return None
 
     try:
-        return json.loads(text[start:end])
+        result: dict[str, Any] = json.loads(text[start:end])
+        return result
     except json.JSONDecodeError:
         logger.warning("Failed to parse judge JSON: %s", text[start:end][:200])
         return None
@@ -227,7 +229,7 @@ def _log_llm_entry(
     tokens: int = 0,
     gen_ms: float = 0.0,
     verdict: str = "error",
-    judgment: dict | None = None,
+    judgment: dict[str, Any] | None = None,
 ) -> None:
     """Persist an LLM interaction to the llm_log table if conn is available."""
     if conn is None:

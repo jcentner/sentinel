@@ -6,6 +6,7 @@ import hashlib
 import logging
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 from sentinel.core.ollama import embed_texts
 from sentinel.store.embeddings import (
@@ -83,7 +84,7 @@ def chunk_file(
     content: str,
     chunk_size: int = 50,
     chunk_overlap: int = 10,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Split file content into overlapping line-based chunks.
 
     Returns list of dicts with start_line (1-based), end_line, content.
@@ -119,7 +120,7 @@ def build_index(
     chunk_size: int = 50,
     chunk_overlap: int = 10,
     batch_size: int = 20,
-) -> dict:
+) -> dict[str, int]:
     """Build or update the embedding index for a repository.
 
     Returns a summary dict with counts: files_scanned, files_indexed,

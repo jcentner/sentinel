@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass
@@ -65,7 +66,7 @@ def insert_llm_log(
 
 def get_llm_log_for_run(
     conn: sqlite3.Connection, run_id: int
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Retrieve all LLM log entries for a given run."""
     rows = conn.execute(
         "SELECT * FROM llm_log WHERE run_id = ? ORDER BY id", (run_id,)
@@ -73,7 +74,7 @@ def get_llm_log_for_run(
     return [dict(row) for row in rows]
 
 
-def get_llm_log_stats(conn: sqlite3.Connection, run_id: int | None = None) -> dict:
+def get_llm_log_stats(conn: sqlite3.Connection, run_id: int | None = None) -> dict[str, Any]:
     """Compute summary statistics from the LLM log.
 
     If run_id is None, computes stats across all runs.

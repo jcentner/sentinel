@@ -6,6 +6,7 @@ import json
 import logging
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from sentinel.detectors.base import Detector
 from sentinel.models import (
@@ -118,7 +119,7 @@ class LintRunner(Detector):
         return None
 
     @staticmethod
-    def _violation_to_finding(v: dict, repo_root: Path) -> Finding:
+    def _violation_to_finding(v: dict[str, Any], repo_root: Path) -> Finding:
         """Convert a single ruff JSON violation to a Finding."""
         code = v.get("code", "")
         message = v.get("message", "")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -88,7 +89,7 @@ def scan(
                 click.echo("No changes since last run — nothing to scan.")
                 return
 
-        kwargs: dict = dict(
+        kwargs: dict[str, Any] = dict(
             model=config.model,
             ollama_url=config.ollama_url,
             output_path=output_path,
@@ -222,6 +223,7 @@ def create_issues_cmd(
                 click.echo(f"  [DRY RUN] Would create: [Sentinel] {finding.title}")
             return
 
+        assert gh is not None  # non-dry-run checked above; dry-run returned above
         results = create_issues(conn, gh, dry_run=dry_run)
 
         for r in results:

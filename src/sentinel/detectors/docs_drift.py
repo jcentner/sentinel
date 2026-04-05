@@ -8,6 +8,7 @@ import os
 import re
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from sentinel.core.ollama import check_ollama
 from sentinel.detectors.base import Detector
@@ -515,7 +516,7 @@ class DocsDriftDetector(Detector):
             try:
                 with open(pyproject, "rb") as f:
                     data = tomllib.load(f)
-                return data.get("project", {}).get("name", "")
+                return str(data.get("project", {}).get("name", ""))
             except (OSError, tomllib.TOMLDecodeError):
                 pass
         return ""
@@ -679,7 +680,7 @@ class DocsDriftDetector(Detector):
         *,
         conn: object = None,
         run_id: int | None = None,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Ask the LLM to compare a doc block against source code."""
         import httpx
 
@@ -734,7 +735,7 @@ class DocsDriftDetector(Detector):
                 verdict = "accurate" if is_accurate else "drift_detected"
             from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
             try:
-                insert_llm_log(conn, run_id, LLMLogEntry(
+                insert_llm_log(conn, run_id, LLMLogEntry(  # type: ignore[arg-type]
                     purpose="doc-code-comparison",
                     model=model,
                     detector="docs-drift",

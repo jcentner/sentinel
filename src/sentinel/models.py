@@ -66,13 +66,13 @@ class Evidence:
     content: str
     line_range: tuple[int, int] | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["type"] = self.type.value
         return d
 
     @classmethod
-    def from_dict(cls, data: dict) -> Evidence:
+    def from_dict(cls, data: dict[str, Any]) -> Evidence:
         return cls(
             type=EvidenceType(data["type"]),
             source=data["source"],
@@ -95,7 +95,7 @@ class Finding:
     file_path: str | None = None
     line_start: int | None = None
     line_end: int | None = None
-    context: dict | None = None
+    context: dict[str, Any] | None = None
     fingerprint: str = ""
     status: FindingStatus = FindingStatus.NEW
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -108,7 +108,7 @@ class Finding:
         if not isinstance(self.status, FindingStatus):
             self.status = FindingStatus(self.status)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["severity"] = self.severity.value
         d["status"] = self.status.value
@@ -133,7 +133,7 @@ class DetectorContext:
     scope: ScopeType = ScopeType.FULL
     changed_files: list[str] | None = None
     target_paths: list[str] | None = None
-    config: dict = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
     # Optional DB connection for structured LLM interaction logging.
     # Set by the runner; detectors that make LLM calls can use these
     # to persist prompt/response/verdict data for analysis.

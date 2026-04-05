@@ -6,6 +6,7 @@
 import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
+from typing import Any
 
 
 class ConfigError(ValueError):
@@ -28,10 +29,12 @@ class SentinelConfig:
 
 # Expected types for each config field, derived from the dataclass defaults.
 # Without `from __future__ import annotations`, f.type is the real type (str, bool, etc.).
-_FIELD_TYPES: dict[str, type] = {f.name: f.type for f in fields(SentinelConfig)}
+_FIELD_TYPES: dict[str, type] = {
+    f.name: f.type for f in fields(SentinelConfig)  # type: ignore[misc]
+}
 
 
-def _validate_config(sentinel: dict, config_file: Path) -> None:
+def _validate_config(sentinel: dict[str, Any], config_file: Path) -> None:
     """Validate types of sentinel.toml values against the dataclass schema."""
     for key, value in sentinel.items():
         if key not in _FIELD_TYPES:

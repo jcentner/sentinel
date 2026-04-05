@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from sentinel.detectors.base import Detector
 from sentinel.models import (
@@ -74,6 +75,7 @@ class DepAudit(Detector):
             return self._exec_audit(cmd, repo_root)
 
         # Generate a temp requirements file from pyproject.toml deps
+        assert pyproject_deps is not None  # None case returned above
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".txt", prefix="sentinel-deps-", delete=True
         ) as tmp:
@@ -158,7 +160,7 @@ class DepAudit(Detector):
         return deps
 
     @staticmethod
-    def _vuln_to_finding(dep: dict, vuln: dict) -> Finding:
+    def _vuln_to_finding(dep: dict[str, Any], vuln: dict[str, Any]) -> Finding:
         """Convert a pip-audit vulnerability entry to a Finding."""
         pkg_name = dep.get("name", "unknown")
         pkg_version = dep.get("version", "unknown")

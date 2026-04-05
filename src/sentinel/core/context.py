@@ -42,6 +42,7 @@ def gather_context(
     if use_embeddings:
         try:
             from sentinel.store.embeddings import chunk_count
+            assert conn is not None  # guaranteed by use_embeddings check
             if chunk_count(conn) == 0:
                 logger.info("Embedding index is empty, using heuristic context only")
                 use_embeddings = False
@@ -55,12 +56,15 @@ def gather_context(
             _add_related_files(f, root)
             _add_git_log(f, root)
         if use_embeddings:
+            assert conn is not None  # guaranteed by use_embeddings check
             _add_embedding_context(f, conn, embed_model, ollama_url)
     return findings
 
 
 def _add_surrounding_code(finding: Finding, root: Path) -> None:
     """Add lines surrounding the finding location."""
+    assert finding.file_path is not None  # caller checks
+    assert finding.line_start is not None  # caller checks
     file_path = root / finding.file_path
     if not file_path.is_file():
         return

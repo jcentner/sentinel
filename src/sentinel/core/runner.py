@@ -164,6 +164,7 @@ def run_scan(
                 f.context["recurring"] = True
 
     # 9. Store findings (after persistence so context_json includes occurrence data)
+    assert run.id is not None  # guaranteed by create_run
     for f in deduped:
         insert_finding(conn, run.id, f)
 

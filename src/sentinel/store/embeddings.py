@@ -8,6 +8,7 @@ import math
 import sqlite3
 import struct
 from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 def upsert_chunks(
     conn: sqlite3.Connection,
     file_path: str,
-    chunks: list[dict],
+    chunks: list[dict[str, Any]],
     embed_model: str,
 ) -> int:
     """Insert or replace chunks for a given file.
@@ -116,7 +117,7 @@ def get_indexed_files(conn: sqlite3.Connection) -> set[str]:
 def chunk_count(conn: sqlite3.Connection) -> int:
     """Return the total number of stored chunks."""
     row = conn.execute("SELECT COUNT(*) AS cnt FROM chunks").fetchone()
-    return row["cnt"]
+    return int(row["cnt"])
 
 
 def query_similar(
@@ -124,7 +125,7 @@ def query_similar(
     query_vec: list[float],
     top_k: int = 5,
     exclude_file: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Find the top-k most similar chunks to a query vector.
 
     Returns a list of dicts with keys: file_path, start_line, end_line,
