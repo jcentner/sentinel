@@ -65,6 +65,7 @@ def run_scan(
     ollama_url: str = "http://localhost:11434",
     output_path: str | None = None,
     skip_judge: bool = False,
+    embed_model: str = "",
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -115,8 +116,27 @@ def run_scan(
     deduped = deduplicate(all_findings, conn)
     logger.info("After dedup: %d findings (was %d)", len(deduped), len(all_findings))
 
-    # 6. Gather context
-    gather_context(deduped, repo_root)
+    # 5b. Build/update embedding index if embed_model is configured
+    if embed_model:
+        try:
+            from sentinel.core.indexer import build_index
+            idx_stats = build_index(
+                repo_root, conn, embed_model, ollama_url=ollama_url,
+            )
+            logger.info(
+                "Embedding index: %d files indexed, %d chunks",
+                idx_stats["files_indexed"], idx_stats["chunks_created"],
+            )
+        except Exception:
+            logger.warning("Embedding index build failed — using heuristic context", exc_info=True)
+
+    # 6. Gather context (with embedding support if configured)
+    gather_context(
+        deduped, repo_root,
+        conn=conn if embed_model else None,
+        embed_model=embed_model,
+        ollama_url=ollama_url,
+    )
 
     # 7. LLM Judge (optional)
     if not skip_judge:

@@ -34,6 +34,7 @@ def main(verbose: bool) -> None:
     "--incremental", is_flag=True,
     help="Only scan files changed since the last completed run",
 )
+@click.option("--embed-model", default=None, help="Ollama embedding model (enables semantic context)")
 def scan(
     repo_path: str,
     model: str | None,
@@ -42,6 +43,7 @@ def scan(
     skip_judge: bool,
     db: str | None,
     incremental: bool,
+    embed_model: str | None,
 ) -> None:
     """Run detectors against a repository and generate a morning report."""
     from sentinel.config import load_config
@@ -59,6 +61,8 @@ def scan(
         config.ollama_url = ollama_url
     if skip_judge:
         config.skip_judge = True
+    if embed_model:
+        config.embed_model = embed_model
 
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
@@ -79,6 +83,7 @@ def scan(
             ollama_url=config.ollama_url,
             output_path=output_path,
             skip_judge=config.skip_judge,
+            embed_model=config.embed_model,
         )
         if scope_type is not None:
             kwargs["scope"] = scope_type
@@ -250,6 +255,62 @@ def history(repo: str, db: str | None, limit: int) -> None:
             click.echo(
                 f"{r.id:>4}  {r.scope.value:<12}  {r.finding_count:>8}  {started:>20}  {r.repo_path}"
             )
+    finally:
+        conn.close()
+
+
+@main.command()
+@click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
+@click.option("--embed-model", default="nomic-embed-text",
+              help="Ollama embedding model to use")
+@click.option("--ollama-url", default=None, help="Ollama API URL")
+@click.option("--db", default=None, help="Database path")
+@click.option("--clear", is_flag=True, help="Clear existing index before rebuilding")
+def index(
+    repo_path: str,
+    embed_model: str,
+    ollama_url: str | None,
+    db: str | None,
+    clear: bool,
+) -> None:
+    """Build or update the embedding index for semantic context.
+
+    Chunks repo files and embeds them via Ollama for use during scan.
+    Only re-embeds files that have changed since the last index build.
+    """
+    from sentinel.config import load_config
+    from sentinel.core.indexer import build_index
+    from sentinel.store.db import get_connection
+    from sentinel.store.embeddings import chunk_count, clear_all_chunks
+
+    repo = Path(repo_path).resolve()
+    config = load_config(repo)
+
+    if ollama_url:
+        config.ollama_url = ollama_url
+
+    db_path = db or str(repo / config.db_path)
+    conn = get_connection(db_path)
+
+    try:
+        if clear:
+            cleared = clear_all_chunks(conn)
+            click.echo(f"Cleared {cleared} existing chunks")
+
+        click.echo(f"Building embedding index with model '{embed_model}'...")
+        stats = build_index(
+            str(repo), conn, embed_model,
+            ollama_url=config.ollama_url,
+            chunk_size=config.embed_chunk_size,
+            chunk_overlap=config.embed_chunk_overlap,
+        )
+
+        click.echo(f"  Files scanned: {stats['files_scanned']}")
+        click.echo(f"  Files indexed: {stats['files_indexed']}")
+        click.echo(f"  Files skipped: {stats['files_skipped']}")
+        click.echo(f"  Files removed: {stats['files_removed']}")
+        click.echo(f"  Chunks created: {stats['chunks_created']}")
+        click.echo(f"  Total chunks: {chunk_count(conn)}")
     finally:
         conn.close()
 

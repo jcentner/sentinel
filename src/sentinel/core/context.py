@@ -1,12 +1,11 @@
-"""Simple file-proximity context gatherer for MVP.
-
-Gathers surrounding code, related test/doc files, and recent git history
-for each finding. No embeddings — simple heuristics only.
+"""Context gatherer — enriches findings with surrounding code, related files,
+git history, and (optionally) embedding-based semantic context.
 """
 
 from __future__ import annotations
 
 import logging
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -20,16 +19,43 @@ _CONTEXT_LINES = 5
 # Max git log entries per file
 _GIT_LOG_LIMIT = 5
 
+# Number of similar chunks to include when embeddings are available
+_EMBED_TOP_K = 5
 
-def gather_context(findings: list[Finding], repo_root: str) -> list[Finding]:
-    """Enrich each finding with surrounding context from the repo."""
+
+def gather_context(
+    findings: list[Finding],
+    repo_root: str,
+    conn: sqlite3.Connection | None = None,
+    embed_model: str = "",
+    ollama_url: str = "http://localhost:11434",
+) -> list[Finding]:
+    """Enrich each finding with surrounding context from the repo.
+
+    If conn and embed_model are provided and an embedding index exists,
+    also adds semantically similar chunks as evidence. Falls back to
+    file-proximity heuristics only when embeddings are unavailable.
+    """
     root = Path(repo_root)
+    use_embeddings = bool(conn and embed_model)
+
+    if use_embeddings:
+        try:
+            from sentinel.store.embeddings import chunk_count
+            if chunk_count(conn) == 0:
+                logger.info("Embedding index is empty, using heuristic context only")
+                use_embeddings = False
+        except Exception:
+            use_embeddings = False
+
     for f in findings:
         if f.file_path and f.line_start:
             _add_surrounding_code(f, root)
         if f.file_path:
             _add_related_files(f, root)
             _add_git_log(f, root)
+        if use_embeddings:
+            _add_embedding_context(f, conn, embed_model, ollama_url)
     return findings
 
 
@@ -123,3 +149,45 @@ def _add_git_log(finding: Finding, root: Path) -> None:
             )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
+
+
+def _add_embedding_context(
+    finding: Finding,
+    conn: sqlite3.Connection,
+    embed_model: str,
+    ollama_url: str,
+) -> None:
+    """Add semantically similar code chunks as evidence via embeddings."""
+    from sentinel.core.ollama import embed_texts
+    from sentinel.store.embeddings import query_similar
+
+    # Build a query from the finding's title and description
+    query_text = f"{finding.title}\n{finding.description}"
+    vectors = embed_texts([query_text], embed_model, ollama_url)
+    if not vectors or not vectors[0]:
+        return
+
+    query_vec = vectors[0]
+    results = query_similar(
+        conn,
+        query_vec,
+        top_k=_EMBED_TOP_K,
+        exclude_file=finding.file_path,
+    )
+
+    for r in results:
+        if r["similarity"] < 0.3:
+            break  # Below threshold — remaining results are even less relevant
+        # Truncate content to keep context manageable
+        content_lines = r["content"].splitlines()
+        if len(content_lines) > 30:
+            content_lines = content_lines[:30]
+            content_lines.append("... (truncated)")
+        finding.evidence.append(
+            Evidence(
+                type=EvidenceType.CODE,
+                source=f"{r['file_path']}:{r['start_line']}-{r['end_line']}",
+                content="\n".join(content_lines),
+                line_range=(r["start_line"], r["end_line"]),
+            )
+        )

@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -110,6 +110,31 @@ CREATE INDEX IF NOT EXISTS idx_llm_log_finding_fingerprint ON llm_log(finding_fi
         4,
         "add commit_sha column to runs table",
         "ALTER TABLE runs ADD COLUMN commit_sha TEXT;",
+    ),
+    (
+        5,
+        "add embedding chunks table for semantic context",
+        """\
+CREATE TABLE IF NOT EXISTS chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path TEXT NOT NULL,
+    start_line INTEGER NOT NULL,
+    end_line INTEGER NOT NULL,
+    content_hash TEXT NOT NULL,
+    content TEXT NOT NULL,
+    embedding BLOB NOT NULL,
+    embed_model TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
+CREATE INDEX IF NOT EXISTS idx_chunks_content_hash ON chunks(content_hash);
+
+CREATE TABLE IF NOT EXISTS embed_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+""",
     ),
 ]
 
