@@ -29,7 +29,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 5 detectors, LLM judge, docs-drift detection, finding persistence, git churn hotspots, embedding-based semantic context, and GitHub issue creation. 316 tests, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 5 detectors, LLM judge, docs-drift detection, finding persistence, git churn hotspots, embedding-based semantic context, and GitHub issue creation. 318 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
