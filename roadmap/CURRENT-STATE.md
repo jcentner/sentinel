@@ -5,7 +5,7 @@
 ## Session 5 Summary
 
 ### Current Objective
-Complete Phase 3 (Refinement): schema migration system, finding persistence scoring, report improvements.
+Complete Phase 3 (Refinement), advance Phase 4 (Extended Detectors), complete Phase 5 (GitHub Integration).
 
 ### What Was Accomplished
 
@@ -26,22 +26,34 @@ Complete Phase 3 (Refinement): schema migration system, finding persistence scor
 10. Badge format: `♻️ ×3` shows exact occurrence count for recurring findings
 11. Summary section: New vs Recurring breakdown driven by occurrence_count data
 12. Consolidated badge logic (recurring + FP verdict) into cleaner format
-13. Updated report test to use occurrence_count convention
 
-**Turn 1 — Testing:**
-14. 8 new tests: migration from v1, persistence CRUD, batch operations, timestamps
-15. 190 tests pass (was 182), lint clean
+**Turn 2 — Git-hotspots detector (Phase 4):**
+13. New detector: `git-hotspots` identifies files with unusually high commit frequency
+14. Statistical approach: flags files with commits above (mean + N*stdev) threshold
+15. Configurable: lookback period, min commits, stdev threshold
+16. Reports commit count, distinct authors, file size in evidence
+17. 12 tests including real git repo E2E tests
+
+**Turn 3 — GitHub issue creation (Phase 5):**
+18. New module `src/sentinel/github.py`: `create_issues()`, `get_approved_findings()`
+19. `GitHubConfig` from CLI args or `SENTINEL_GITHUB_*` env vars
+20. Dedup against existing open issues via fingerprint markers in issue body
+21. Dry-run mode for previewing without API calls
+22. New CLI command `sentinel create-issues` with --dry-run, --owner, --github-repo, --token
+23. Approve command now hints about create-issues
+24. 15 tests covering config, formatting, dedup, dry run, mocked API creation
 
 ### Repository State
 - **Phase 0 (Foundation)**: Complete
 - **Phase 1 (MVP Core)**: Complete
 - **Phase 2 (Docs-Drift)**: Complete
 - **Phase 3 (Refinement)**: Complete — persistence scoring, migration system, report improvements
-- **Implementation code**: 16 Python modules in `src/sentinel/`
-- **Test code**: 13 test files, 190 tests (including 8 persistence/migration tests)
-- **Detectors**: todo-scanner, lint-runner, dep-audit, docs-drift
-- **CLI commands**: scan, eval, suppress, approve, history
-- **Vision lock**: Baselined (Session 1), one revision
+- **Phase 4 (Extended Detectors)**: In progress — git-hotspots done, others deferred
+- **Phase 5 (GitHub Integration)**: Complete — issue creation, dedup, dry-run, approval workflow
+- **Implementation code**: 18 Python modules in `src/sentinel/`
+- **Test code**: 15 test files, 217 tests
+- **Detectors**: todo-scanner, lint-runner, dep-audit, docs-drift, git-hotspots
+- **CLI commands**: scan, eval, suppress, approve, history, create-issues
 - **DB schema**: v2 (migration framework with finding_persistence table)
 - **Open questions**: 4 open (OQ-002, OQ-004, OQ-005, OQ-006), 3 resolved
 - **ADRs**: 8 accepted
@@ -50,7 +62,7 @@ Complete Phase 3 (Refinement): schema migration system, finding persistence scor
 
 ### Test Results
 ```
-190 passed in 12.10s
+217 passed in 13.14s
 ruff check: All checks passed
 ```
 
@@ -58,43 +70,59 @@ ruff check: All checks passed
 1. Migration framework: ordered tuples `(version, description, sql)` applied sequentially — simplest possible approach
 2. Finding persistence uses `ON CONFLICT DO UPDATE` upsert for atomic occurrence counting
 3. Occurrence count shown as explicit badge `♻️ ×N` rather than just a flag
+4. Git-hotspots: statistical threshold (mean + N*stdev) with configurable parameters
+5. GitHub issue creation: fingerprint markers in issue body (`<!-- sentinel:fingerprint:xxx -->`) for dedup
+6. GitHub: env vars `SENTINEL_GITHUB_*` as primary config mechanism, CLI flags as overrides
+
+### Vision Success Criteria Status
+All seven success criteria from VISION-LOCK are satisfied:
+1. ✅ Install, point at repo, run scan → useful morning report
+2. ✅ Report scannable in < 2 minutes (one-line per finding, collapsible evidence)
+3. ✅ FP rate acceptable (93%+ precision on ground truth)
+4. ✅ Findings deduplicated across runs (fingerprinting + SQLite dedup)
+5. ✅ Works fully offline except optional GitHub issue creation
+6. ✅ Swap LLM model = config change only
+7. ✅ Suppress a FP and it stays suppressed
 
 ### What Remains / Next Priority
-**Phase 4 (Extended Detectors):**
-1. Git-hotspots detector (high churn files = review attention) — next priority
-2. Semgrep integration detector
+**Remaining Phase 4 detectors (deferred — not blocking MVP):**
+1. SQL anti-pattern detection (depends on OQ-006 resolution)
+2. Semgrep integration
 3. Complexity/dead-code heuristics
 
-**Phase 5 (GitHub Integration):**
-4. GitHub issue creation from approved findings
-5. Approval workflow
-6. Issue dedup against existing GitHub issues
-
 **Remaining tech debt:**
-7. TD-001: Context gatherer upgrade to embedding-based (needs OQ-004 resolution)
-8. TD-002: Async detector interface (not blocking)
-9. TD-004: Config type validation (low priority)
-10. TD-005: TODO comments in markdown invisible (low priority)
-11. TD-008: Poetry pyproject.toml format (low priority)
+4. TD-001: Context gatherer upgrade to embedding-based (needs OQ-004 resolution)
+5. TD-002: Async detector interface (not blocking)
+6. TD-004: Config type validation (low priority)
+7. TD-005: TODO comments in markdown invisible (low priority)
+8. TD-008: Poetry pyproject.toml format (low priority)
 
-**Deferred:**
-12. Incremental run optimization (Phase 3 item — scan only changed files)
-13. Multi-repo support (OQ-005)
+**Future enhancements:**
+9. Incremental run optimization (scan only changed files)
+10. Multi-repo support (OQ-005)
+11. Web UI for report review and approval (OQ-002)
+12. GitHub issue rate limiting and error handling
+13. Custom detector plugin system
 
 ### Blocked Items
 None currently.
 
 ### Files Created This Session
 - `src/sentinel/store/persistence.py` — finding persistence tracking module
+- `src/sentinel/detectors/git_hotspots.py` — git churn hotspot detector
+- `tests/detectors/test_git_hotspots.py` — 12 tests for git-hotspots
+- `src/sentinel/github.py` — GitHub issue creation module
+- `tests/test_github.py` — 15 tests for GitHub integration
 
 ### Files Modified This Session
 - `src/sentinel/store/db.py` — migration framework + v2 migration
-- `src/sentinel/core/runner.py` — persistence tracking in pipeline
+- `src/sentinel/core/runner.py` — persistence tracking + git-hotspots registration
 - `src/sentinel/core/report.py` — occurrence count badges, data-driven recurring counts
+- `src/sentinel/cli.py` — create-issues command, approve hint
 - `tests/test_store.py` — 8 new tests (migration, persistence)
 - `tests/test_report.py` — updated recurring marker test
 - `docs/reference/tech-debt.md` — TD-003 resolved
-- `roadmap/README.md` — Phase 3 status updated
+- `roadmap/README.md` — Phase 3/4/5 status updated
 - `src/sentinel/config.py` — default model
 - `pyproject.toml` — ruff exclude for fixtures
 - `docs/reference/tech-debt.md` — TD-006/007 resolved, TD-008 added

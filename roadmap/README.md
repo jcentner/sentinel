@@ -12,8 +12,8 @@ Local Repo Sentinel development follows a phased approach. Each phase has a plan
 | 1 | MVP Core | **Complete** | Core pipeline: 3 detectors, LLM judge, SQLite state, morning report, CLI |
 | 2 | Docs-Drift Detector | **Complete** | First-class docs-drift detection (ADR-005) |
 | 3 | Refinement | **Complete** | False-positive tuning, report UX, persistence scoring |
-| 4 | Extended Detectors | Not started | SQL anti-patterns, Semgrep, complexity, dead-code |
-| 5 | GitHub Integration | Not started | Issue creation from approved findings |
+| 4 | Extended Detectors | **In Progress** | Git-hotspots done; SQL anti-patterns, Semgrep, complexity, dead-code |
+| 5 | GitHub Integration | **Complete** | Issue creation from approved findings |
 
 ## Phase details
 
@@ -50,16 +50,16 @@ Phase planning docs live in `roadmap/phases/` and are created via the `/phase-pl
 - Incremental run optimization (deferred)
 
 ### Phase 4: Extended Detectors
-- SQL anti-pattern detection (SQLFluff + LLM)
-- Semgrep integration
-- Git-hotspot analysis
-- Complexity/dead-code heuristics
+- ~~Git-hotspot analysis~~ ✅
+- SQL anti-pattern detection (SQLFluff + LLM) — deferred
+- Semgrep integration — deferred
+- Complexity/dead-code heuristics — deferred
 
 ### Phase 5: GitHub Integration
-- GitHub API issue creation
-- Approval workflow
-- Issue dedup against existing GitHub issues
-- Rate limiting and error handling
+- ~~GitHub API issue creation~~ ✅
+- ~~Approval workflow~~ ✅
+- ~~Issue dedup against existing GitHub issues~~ ✅
+- Rate limiting and error handling — future enhancement
 
 ## Future (unscheduled)
 - Multi-repo support
