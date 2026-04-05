@@ -215,8 +215,9 @@ The morning report will be at `/path/to/repo/.sentinel/report.md`.
 
 ```bash
 pip install -e ".[dev]"
-pytest                  # run tests
-ruff check src/ tests/  # lint
+pytest                         # run tests
+ruff check src/ tests/         # lint
+mypy src/sentinel/             # type check
 ```
 
 ## Documentation
