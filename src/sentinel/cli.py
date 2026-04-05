@@ -126,6 +126,78 @@ def approve(finding_id: int, repo: str, db: str | None) -> None:
 
         update_finding_status(conn, finding_id, FindingStatus.APPROVED)
         click.echo(f"Approved finding #{finding_id}: {finding.title}")
+        click.echo("Run 'sentinel create-issues' to create GitHub issues from approved findings.")
+    finally:
+        conn.close()
+
+
+@main.command("create-issues")
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--owner", default=None, help="GitHub repo owner (or SENTINEL_GITHUB_OWNER env)")
+@click.option("--github-repo", default=None, help="GitHub repo name (or SENTINEL_GITHUB_REPO env)")
+@click.option("--token", default=None, help="GitHub token (or SENTINEL_GITHUB_TOKEN env)")
+@click.option("--dry-run", is_flag=True, help="Show what would be created without making API calls")
+def create_issues_cmd(
+    repo: str,
+    db: str | None,
+    owner: str | None,
+    github_repo: str | None,
+    token: str | None,
+    dry_run: bool,
+) -> None:
+    """Create GitHub issues from approved findings.
+
+    Requires GitHub token via --token or SENTINEL_GITHUB_TOKEN env var.
+    Deduplicates against existing open issues with sentinel labels.
+    """
+    from sentinel.config import load_config
+    from sentinel.github import create_issues, get_approved_findings, get_github_config
+    from sentinel.store.db import get_connection
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    gh = get_github_config(owner=owner, repo=github_repo, token=token)
+    if gh is None and not dry_run:
+        click.echo(
+            "GitHub config required. Set --owner, --github-repo, --token "
+            "or SENTINEL_GITHUB_OWNER, SENTINEL_GITHUB_REPO, SENTINEL_GITHUB_TOKEN env vars.",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    conn = get_connection(db_path)
+    try:
+        approved = get_approved_findings(conn)
+        if not approved:
+            click.echo("No approved findings to create issues for.")
+            return
+
+        click.echo(f"Found {len(approved)} approved finding(s)")
+
+        if dry_run and gh is None:
+            # dry run without GitHub config — just show what would be created
+            for _db_id, finding in approved:
+                click.echo(f"  [DRY RUN] Would create: [Sentinel] {finding.title}")
+            return
+
+        results = create_issues(conn, gh, dry_run=dry_run)
+
+        for r in results:
+            if r.success:
+                if r.issue_url:
+                    click.echo(f"  ✓ {r.fingerprint} → {r.issue_url}")
+                elif r.error == "dry run":
+                    click.echo(f"  [DRY RUN] {r.fingerprint}")
+                else:
+                    click.echo(f"  ✓ {r.fingerprint}")
+            else:
+                click.echo(f"  ✗ {r.fingerprint}: {r.error}")
+
+        success_count = sum(1 for r in results if r.success)
+        click.echo(f"\n{success_count}/{len(results)} issues created successfully")
     finally:
         conn.close()
 
