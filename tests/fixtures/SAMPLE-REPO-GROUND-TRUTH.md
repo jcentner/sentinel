@@ -22,6 +22,10 @@ Used by the eval test to measure precision@k and recall.
 10. **src/myapp/main.py:23** — `# XXX` (no description)
 11. **src/myapp/config.py:3** — `# TODO: Load from environment variables`
 
+### todo-fixme: HTML comment TODOs in markdown
+12. **README.md** — `<!-- TODO: add contributing section before release -->`
+13. **README.md** — `<!-- FIXME: update install instructions for v2 -->`
+
 ## Expected TRUE NEGATIVES (scanner should NOT find these)
 
 ### docs-drift: valid references

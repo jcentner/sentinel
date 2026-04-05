@@ -78,6 +78,17 @@ detector = "lint-runner"
 file_path = "main.py"
 title = "F841"
 
+# todo-scanner: HTML comment TODOs in markdown
+[[expected]]
+detector = "todo-scanner"
+file_path = "README.md"
+title = "add contributing section"
+
+[[expected]]
+detector = "todo-scanner"
+file_path = "README.md"
+title = "update install instructions"
+
 # ── Known false positive patterns (should NOT appear) ────────────
 
 # Code block content should not be flagged

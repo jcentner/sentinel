@@ -59,3 +59,6 @@ Dependencies can also be listed in indented blocks:
 
 Note: `numpy` is in the indented block but NOT in pyproject.toml —
 this tests indented fenced code block parsing.
+
+<!-- TODO: add contributing section before release -->
+<!-- FIXME: update install instructions for v2 -->
