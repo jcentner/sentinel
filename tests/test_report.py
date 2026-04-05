@@ -144,9 +144,14 @@ class TestReportGeneration:
         """Reports should truncate LOW findings to keep the report scannable."""
         from sentinel.core.report import _MAX_LOW_FINDINGS
 
-        # Create more LOW findings than the cap
+        # Create more LOW findings than the cap, each in a unique directory
+        # so they don't cluster together
         lows = [
-            _make_finding(severity=Severity.LOW, title=f"Low issue {i}")
+            _make_finding(
+                severity=Severity.LOW,
+                title=f"Low issue {i}",
+                file_path=f"dir{i}/x.py",
+            )
             for i in range(_MAX_LOW_FINDINGS + 10)
         ]
         report = generate_report(lows, _make_run())

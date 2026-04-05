@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sentinel import __version__
+from sentinel.core.clustering import FindingCluster, cluster_findings
 from sentinel.models import Finding, RunSummary, Severity
 
 # Maximum number of LOW findings shown in the report before truncation
@@ -96,14 +97,21 @@ def _build_report(findings: list[Finding], run: RunSummary) -> str:
             lines.append(f"### {category}")
             lines.append("")
 
-            for f in cat_findings:
+            items = cluster_findings(cat_findings)
+            for item in items:
                 if sev == Severity.LOW and shown >= _MAX_LOW_FINDINGS:
                     break
-                lines.append(_format_finding_line(f))
-                lines.append("")
-                lines.append(_format_evidence_block(f))
-                lines.append("")
-                shown += 1
+                if isinstance(item, FindingCluster):
+                    lines.append(_format_cluster(item))
+                    lines.append("")
+                    # A collapsed cluster counts as 1 visible item
+                    shown += 1
+                else:
+                    lines.append(_format_finding_line(item))
+                    lines.append("")
+                    lines.append(_format_evidence_block(item))
+                    lines.append("")
+                    shown += 1
 
             if sev == Severity.LOW and shown >= _MAX_LOW_FINDINGS:
                 break
@@ -188,6 +196,24 @@ def _format_evidence_block(finding: Finding) -> str:
             lines.append("")
 
     lines.append("  </details>")
+    return "\n".join(lines)
+
+
+def _format_cluster(cluster: FindingCluster) -> str:
+    """Collapsed cluster of related findings with individual items inside."""
+    n = len(cluster.findings)
+    path = cluster.common_path or "(no file)"
+    lines = [
+        "<details>",
+        f"<summary><strong>{n} related findings</strong> in <code>{path}</code></summary>",
+        "",
+    ]
+    for f in cluster.findings:
+        lines.append(_format_finding_line(f))
+        lines.append("")
+        lines.append(_format_evidence_block(f))
+        lines.append("")
+    lines.append("</details>")
     return "\n".join(lines)
 
 
