@@ -4,15 +4,6 @@ agents:
   - planner
   - reviewer
   - Explore
-handoffs:
-  - label: Review Last Slice
-    agent: reviewer
-    prompt: "Review the most recent implementation changes against Sentinel conventions and the locked vision."
-    send: false
-  - label: Research Before Deciding
-    agent: planner
-    prompt: "Research the open question or design decision described above before I proceed with implementation."
-    send: false
 ---
 
 # Autonomous Build Loop
