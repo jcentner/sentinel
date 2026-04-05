@@ -1,56 +1,56 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 9 — embedding-based context gatherer)
+> Last updated: 2026-04-05 (Session 10 — docs-code alignment and --target CLI)
 
-## Session 9 Summary
+## Session 10 Summary
 
 ### Current Objective
-Implement embedding-based semantic context for the LLM judge — the single biggest quality lever remaining.
+Fix docs-code misalignments found by thorough audit, expose the targeted scan API via CLI.
 
 ### What Was Accomplished
 
-**Embedding-based context gatherer (TD-001 resolved, OQ-004 resolved):**
-1. ADR-009: full architecture decision for embedding system
-2. `embed_texts()` function in `core/ollama.py` — calls Ollama `/api/embed` endpoint, batch support
-3. Schema migration v5: `chunks` table (file_path, start/end line, content, embedding BLOB, model) + `embed_meta` table
-4. `store/embeddings.py`: CRUD operations, cosine similarity, vector packing (float32 → bytes), `query_similar()` top-k retrieval
-5. `core/indexer.py`: file collection (skip dirs/binary/large files), 50-line chunking with 10-line overlap, incremental re-indexing via content hash, batch embedding
-6. `core/context.py` upgraded: queries embedding index for each finding, adds top-5 similar chunks (threshold ≥0.3) as evidence, graceful fallback to heuristic-only
-7. `core/runner.py`: auto-builds embedding index during scan when `embed_model` is configured
-8. New `sentinel index <repo>` CLI command with `--embed-model`, `--clear`, `--ollama-url`
-9. `scan` command: new `--embed-model` flag
-10. `config.py`: three new fields — `embed_model`, `embed_chunk_size`, `embed_chunk_overlap`
-11. 35 new tests: vector packing, cosine similarity, chunk store CRUD, query_similar, metadata, chunking, indexer (with mocked embeddings), context integration, config, schema migration
+**Docs-code alignment fixes (critical):**
+1. Architecture overview: trigger modes now accurately describe Manual as the only implemented trigger; cron/systemd documented as external user-configured tools instead of implying built-in scheduling exists
+2. Architecture overview: scope section corrected — Full scan is the default, not incremental
+3. Architecture overview: replaced internal "Session 9" reference with date
 
-**Documentation updates:**
-12. OQ-002 formally resolved (markdown file + CLI — as implemented)
-13. OQ-004 formally resolved (→ ADR-009)
-14. TD-001 resolved in tech-debt.md
-15. Architecture overview updated with embedding context details
-16. ADR index updated (009 added, next: 010)
-17. Glossary: 3 new terms (embedding index, chunk, cosine similarity)
-18. README: feature list, CLI examples, test count updated
+**README completeness:**
+4. Added `--embed-model` and `--target` to scan options table
+5. Added all 3 embed config keys to sentinel.toml example
+6. Added `--repo` context to suppress/approve examples
+7. Added `--ground-truth` to eval example
+8. Added scheduling section with cron and systemd timer examples
+9. Added targeted scan usage example
+10. Noted `-v, --verbose` is a global flag placed before subcommands
+11. Fixed cron redirect order (was `2>&1 >>`, now `>> 2>&1`)
+
+**Detector interface alignment:**
+12. Moved `test-runner` from "Planned (MVP)" to "Planned (Phase 2+)" — was never implemented, never tracked as deferred
+13. Updated status line from "Session 8" to date format
+
+**New feature: `--target` CLI flag:**
+14. Added `--target, -t` option (repeatable) to `sentinel scan` command
+15. Sets ScopeType.TARGETED and passes target_paths to run_scan()
+16. Errors if combined with `--incremental`
+17. Test verifies scope and target_paths propagate to detector context
 
 ### Decisions Made This Session
-1. No sqlite-vec dependency — store embeddings as raw float32 BLOBs in SQLite, use pure Python cosine similarity. Fast enough for typical repo sizes (<10K chunks). Can upgrade to sqlite-vec later for performance.
-2. Default embedding model: `nomic-embed-text` (137M params, 768 dims, fits alongside Qwen3.5:4b in 8GB VRAM)
-3. Embedding is fully opt-in — disabled by default. Zero impact on users who don't configure it.
-4. Incremental re-indexing via file content hashing — only re-embed changed files
-5. Similarity threshold 0.3 — below this, chunks are not relevant enough to include
-6. 50-line chunks with 10-line overlap — balances context window size vs. granularity
+1. No built-in scheduler — cron/systemd timer is the right approach for overnight runs. Sentinel is a scan tool, not a daemon. README documents the setup.
+2. `test-runner` detector deferred to Phase 2+ — it was listed as "Planned" in MVP but was never implemented or tracked. Now properly tracked.
+3. Targeted scan paths are passed as-is (strings, not validated as `click.Path`) — detectors handle missing paths gracefully. Some detectors (dep-audit, git-hotspots) are inherently repo-scoped and run fully regardless of target_paths.
 
 ### Test Results
 ```
-316 passed in 17.18s
+317 passed in 18.06s
 ruff check: All checks passed
 ```
 
 ### Repository State
 - **Phases**: 0–3 and 5 complete, Phase 4 in progress (git-hotspots done)
 - **Implementation**: 21 Python modules in `src/sentinel/`
-- **Tests**: 19 test files, 316 tests
+- **Tests**: 19 test files, 317 tests
 - **Detectors**: todo-scanner (with markdown HTML comments), lint-runner, dep-audit, docs-drift (with Poetry), git-hotspots
-- **CLI**: scan (with --incremental, --embed-model), eval, suppress, approve, history, create-issues, index
+- **CLI**: scan (with --incremental, --embed-model, --target), eval, suppress, approve, history, create-issues, index
 - **DB schema**: v5 (migration framework, finding persistence, llm_log, commit_sha, chunks + embed_meta)
 - **Open questions**: 2 open (OQ-005, OQ-006), 5 resolved
 - **ADRs**: 9 accepted
@@ -61,38 +61,36 @@ ruff check: All checks passed
 
 ### What Remains / Next Priority
 1. TD-002: Async detector interface (low priority)
-2. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, complexity/dead-code (deferred)
+2. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, complexity/dead-code, test-runner (deferred)
 3. Multi-repo support (OQ-005)
-4. Watch mode / cron trigger for overnight scanning
-5. Custom detector plugin system
-6. Finding grouping by root cause (deeper than directory clustering)
-7. mypy type checking cleanup (26 minor errors — mostly missing type args)
-8. Web UI for report review (future)
+4. Custom detector plugin system
+5. Finding grouping by root cause (deeper than directory clustering)
+6. mypy type checking cleanup (26 minor errors — mostly missing type args)
+7. Web UI for report review (future)
 
 ### Blocked Items
 None.
 
-### Files Created This Session
+### Files Modified This Session
+- `docs/architecture/overview.md` — trigger modes, scope section, date reference
+- `docs/architecture/detector-interface.md` — test-runner moved to Phase 2+, date status line
+- `README.md` — options table, config example, scheduling section, targeted scan, eval example, suppress/approve context
+- `src/sentinel/cli.py` — added `--target` flag to scan command
+- `tests/test_runner.py` — added `test_targeted_scan` with context capture verification
 - `docs/architecture/decisions/009-embedding-context-gatherer.md` — ADR for embedding architecture
 - `src/sentinel/core/indexer.py` — embedding index builder
 - `src/sentinel/store/embeddings.py` — embedding store CRUD
 - `tests/test_embeddings.py` — 35 embedding system tests
 
-### Files Modified This Session
-- `src/sentinel/core/ollama.py` — added `embed_texts()` function
-- `src/sentinel/core/context.py` — embedding-based context with fallback
-- `src/sentinel/core/runner.py` — auto-indexing, `embed_model` parameter
-- `src/sentinel/cli.py` — `index` command, `--embed-model` on scan
-- `src/sentinel/config.py` — 3 new embed config fields
-- `src/sentinel/store/db.py` — schema v5 migration
-- `docs/reference/open-questions.md` — OQ-002 + OQ-004 resolved
-- `docs/reference/tech-debt.md` — TD-001 resolved
-- `docs/architecture/overview.md` — context gatherer section updated
-- `docs/architecture/decisions/README.md` — ADR-009 in index
-- `docs/reference/glossary.md` — 3 new terms
-- `README.md` — features, CLI examples, test count
-
 ## Previous Sessions
+
+### Session 9 Summary (embedding-based context gatherer)
+- Implemented embedding-based semantic context (ADR-009, TD-001 resolved, OQ-004 resolved)
+- `embed_texts()`, `store/embeddings.py`, `core/indexer.py`, `core/context.py` upgraded
+- Schema v5: chunks + embed_meta tables
+- New `sentinel index` CLI command, `--embed-model` on scan
+- 35 new tests (316 total)
+- Decisions: no sqlite-vec, nomic-embed-text default, opt-in only, incremental re-indexing
 
 ## Session 8 Summary
 
