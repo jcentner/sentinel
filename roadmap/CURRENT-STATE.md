@@ -43,66 +43,87 @@ Fix code review findings, validate with real Ollama, and rigorously audit detect
 18. 177 tests pass, lint clean
 19. Committed: `fix(detectors): 7 precision/recall fixes + eval test with ground truth`
 
+**Turn 5 — Code review + fixes:**
+20. Code review: 2 major, 3 medium, 3 minor findings
+21. Fixed: indentation error, CommonMark fence toggle, EOF warning, ground truth consistency
+22. Committed: `fix(review): address 6 code review findings`
+
+**Turn 6 — TD-006, TD-007, and sentinel eval CLI:**
+23. Fixed TD-007: `_row_to_finding` now restores timestamp from DB `created_at` column
+24. Fixed TD-006: dep-audit now uses target repo's pyproject.toml deps, not current env
+25. Created `sentinel eval` CLI command (ADR-008): runs detectors, compares to ground truth TOML, prints precision/recall/FP/FN
+26. Created shared eval module `src/sentinel/core/eval.py` with `evaluate()` and `load_ground_truth()`
+27. Refactored test_eval.py to use shared TOML ground truth as single source of truth
+28. 182 tests pass, lint clean
+29. Committed: `feat: resolve TD-006/TD-007, add sentinel eval CLI (ADR-008)`
+
 ### Repository State
 - **Phase 0 (Foundation)**: Complete
 - **Phase 1 (MVP Core)**: Complete
 - **Phase 2 (Docs-Drift)**: Complete
 - **Phase 3 (Refinement)**: Significantly advanced — precision/recall at 100% on ground truth
-- **Implementation code**: 14 Python modules in `src/sentinel/`
-- **Test code**: 13 test files, 177 tests (including 7 eval tests)
+- **Implementation code**: 15 Python modules in `src/sentinel/`
+- **Test code**: 13 test files, 182 tests (including 8 eval tests)
 - **Detectors**: todo-scanner, lint-runner, dep-audit, docs-drift
+- **CLI commands**: scan, eval, suppress, approve, history
 - **Vision lock**: Baselined (Session 1), one revision
 - **Open questions**: 4 open (OQ-002, OQ-004, OQ-005, OQ-006), 3 resolved
 - **ADRs**: 8 accepted
-- **Tech debt**: 8 items (TD-001 through TD-008)
+- **Tech debt**: 6 active (TD-001 through TD-005, TD-008), 2 resolved (TD-006, TD-007)
 - **Lint**: Clean (ruff)
 
 ### Test Results
 ```
-177 passed in 3.42s
+182 passed in 11.02s
 ruff check: All checks passed
-Eval: 100% precision, 100% recall on seeded ground truth
+sentinel eval: 93% precision, 100% recall on seeded ground truth
 ```
 
 ### Decisions Made This Session
 1. `think: false` required in all Ollama API calls for reasoning models
 2. Default model `qwen3.5:4b` (was `qwen3:4b`)
 3. Seeded test repo as formal evaluation mechanism (ADR-008 criteria)
-4. dep-audit excluded from eval tests (audits wrong env — TD-006)
-5. Code block state machine for fenced block tracking (not regex-only)
+4. TOML format for ground truth files (stdlib tomllib, no external deps)
+5. CommonMark-compliant fenced block toggle (`^ {0,3}\`{3,}`)
 6. Dual path resolution for inline paths (doc-dir + repo-root)
 7. Non-greedy TODO regex with lookahead for multi-match support
+8. dep-audit: generate temp requirements file from pyproject.toml deps when no requirements.txt
 
 ### What Remains / Next Priority
 **Phase 3 continued / Phase 4 planning:**
 1. Finding persistence scoring (recurring findings gain confidence) — deferred
 2. Incremental run optimization (only scan changed files) — deferred
-3. Consider git-hotspots detector (Phase 4)
-4. Consider Semgrep integration (Phase 4)
-5. GitHub issue creation workflow (Phase 5)
-6. Address TD-006 (dep-audit wrong env) — medium priority
-7. Address TD-007 (timestamp round-trip) — low priority
-8. Address TD-008 (Poetry format) — low priority
+3. Git-hotspots detector (Phase 4) — next priority
+4. Schema migration system (TD-003) — needed before adding DB tables
+5. Consider Semgrep integration (Phase 4)
+6. GitHub issue creation workflow (Phase 5)
+7. Address TD-008 (Poetry pyproject.toml format) — low priority
 
 ### Blocked Items
-- pip-audit not installed in venv (dep-audit detector skipped during self-scan)
-  - Not blocking: `pip install pip-audit` resolves it
+None currently.
 
 ### Files Created This Session
 - `src/sentinel/core/ollama.py` — shared Ollama utility
+- `src/sentinel/core/eval.py` — evaluation framework (precision/recall)
 - `tests/fixtures/sample-repo/` — seeded test repo (7 files)
-- `tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md` — ground truth manifest
-- `tests/test_eval.py` — precision/recall eval test (7 tests)
+- `tests/fixtures/sample-repo/ground-truth.toml` — TOML ground truth manifest
+- `tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md` — human-readable ground truth docs
 
 ### Files Modified This Session
-- `src/sentinel/detectors/docs_drift.py` — 7 fixes (code blocks, dual resolution, indented fences, model fallback)
+- `src/sentinel/cli.py` — added `eval` command
+- `src/sentinel/detectors/docs_drift.py` — 7 fixes + CommonMark fence toggle + EOF warning
+- `src/sentinel/detectors/dep_audit.py` — target repo deps instead of current env
 - `src/sentinel/detectors/todo_scanner.py` — 3 fixes (finditer, non-greedy regex, nearest marker)
 - `src/sentinel/core/report.py` — evidence per-line indentation
 - `src/sentinel/core/judge.py` — f-strings, think:false, shared check_ollama
 - `src/sentinel/core/runner.py` — default model, skip_llm config
+- `src/sentinel/store/findings.py` — timestamp restoration from DB
 - `src/sentinel/config.py` — default model
 - `pyproject.toml` — ruff exclude for fixtures
-- `docs/reference/tech-debt.md` — TD-006, TD-007, TD-008
+- `docs/reference/tech-debt.md` — TD-006/007 resolved, TD-008 added
+- `tests/test_eval.py` — refactored to use shared ground truth
+- `tests/test_store.py` — timestamp round-trip test
+- `tests/detectors/test_dep_audit.py` — pyproject deps tests
 
 ## Session 3 Summary (Previous)
 - Phase 2 (Docs-Drift) complete: stale refs, dep drift, LLM doc-code comparison
