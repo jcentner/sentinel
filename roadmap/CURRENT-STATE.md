@@ -1,6 +1,89 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 7 — polish and incremental scans)
+> Last updated: 2026-04-05 (Session 8 — clustering, markdown TODOs, Poetry support)
+
+## Session 8 Summary
+
+### Current Objective
+Reduce morning report noise via finding clustering, resolve remaining low-severity tech debt.
+
+### What Was Accomplished
+
+**Finding clustering (report noise reduction):**
+1. New module `src/sentinel/core/clustering.py` with `FindingCluster` dataclass and `cluster_findings()` function
+2. Groups findings by parent directory within each severity/category bucket
+3. Clusters of 3+ findings collapse into a `<details>` block in the morning report
+4. Collapsed clusters count as 1 item toward LOW truncation cap
+5. 18 new tests (unit + report integration)
+
+**Markdown HTML comment TODOs (TD-005 resolved):**
+6. New `_scan_markdown_todos()` method in the TODO scanner
+7. Detects `<!-- TODO/FIXME/HACK/XXX: ... -->` patterns in `.md`, `.rst`, `.adoc`, `.html` files
+8. Fixed `_get_files()` to apply `_SKIP_EXTENSIONS` filter in incremental/targeted modes (pre-existing bug)
+9. 6 new tests for markdown TODO detection
+10. Updated sample-repo ground truth: 2 new HTML comment TODO entries (15 TPs total)
+
+**Poetry pyproject.toml support (TD-008 resolved):**
+11. `_parse_pyproject_deps()` now reads `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]`
+12. Python version entries excluded automatically
+13. 4 new tests for Poetry format
+
+### Decisions Made This Session
+1. Clustering is purely a report-layer feature — no model changes or pipeline modifications needed
+2. Cluster minimum size is 3 (below that, show individually) — balances grouping vs. hiding
+3. Collapsed clusters count as 1 visible item toward LOW truncation cap (a cluster is a single scannable element)
+4. Markdown TODO scanning is a separate pass from code scanning — keeps the code scanner's FP prevention intact
+5. `_get_files()` in targeted/incremental mode should respect `_SKIP_EXTENSIONS` (bug fix)
+
+### Test Results
+```
+281 passed in 15.56s
+ruff check: All checks passed
+```
+
+### Repository State
+- **Phases**: 0–3 and 5 complete, Phase 4 in progress (git-hotspots done)
+- **Implementation**: 19 Python modules in `src/sentinel/`
+- **Tests**: 18 test files, 281 tests
+- **Detectors**: todo-scanner (with markdown HTML comments), lint-runner, dep-audit, docs-drift (with Poetry), git-hotspots
+- **CLI**: scan (with --incremental), eval, suppress, approve, history, create-issues
+- **DB schema**: v4 (migration framework, finding persistence, llm_log, commit_sha)
+- **Open questions**: 4 open (OQ-002, OQ-004, OQ-005, OQ-006), 3 resolved
+- **ADRs**: 8 accepted
+- **Tech debt**: 2 active (TD-001, TD-002), 6 resolved
+- **Lint**: Clean (ruff)
+- **Ground truth**: 15 expected TPs in eval fixture
+
+### What Remains / Next Priority
+1. TD-001: Context gatherer upgrade to embedding-based (needs OQ-004 resolution)
+2. TD-002: Async detector interface (low priority)
+3. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, complexity/dead-code
+4. Multi-repo support (OQ-005)
+5. Finding grouping by root cause (e.g., same moved directory) — deeper than directory clustering
+6. Custom detector plugin system
+7. Watch mode / cron trigger
+
+### Blocked Items
+None.
+
+### Files Created This Session
+- `src/sentinel/core/clustering.py` — finding clustering module
+- `tests/test_clustering.py` — 18 clustering tests
+
+### Files Modified This Session
+- `src/sentinel/core/report.py` — integrated clustering, added `_format_cluster()`
+- `src/sentinel/detectors/todo_scanner.py` — `_scan_markdown_todos()`, `_get_markdown_files()`, `_SKIP_EXTENSIONS` fix
+- `src/sentinel/detectors/docs_drift.py` — Poetry format in `_parse_pyproject_deps()`
+- `tests/test_report.py` — updated LOW truncation test for clustering
+- `tests/detectors/test_todo_scanner.py` — 6 markdown HTML comment tests
+- `tests/detectors/test_docs_drift.py` — 4 Poetry format tests
+- `tests/fixtures/sample-repo/README.md` — added HTML comment TODOs
+- `tests/fixtures/sample-repo/ground-truth.toml` — 2 new expected TPs
+- `tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md` — documented markdown TODO TPs
+- `docs/reference/tech-debt.md` — TD-005 and TD-008 resolved
+- `README.md` — updated test count, clustering feature
+
+## Previous Sessions
 
 ## Session 7 Summary
 
