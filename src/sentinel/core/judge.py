@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 
 from sentinel.core.ollama import check_ollama
 from sentinel.models import Finding, Severity
@@ -31,15 +32,37 @@ def judge_findings(
         logger.warning("Ollama not available — passing through raw findings")
         return findings
 
+    logger.info("Judging %d findings with model=%s", len(findings), model)
     judged: list[Finding] = []
-    for f in findings:
+    confirmed = 0
+    rejected = 0
+    errored = 0
+    total_time = 0.0
+    for i, f in enumerate(findings, 1):
         try:
+            t0 = time.monotonic()
             result = _judge_single(f, model, ollama_url)
+            elapsed = time.monotonic() - t0
+            total_time += elapsed
+            verdict = result.context.get("judge_verdict", "unknown") if result.context else "no_parse"
+            if verdict == "confirmed":
+                confirmed += 1
+            elif verdict == "likely_false_positive":
+                rejected += 1
+            logger.info(
+                "  [%d/%d] %s → %s (%.1fs)",
+                i, len(findings), f.title[:60], verdict, elapsed,
+            )
             judged.append(result)
         except Exception:
+            errored += 1
             logger.warning("Judge failed for finding: %s — using raw", f.title)
             judged.append(f)
 
+    logger.info(
+        "Judge complete: %d confirmed, %d likely_fp, %d errors (%.1fs total)",
+        confirmed, rejected, errored, total_time,
+    )
     return judged
 
 
@@ -50,6 +73,7 @@ def _judge_single(
     import httpx
 
     prompt = _build_prompt(finding)
+    logger.debug("Judge prompt for '%s':\n%s", finding.title[:60], prompt)
 
     resp = httpx.post(
         f"{ollama_url}/api/generate",
@@ -66,6 +90,10 @@ def _judge_single(
 
     data = resp.json()
     response_text = data.get("response", "")
+    tokens = data.get("eval_count", 0)
+    gen_time_ns = data.get("eval_duration", 0)
+    logger.debug("Judge raw response for '%s' (%d tokens, %.0fms):\n%s",
+                 finding.title[:60], tokens, gen_time_ns / 1e6, response_text[:500])
 
     judgment = _parse_judgment(response_text)
     if judgment:
@@ -73,6 +101,7 @@ def _judge_single(
         finding.context["judge"] = judgment
 
         # Adjust severity if the judge says so
+        old_severity = finding.severity
         try:
             new_severity = Severity(judgment["adjusted_severity"])
             finding.severity = new_severity
@@ -85,6 +114,15 @@ def _judge_single(
             finding.context["judge_verdict"] = "likely_false_positive"
         else:
             finding.context["judge_verdict"] = "confirmed"
+
+        if finding.severity != old_severity:
+            logger.debug("Judge adjusted severity: %s → %s for '%s'",
+                         old_severity.value, finding.severity.value, finding.title[:60])
+        summary = judgment.get("summary", "")
+        if summary:
+            logger.debug("Judge summary for '%s': %s", finding.title[:60], summary)
+    else:
+        logger.debug("Judge returned no parseable judgment for '%s'", finding.title[:60])
 
     return finding
 

@@ -84,6 +84,8 @@ def run_scan(
     # 7. LLM Judge (optional)
     if not skip_judge:
         deduped = judge_findings(deduped, model=model, ollama_url=ollama_url)
+    else:
+        logger.info("LLM judge skipped (--skip-judge)")
 
     # 8. Track finding persistence (occurrence counts)
     fingerprints = [f.fingerprint for f in deduped if f.fingerprint]

@@ -514,18 +514,24 @@ class DocsDriftDetector(Detector):
         model = config.get("model", "qwen3.5:4b")
 
         if not check_ollama(ollama_url):
+            logger.debug("Ollama unavailable — skipping doc-code drift for %s", doc_path)
             return []
 
         findings: list[Finding] = []
         pairs = self._extract_doc_code_pairs(content, doc_path, repo_root)
+        logger.debug("Doc-code drift: found %d comparison pairs in %s", len(pairs), doc_path)
 
         for doc_block, code_path, code_content, line_num in pairs:
             try:
+                logger.debug("LLM comparing %s (line %d) vs %s (model=%s)",
+                             doc_path, line_num, code_path, model)
                 result = self._llm_compare(
                     doc_block, doc_path, code_path, code_content, model, ollama_url
                 )
                 if result and not result.get("is_accurate", True):
                     issue = result.get("issue", "Documentation may not match implementation")
+                    logger.info("Doc-code drift found: %s (line %d) vs %s: %s",
+                                doc_path, line_num, code_path, issue)
                     findings.append(
                         Finding(
                             detector=self.name,
@@ -559,6 +565,9 @@ class DocsDriftDetector(Detector):
                             },
                         )
                     )
+                elif result:
+                    logger.debug("LLM says docs accurate: %s (line %d) vs %s",
+                                 doc_path, line_num, code_path)
             except Exception:
                 logger.debug("LLM comparison failed for %s block at line %d", doc_path, line_num)
 
@@ -677,6 +686,8 @@ class DocsDriftDetector(Detector):
 
         data = resp.json()
         text = data.get("response", "").strip()
+        tokens = data.get("eval_count", 0)
+        logger.debug("Doc-code LLM response (%d tokens): %s", tokens, text[:300])
 
         # Extract JSON from response
         try:
