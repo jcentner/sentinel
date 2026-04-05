@@ -51,7 +51,7 @@ EXPECTED_FALSE_POSITIVES = [
     ("docs-drift", "README.md", "path/to/nonexistent.md"),
     # String literal TODOs should not be flagged
     ("todo-scanner", "main.py", "inside a string"),
-    ("todo-scanner", "main.py", "TODO: fake"),
+    ("todo-scanner", "main.py", "fake"),
     # Mid-sentence TODO mention should not be flagged
     ("todo-scanner", "main.py", "find TODOs"),
 ]

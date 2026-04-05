@@ -12,14 +12,15 @@ Used by the eval test to measure precision@k and recall.
 
 ### docs-drift: dependency drift
 4. **README.md** mentions `pip install flask` but flask is not in pyproject.toml
+5. **README.md** indented install block mentions `pip install numpy` but numpy is not in pyproject.toml
 
 ### todo-fixme
-5. **src/myapp/main.py:5** — `# TODO: Add proper logging configuration`
-6. **src/myapp/main.py:11** — `# FIXME: Handle keyboard interrupt gracefully`
-7. **src/myapp/main.py:14** — `# HACK: hardcoded data for now`
-8. **src/myapp/main.py:20** — `# TODO: this IS a real comment TODO` (second TODO on line)
-9. **src/myapp/main.py:23** — `# XXX` (no description)
-10. **src/myapp/config.py:3** — `# TODO: Load from environment variables`
+6. **src/myapp/main.py:5** — `# TODO: Add proper logging configuration`
+7. **src/myapp/main.py:11** — `# FIXME: Handle keyboard interrupt gracefully`
+8. **src/myapp/main.py:14** — `# HACK: hardcoded data for now`
+9. **src/myapp/main.py:20** — `# TODO: this IS a real comment TODO` (second TODO on line)
+10. **src/myapp/main.py:23** — `# XXX` (no description)
+11. **src/myapp/config.py:3** — `# TODO: Load from environment variables`
 
 ## Expected TRUE NEGATIVES (scanner should NOT find these)
 
@@ -45,5 +46,4 @@ Used by the eval test to measure precision@k and recall.
 
 ## Stretch goals (known limitations, may not detect)
 
-### docs-drift: indented code block
-- README.md indented install block mentions `numpy` — FN if indented fences not parsed
+(None remaining — indented fence parsing was implemented in Session 4.)

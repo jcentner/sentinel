@@ -59,7 +59,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 ### TD-006: dep-audit audits current environment, not target repo
 **Status**: Active
 **Severity**: Medium
-**Introduced**: Phase 1, discovered Session 4
+**Introduced**: Phase 1
 **Description**: The dep-audit detector runs `pip-audit` against the running Python environment rather than parsing the target repo's declared dependencies (pyproject.toml, requirements.txt). When scanning an external repo, it reports vulnerabilities in *Sentinel's own* deps rather than the target's.
 **Impact**: dep-audit findings are misleading when the target repo is not the current venv. Eval tests exclude dep-audit findings to avoid noise.
 **Proposed resolution**: Parse the target repo's dependency manifest and either (a) run `pip-audit -r requirements.txt` pointing at the target, or (b) resolve dependencies in a temporary venv.
@@ -67,7 +67,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 ### TD-007: Finding timestamp lost on DB round-trip
 **Status**: Active
 **Severity**: Low
-**Introduced**: Phase 1, discovered Session 4
+**Introduced**: Phase 1
 **Description**: `_row_to_finding` in `findings.py` does not restore the `timestamp` column from the database. Findings reloaded from the store get a new `datetime.now()` via the dataclass default.
 **Impact**: Historical timing data is silently lost when retrieving findings later.
 **Proposed resolution**: Parse the stored `created_at` column into the Finding's `timestamp` field in `_row_to_finding`.
@@ -75,7 +75,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 ### TD-008: Poetry pyproject.toml dependency format not supported
 **Status**: Active
 **Severity**: Low
-**Introduced**: Phase 2, discovered Session 4
+**Introduced**: Phase 2
 **Description**: The docs-drift dependency drift check only parses PEP 621 `[project.dependencies]` and pip `requirements.txt`. Poetry's `[tool.poetry.dependencies]` format is not supported.
 **Impact**: Repos using Poetry will get no dependency drift detection.
 **Proposed resolution**: Add a Poetry-format parser branch in `_check_dependency_drift`.

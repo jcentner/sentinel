@@ -161,9 +161,8 @@ class DocsDriftDetector(Detector):
 
         in_fenced_block = False
         for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            # Track fenced code block state (``` with optional language tag)
-            if stripped.startswith("```"):
+            # Track fenced code block state — up to 3 spaces indent per CommonMark
+            if re.match(r"^ {0,3}`{3,}", line):
                 in_fenced_block = not in_fenced_block
                 continue
             if in_fenced_block:
@@ -186,7 +185,10 @@ class DocsDriftDetector(Detector):
                     path_text, doc_path, doc_dir, repo_root, line_num, line,
                 )
                 if finding:
-                        findings.append(finding)
+                    findings.append(finding)
+
+        if in_fenced_block:
+            logger.warning("Unterminated fenced code block in %s", doc_path)
 
         return findings
 
