@@ -171,3 +171,28 @@ class TestRunner:
         updated = get_run_by_id(db_conn, run.id)
         assert updated.completed_at is not None
         assert updated.finding_count == 1
+
+    def test_targeted_scan(self, db_conn, repo):
+        """Targeted scan passes target_paths to detectors and uses TARGETED scope."""
+        from sentinel.models import ScopeType
+
+        captured_ctx = {}
+
+        class _CapturingDetector(_MockDetector):
+            def detect(self, context: DetectorContext) -> list[Finding]:
+                captured_ctx["scope"] = context.scope
+                captured_ctx["target_paths"] = context.target_paths
+                return super().detect(context)
+
+        detector = _CapturingDetector([_sample_finding()])
+        run, findings, _report = run_scan(
+            str(repo), db_conn,
+            detectors=[detector],
+            skip_judge=True,
+            scope=ScopeType.TARGETED,
+            target_paths=["x.py"],
+        )
+        assert run.id is not None
+        assert len(findings) == 1
+        assert captured_ctx["scope"] == ScopeType.TARGETED
+        assert captured_ctx["target_paths"] == ["x.py"]

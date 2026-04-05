@@ -35,6 +35,7 @@ def main(verbose: bool) -> None:
     help="Only scan files changed since the last completed run",
 )
 @click.option("--embed-model", default=None, help="Ollama embedding model (enables semantic context)")
+@click.option("--target", "-t", multiple=True, help="Scan only specific paths (repeatable)")
 def scan(
     repo_path: str,
     model: str | None,
@@ -44,6 +45,7 @@ def scan(
     db: str | None,
     incremental: bool,
     embed_model: str | None,
+    target: tuple[str, ...],
 ) -> None:
     """Run detectors against a repository and generate a morning report."""
     from sentinel.config import load_config
@@ -72,7 +74,15 @@ def scan(
 
         scope_type = None
         changed_files = None
-        if incremental:
+        target_paths = list(target) if target else None
+
+        if incremental and target_paths:
+            click.echo("Cannot use --incremental and --target together.", err=True)
+            raise SystemExit(1)
+
+        if target_paths:
+            scope_type = ScopeType.TARGETED
+        elif incremental:
             scope_type, changed_files = prepare_incremental(str(repo), conn)
             if scope_type == ScopeType.INCREMENTAL and changed_files is not None and len(changed_files) == 0:
                 click.echo("No changes since last run — nothing to scan.")
@@ -91,6 +101,8 @@ def scan(
             kwargs["scope"] = scope_type
         if changed_files is not None:
             kwargs["changed_files"] = changed_files
+        if target_paths is not None:
+            kwargs["target_paths"] = target_paths
 
         run, findings, _report = run_scan(str(repo), conn, **kwargs)
         click.echo(f"Scan complete: {len(findings)} findings in run #{run.id}")
