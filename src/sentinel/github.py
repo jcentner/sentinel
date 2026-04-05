@@ -34,6 +34,19 @@ class IssueResult:
     error: str | None = None
 
 
+# Valid GitHub owner/repo names: alphanumeric, hyphens, dots, underscores
+_GITHUB_NAME_RE = re.compile(r"^[a-zA-Z0-9._-]+$")
+
+
+def _validate_github_name(value: str, label: str) -> None:
+    """Validate a GitHub owner or repo name to prevent path traversal."""
+    if not _GITHUB_NAME_RE.match(value):
+        raise ValueError(
+            f"Invalid GitHub {label}: {value!r}. "
+            f"Must contain only alphanumeric characters, hyphens, dots, or underscores."
+        )
+
+
 def get_github_config(
     owner: str | None = None,
     repo: str | None = None,
@@ -42,6 +55,7 @@ def get_github_config(
     """Resolve GitHub config from arguments or environment variables.
 
     Returns None if required fields are missing.
+    Raises ValueError if owner or repo contain invalid characters.
     """
     resolved_owner = owner or os.environ.get("SENTINEL_GITHUB_OWNER", "")
     resolved_repo = repo or os.environ.get("SENTINEL_GITHUB_REPO", "")
@@ -49,6 +63,9 @@ def get_github_config(
 
     if not resolved_owner or not resolved_repo or not resolved_token:
         return None
+
+    _validate_github_name(resolved_owner, "owner")
+    _validate_github_name(resolved_repo, "repo")
 
     return GitHubConfig(
         owner=resolved_owner,
@@ -191,8 +208,15 @@ def _get_existing_issue_fingerprints(
         logger.warning("Could not fetch existing issues for dedup check")
         return {}
 
+    issues = resp.json()
+    if len(issues) >= 100:
+        logger.warning(
+            "Fetched 100 issues (API page limit) — dedup may be incomplete. "
+            "Consider closing resolved sentinel issues on GitHub."
+        )
+
     fingerprints: dict[str, str] = {}
-    for issue in resp.json():
+    for issue in issues:
         body = issue.get("body", "") or ""
         match = re.search(r"<!-- sentinel:fingerprint:(\w+) -->", body)
         if match:

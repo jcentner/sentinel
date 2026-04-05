@@ -85,11 +85,7 @@ def run_scan(
     if not skip_judge:
         deduped = judge_findings(deduped, model=model, ollama_url=ollama_url)
 
-    # 8. Store findings
-    for f in deduped:
-        insert_finding(conn, run.id, f)
-
-    # 9. Track finding persistence (occurrence counts)
+    # 8. Track finding persistence (occurrence counts)
     fingerprints = [f.fingerprint for f in deduped if f.fingerprint]
     persistence = update_persistence(conn, fingerprints)
     for f in deduped:
@@ -101,6 +97,10 @@ def run_scan(
             f.context["first_seen"] = info.first_seen.isoformat()
             if info.occurrence_count > 1:
                 f.context["recurring"] = True
+
+    # 9. Store findings (after persistence so context_json includes occurrence data)
+    for f in deduped:
+        insert_finding(conn, run.id, f)
 
     # 10. Complete run
     complete_run(conn, run.id, finding_count=len(deduped))

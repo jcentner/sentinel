@@ -87,7 +87,7 @@ DetectorContext:
 | `todo-scanner` | Deterministic | todo-fixme | ✅ Implemented | Grep for TODO/FIXME/HACK with age from git blame |
 | `dep-audit` | Deterministic | dependency | ✅ Implemented | Wraps npm audit, pip-audit |
 | `docs-drift` | Deterministic + LLM | docs-drift | ✅ Implemented | Compares docs ↔ code, docs ↔ docs for consistency |
-| `git-hotspots` | Heuristic | git-health | Planned | Identifies high-churn files, long-untouched files |
+| `git-hotspots` | Heuristic | git-health | ✅ Implemented | Identifies high-churn files via statistical outlier analysis on git log |
 
 ### docs-drift implementation notes
 

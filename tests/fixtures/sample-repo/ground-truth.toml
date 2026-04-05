@@ -4,8 +4,8 @@
 # Each entry uses fuzzy matching: detector must match exactly,
 # file_path and title are substring matches (case-insensitive for title).
 
-# Detectors to exclude from evaluation
-exclude_detectors = ["dep-audit"]
+# Detectors to exclude from evaluation (dep-audit depends on env, git-hotspots needs git history)
+exclude_detectors = ["dep-audit", "git-hotspots"]
 
 # ── Expected true positives ──────────────────────────────────────
 

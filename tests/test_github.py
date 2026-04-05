@@ -81,6 +81,19 @@ class TestGitHubConfig:
         assert cfg.owner == "override"
         assert cfg.repo == "envrepo"
 
+    def test_rejects_path_traversal_in_owner(self):
+        with pytest.raises(ValueError, match="Invalid GitHub owner"):
+            get_github_config(owner="../../evil", repo="proj", token="tok")
+
+    def test_rejects_slash_in_repo(self):
+        with pytest.raises(ValueError, match="Invalid GitHub repo"):
+            get_github_config(owner="me", repo="proj/../../admin", token="tok")
+
+    def test_allows_valid_names(self):
+        cfg = get_github_config(owner="my-org.1", repo="my_repo-2.0", token="tok")
+        assert cfg is not None
+        assert cfg.owner == "my-org.1"
+
 
 class TestFormatIssue:
     def test_basic_format(self):

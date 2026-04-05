@@ -19,3 +19,7 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Run** | A single execution of Sentinel against a repo scope (full, incremental, or targeted). |
 | **State store** | SQLite database tracking findings, suppressions, and run history across runs. |
 | **Approval gate** | The human review step between finding a candidate issue and creating a GitHub issue. Nothing external happens without approval. |
+| **Persistence** | Tracking how many times a finding (by fingerprint) has appeared across runs. Recurring findings gain confidence. |
+| **Occurrence count** | The number of scan runs in which a specific finding fingerprint has been seen. Displayed as ♻️ ×N in reports. |
+| **Git hotspot** | A file with unusually high commit frequency (churn), identified by statistical outlier analysis on git log data. |
+| **GitHub issue creation** | The optional Phase 5 feature that creates GitHub issues from human-approved findings. Requires explicit approval and a GitHub token. |

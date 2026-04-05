@@ -90,6 +90,7 @@ def _build_report(findings: list[Finding], run: RunSummary) -> str:
     lines.append("```bash")
     lines.append("sentinel suppress <ID> -r \"reason\"  # Suppress a false positive")
     lines.append("sentinel approve <ID>               # Approve for GitHub issue creation")
+    lines.append("sentinel create-issues --dry-run     # Create GitHub issues from approved findings")
     lines.append("sentinel history                     # View past runs")
     lines.append("```")
     lines.append("")

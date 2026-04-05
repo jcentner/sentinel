@@ -25,9 +25,6 @@ _DEFAULT_DAYS = 90
 # Minimum number of commits for a file to be considered a hotspot
 _DEFAULT_MIN_COMMITS = 10
 
-# Minimum number of distinct authors for the multi-author signal
-_DEFAULT_MIN_AUTHORS = 3
-
 # Files with commit counts above (mean + threshold * stdev) are hotspots
 _DEFAULT_STDEV_THRESHOLD = 2.0
 
@@ -54,7 +51,7 @@ class GitHotspotsDetector(Detector):
 
     @property
     def categories(self) -> list[str]:
-        return ["code-quality", "maintenance"]
+        return ["git-health"]
 
     def detect(self, context: DetectorContext) -> list[Finding]:
         repo_root = context.repo_root
@@ -100,12 +97,13 @@ def _collect_churn(
     repo_root: str, days: int
 ) -> tuple[Counter[str], dict[str, set[str]]]:
     """Run git log and count commits per file + collect distinct authors."""
+    _COMMIT_SEP = "__SENTINEL_COMMIT__"
     try:
         result = subprocess.run(
             [
                 "git", "log",
                 f"--since={days} days ago",
-                "--pretty=format:%an",
+                f"--pretty=format:{_COMMIT_SEP}%an",
                 "--name-only",
             ],
             capture_output=True,
@@ -128,11 +126,11 @@ def _collect_churn(
     for line in result.stdout.splitlines():
         line = line.strip()
         if not line:
-            current_author = None
+            continue
+        if line.startswith(_COMMIT_SEP):
+            current_author = line[len(_COMMIT_SEP):]
             continue
         if current_author is None:
-            # This line is the author name
-            current_author = line
             continue
         # This line is a file path
         file_path = line
@@ -219,7 +217,7 @@ def _build_finding(
 
     return Finding(
         detector="git-hotspots",
-        category="maintenance",
+        category="git-health",
         severity=severity,
         confidence=round(confidence, 2),
         title=f"High-churn file: {file_path}",

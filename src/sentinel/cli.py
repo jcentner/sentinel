@@ -136,7 +136,7 @@ def approve(finding_id: int, repo: str, db: str | None) -> None:
 @click.option("--db", default=None, help="Database path")
 @click.option("--owner", default=None, help="GitHub repo owner (or SENTINEL_GITHUB_OWNER env)")
 @click.option("--github-repo", default=None, help="GitHub repo name (or SENTINEL_GITHUB_REPO env)")
-@click.option("--token", default=None, help="GitHub token (or SENTINEL_GITHUB_TOKEN env)")
+@click.option("--token", default=None, help="GitHub token (prefer SENTINEL_GITHUB_TOKEN env to avoid shell history leaks)")
 @click.option("--dry-run", is_flag=True, help="Show what would be created without making API calls")
 def create_issues_cmd(
     repo: str,

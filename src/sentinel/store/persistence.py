@@ -43,6 +43,7 @@ def update_persistence(
 
     # Fetch updated records
     if fingerprints:
+        # Safe: placeholders are ?-parameterized, not user-interpolated
         placeholders = ",".join("?" for _ in fingerprints)
         rows = conn.execute(
             f"SELECT * FROM finding_persistence WHERE fingerprint IN ({placeholders})",
@@ -66,6 +67,7 @@ def get_persistence_info(
     if not fingerprints:
         return {}
 
+    # Safe: placeholders are ?-parameterized, not user-interpolated
     placeholders = ",".join("?" for _ in fingerprints)
     rows = conn.execute(
         f"SELECT * FROM finding_persistence WHERE fingerprint IN ({placeholders})",

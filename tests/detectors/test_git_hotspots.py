@@ -72,7 +72,7 @@ class TestDetectorProperties:
         assert detector.tier == DetectorTier.HEURISTIC
 
     def test_categories(self, detector):
-        assert "maintenance" in detector.categories
+        assert "git-health" in detector.categories
 
 
 class TestNotGitRepo:
@@ -116,7 +116,7 @@ class TestEndToEnd:
         hot_findings = [f for f in findings if "hot.py" in f.title]
         assert len(hot_findings) == 1
         assert hot_findings[0].detector == "git-hotspots"
-        assert hot_findings[0].category == "maintenance"
+        assert hot_findings[0].category == "git-health"
         assert hot_findings[0].file_path == "hot.py"
         assert len(hot_findings[0].evidence) > 0
 
