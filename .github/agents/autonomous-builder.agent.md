@@ -321,6 +321,17 @@ If a needed test does not exist, create it as part of the same slice.
 
 Do not mark work complete if it is untested.
 
+#### Post-implementation consistency checks
+
+Before committing a slice that touches 3+ files, also verify:
+
+1. **Stale references**: When resolving an OQ or TD, grep the entire `docs/` and `src/` tree for other references to that OQ/TD ID and for keywords that may now be wrong (e.g., old schema version numbers, "not yet implemented" notes).
+2. **Config end-to-end**: When adding config fields, trace the value from `sentinel.toml` → `SentinelConfig` → CLI kwargs → the function that consumes it. Verify the value actually arrives at the consumer, not just at an intermediate step.
+3. **Diagram/prose consistency**: When updating a section of a doc, check diagrams, tables, and summary lines in the same file for stale information.
+4. **Reviewer subagent**: For any slice involving significant code changes (new modules, architecture changes, schema migrations), run the reviewer subagent *before* committing — not after. The review is part of the slice, not a separate phase.
+
+These checks exist because Session 9 skipped the reviewer and committed with 8 detectable issues, 4 of which were trivially catchable by grep. See `docs/reference/agent-improvement-log.md`.
+
 #### Error recovery
 
 If verification fails:
