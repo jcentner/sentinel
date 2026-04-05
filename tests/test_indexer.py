@@ -64,13 +64,10 @@ class TestShouldSkipFile:
         f.write_text("print('hello')")
         assert _should_skip_file(f) is False
 
-    def test_skip_lock_file(self, tmp_path):
-        f = tmp_path / "package-lock.json"
-        # .lock suffix — create a .lock file
-        f2 = tmp_path / "poetry.lock"
-        f.write_text("{}")
-        f2.write_text("data")
-        assert _should_skip_file(f2) is True
+    def test_skip_dotlock_file(self, tmp_path):
+        f = tmp_path / "poetry.lock"
+        f.write_text("data")
+        assert _should_skip_file(f) is True
 
 
 # ── collect_files ────────────────────────────────────────────────────
@@ -222,3 +219,14 @@ class TestBuildIndex:
 
         assert stats["files_scanned"] == 0
         assert stats["files_indexed"] == 0
+
+    def test_non_utf8_file(self, tmp_path, db_conn):
+        """Non-UTF8 files are read with errors='ignore' and indexed."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "binary.py").write_bytes(b"x = 1\n\x80\x81\x82\n")
+
+        with patch("sentinel.core.indexer.embed_texts", _mock_embed):
+            stats = build_index(str(repo), db_conn, "test-model")
+
+        assert stats["files_indexed"] == 1

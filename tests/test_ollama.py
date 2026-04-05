@@ -68,6 +68,15 @@ class TestEmbedTexts:
 
         assert result is None
 
+    def test_empty_embeddings_list(self):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"embeddings": []}
+        with patch("httpx.post", return_value=mock_resp):
+            result = embed_texts(["hello"], "model")
+
+        assert result is None
+
     def test_exception_returns_none(self):
         with patch("httpx.post", side_effect=RuntimeError("network error")):
             result = embed_texts(["hello"], "model")

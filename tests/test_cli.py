@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -103,10 +104,11 @@ class TestScanCommand:
         out1 = str(tmp_path / "r1.md")
         out2 = str(tmp_path / "r2.md")
         # First full scan to set baseline
-        runner.invoke(main, [
+        first = runner.invoke(main, [
             "scan", str(test_repo),
             "--skip-judge", "--db", db_path, "-o", out1,
         ])
+        assert first.exit_code == 0, f"First scan failed: {first.output}"
         # Second incremental scan — no changes
         result = runner.invoke(main, [
             "scan", str(test_repo),
@@ -125,7 +127,7 @@ class TestSuppressCommand:
         # Initialize DB with a scan first
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         result = runner.invoke(main, [
             "suppress", "99999",
@@ -137,7 +139,7 @@ class TestSuppressCommand:
     def test_suppress_existing_finding(self, runner, test_repo, db_path):
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         result = runner.invoke(main, [
             "suppress", "1",
@@ -155,7 +157,7 @@ class TestApproveCommand:
     def test_approve_nonexistent_finding(self, runner, test_repo, db_path):
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         result = runner.invoke(main, [
             "approve", "99999",
@@ -167,7 +169,7 @@ class TestApproveCommand:
     def test_approve_existing_finding(self, runner, test_repo, db_path):
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         result = runner.invoke(main, [
             "approve", "1",
@@ -192,7 +194,7 @@ class TestHistoryCommand:
     def test_history_after_scan(self, runner, test_repo, db_path):
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         result = runner.invoke(main, [
             "history", "--repo", str(test_repo), "--db", db_path,
@@ -209,7 +211,7 @@ class TestCreateIssuesCommand:
     def test_no_approved_findings(self, runner, test_repo, db_path):
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         result = runner.invoke(main, [
             "create-issues",
@@ -222,7 +224,7 @@ class TestCreateIssuesCommand:
         """Dry run without GitHub config should show what would be created."""
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         # Approve a finding
         runner.invoke(main, [
@@ -240,7 +242,7 @@ class TestCreateIssuesCommand:
         """Without GitHub config and no --dry-run, should fail."""
         runner.invoke(main, [
             "scan", str(test_repo),
-            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
         runner.invoke(main, [
             "approve", "1",
