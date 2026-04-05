@@ -51,12 +51,13 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: `_validate_config()` checks type and key validity at load time. Unknown keys and wrong types raise `ConfigError` with clear messages. 6 tests.
 
 ### TD-005: TODO comments in markdown are invisible
-**Status**: Active
+**Status**: Resolved (Session 8)
 **Severity**: Low
 **Introduced**: Phase 2
 **Description**: The TODO scanner skips `.md` files (to avoid false positives from docs-drift's domain), and the docs-drift detector doesn't scan for TODO/FIXME comments in markdown. HTML comment TODOs (`<!-- TODO: ... -->`) in markdown are invisible to both detectors.
 **Impact**: TODO comments in markdown documentation are never surfaced.
 **Proposed resolution**: Either add a markdown-aware TODO pattern to the TODO scanner (only matching HTML comments) or add a simple TODO check to the docs-drift detector.
+**Resolution**: Added `_scan_markdown_todos()` to the TODO scanner. Scans `.md`, `.rst`, `.adoc`, `.html` files for `<!-- TODO/FIXME/HACK/XXX: ... -->` HTML comment patterns. 6 new tests. Also fixed `_get_files()` to apply `_SKIP_EXTENSIONS` filter in incremental/targeted modes.
 
 ### TD-006: dep-audit audits current environment, not target repo
 **Status**: Resolved (Session 4)
@@ -86,6 +87,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 
 - **TD-003**: Schema migration system implemented in `store/db.py` with ordered migrations and version tracking.
 - **TD-004**: Config validation in `config.py` — type checks and unknown key rejection at load time.
+- **TD-005**: Markdown HTML comment TODOs now detected by `_scan_markdown_todos()` in the TODO scanner.
 - **TD-006**: dep-audit now targets the repo's declared dependencies (pyproject.toml or requirements.txt), not the running environment.
 - **TD-007**: `_row_to_finding` now restores the `created_at` timestamp from the database.
 

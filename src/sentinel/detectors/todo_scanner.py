@@ -31,6 +31,12 @@ _TODO_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Matches TODO/FIXME/HACK/XXX inside HTML comments: <!-- TODO: message -->
+_HTML_COMMENT_TODO = re.compile(
+    r"<!--\s*\b(TODO|FIXME|HACK|XXX)\b[:\s]*(.*?)\s*-->",
+    re.IGNORECASE,
+)
+
 # Skip binary / generated files
 _SKIP_EXTENSIONS = frozenset({
     ".pyc", ".pyo", ".so", ".o", ".a", ".dll", ".exe",
@@ -40,9 +46,12 @@ _SKIP_EXTENSIONS = frozenset({
     ".db", ".sqlite", ".sqlite3",
     ".lock",
     # Documentation files: # and * are formatting, not comment syntax.
-    # Docs-drift detector handles documentation inconsistencies instead.
+    # HTML comment TODOs in markdown are handled by _scan_markdown_todos().
     ".md", ".rst", ".adoc",
 })
+
+# Markdown/documentation extensions — scanned only for HTML comment TODOs
+_MARKDOWN_EXTENSIONS = frozenset({".md", ".rst", ".adoc", ".html", ".htm"})
 
 _SKIP_DIRS = frozenset({
     ".git", ".hg", ".svn", "__pycache__", "node_modules",
@@ -169,23 +178,29 @@ class TodoScanner(Detector):
                         )
                     )
 
+        # Also scan markdown files for HTML comment TODOs
+        md_files = self._get_markdown_files(context, repo_root)
+        findings.extend(self._scan_markdown_todos(repo_root, md_files))
+
         return findings
 
     def _get_files(
         self, context: DetectorContext, repo_root: Path
     ) -> list[Path]:
-        """Get the list of files to scan based on scope."""
+        """Get the list of code files to scan based on scope."""
         if context.scope.value == "targeted" and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
                 if (repo_root / p).is_file()
+                and (repo_root / p).suffix.lower() not in _SKIP_EXTENSIONS
             ]
         if context.scope.value == "incremental" and context.changed_files:
             return [
                 repo_root / p
                 for p in context.changed_files
                 if (repo_root / p).is_file()
+                and (repo_root / p).suffix.lower() not in _SKIP_EXTENSIONS
             ]
         return list(self._walk_files(repo_root))
 
@@ -202,6 +217,88 @@ class TodoScanner(Detector):
                     continue
                 results.append(fpath)
         return results
+
+    def _get_markdown_files(
+        self, context: DetectorContext, repo_root: Path
+    ) -> list[Path]:
+        """Get markdown/doc files to scan for HTML comment TODOs."""
+        if context.scope.value == "targeted" and context.target_paths:
+            return [
+                repo_root / p
+                for p in context.target_paths
+                if (repo_root / p).is_file()
+                and (repo_root / p).suffix.lower() in _MARKDOWN_EXTENSIONS
+            ]
+        if context.scope.value == "incremental" and context.changed_files:
+            return [
+                repo_root / p
+                for p in context.changed_files
+                if (repo_root / p).is_file()
+                and (repo_root / p).suffix.lower() in _MARKDOWN_EXTENSIONS
+            ]
+        results: list[Path] = []
+        for dirpath, dirnames, filenames in os.walk(repo_root):
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+            for fname in filenames:
+                fpath = Path(dirpath) / fname
+                if fpath.suffix.lower() in _MARKDOWN_EXTENSIONS:
+                    results.append(fpath)
+        return results
+
+    def _scan_markdown_todos(
+        self, repo_root: Path, files: list[Path]
+    ) -> list[Finding]:
+        """Scan markdown files for TODO tags inside HTML comments."""
+        findings: list[Finding] = []
+        for file_path in files:
+            try:
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+
+            for line_num, line in enumerate(content.splitlines(), start=1):
+                for match in _HTML_COMMENT_TODO.finditer(line):
+                    tag = match.group(1).upper()
+                    message = match.group(2).strip() or "(no description)"
+                    rel_path = str(file_path.relative_to(repo_root))
+
+                    blame_info = self._git_blame_line(
+                        repo_root, rel_path, line_num
+                    )
+
+                    evidence = [
+                        Evidence(
+                            type=EvidenceType.CODE,
+                            source=rel_path,
+                            content=line.strip(),
+                            line_range=(line_num, line_num),
+                        )
+                    ]
+                    if blame_info:
+                        evidence.append(
+                            Evidence(
+                                type=EvidenceType.GIT_HISTORY,
+                                source=rel_path,
+                                content=blame_info,
+                            )
+                        )
+
+                    findings.append(
+                        Finding(
+                            detector=self.name,
+                            category="todo-fixme",
+                            severity=self._tag_severity(tag),
+                            confidence=0.9,
+                            title=f"{tag}: {message[:80]}",
+                            description=f"{tag} comment in {rel_path}:{line_num} — {message}",
+                            evidence=evidence,
+                            file_path=rel_path,
+                            line_start=line_num,
+                            line_end=line_num,
+                            context={"tag": tag, "blame": blame_info},
+                        )
+                    )
+        return findings
 
     @staticmethod
     def _git_blame_line(

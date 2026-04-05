@@ -184,3 +184,79 @@ class TestTodoScanner:
         assert len(findings) == 2
         tags = {f.context["tag"] for f in findings}
         assert tags == {"TODO", "FIXME"}
+
+    def test_html_comment_todo_in_markdown(self, scanner, tmp_path):
+        """<!-- TODO: ... --> in markdown should be detected."""
+        (tmp_path / "notes.md").write_text(
+            "# My Notes\n"
+            "<!-- TODO: update this section -->\n"
+            "Some content here.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+        assert len(findings) == 1
+        assert findings[0].context["tag"] == "TODO"
+        assert "update this section" in findings[0].title
+
+    def test_html_comment_fixme_in_markdown(self, scanner, tmp_path):
+        """<!-- FIXME: ... --> should also be detected."""
+        (tmp_path / "readme.md").write_text(
+            "<!-- FIXME: broken link below -->\n"
+            "[link](broken.md)\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+        assert len(findings) == 1
+        assert findings[0].context["tag"] == "FIXME"
+        assert findings[0].severity == Severity.MEDIUM
+
+    def test_html_comment_hack_severity(self, scanner, tmp_path):
+        """<!-- HACK: ... --> in markdown should be HIGH severity."""
+        (tmp_path / "doc.md").write_text("<!-- HACK: workaround for API bug -->\n")
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+        assert len(findings) == 1
+        assert findings[0].severity == Severity.HIGH
+
+    def test_markdown_prose_todo_not_matched(self, scanner, tmp_path):
+        """Prose 'TODO' in markdown without HTML comment should not match."""
+        (tmp_path / "doc.md").write_text(
+            "# TODO List\n"
+            "- TODO: buy groceries\n"
+            "This is my TODO tracker.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+        assert findings == []
+
+    def test_multiple_html_comment_todos(self, scanner, tmp_path):
+        """Multiple HTML comment TODOs in one file."""
+        (tmp_path / "guide.md").write_text(
+            "<!-- TODO: add intro section -->\n"
+            "# Guide\n"
+            "<!-- FIXME: fix the example code -->\n"
+            "<!-- XXX: remove before release -->\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = scanner.detect(ctx)
+        assert len(findings) == 3
+        tags = {f.context["tag"] for f in findings}
+        assert tags == {"TODO", "FIXME", "XXX"}
+
+    def test_html_comment_todo_incremental(self, scanner, tmp_path):
+        """Incremental scope should include markdown files."""
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "setup.md").write_text(
+            "<!-- TODO: document install steps -->\n"
+        )
+        (tmp_path / "docs" / "other.md").write_text(
+            "<!-- TODO: should not appear -->\n"
+        )
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            scope=ScopeType.INCREMENTAL,
+            changed_files=["docs/setup.md"],
+        )
+        findings = scanner.detect(ctx)
+        assert len(findings) == 1
+        assert "document install steps" in findings[0].title
