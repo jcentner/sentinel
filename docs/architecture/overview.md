@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-> **Status**: Active — implemented in Phase 1 MVP, updated for Phase 2 (docs-drift). See [VISION-REVISION-001](../vision/VISION-REVISION-001.md) for pipeline order changes.
+> **Status**: Active — reflects implementation as of Session 8 (Phase 4 in progress).
 
 ## High-level data flow
 
@@ -9,36 +9,38 @@
 │                         Sentinel Run                             │
 │                                                                  │
 │  ┌─────────────┐    ┌─────────────┐    ┌──────────────────┐     │
-│  │  Detectors   │───▶│  Findings   │───▶│  Context Gatherer │     │
-│  │ (deterministic,│   │  (raw        │   │  (embeddings +    │     │
-│  │  heuristic)   │   │   candidates)│   │   reranker)       │     │
+│  │  Detectors   │───▶│  Fingerprint │───▶│  Deduplicator    │     │
+│  │ (Tiers 1-3)  │   │  Assignment  │   │  (suppress +     │     │
+│  │              │   │  (SHA-256)   │   │   cross-run)     │     │
 │  └─────────────┘    └─────────────┘    └──────────────────┘     │
 │                                               │                  │
 │                                               ▼                  │
-│                                        ┌──────────────┐          │
-│                                        │  LLM Judge    │          │
-│                                        │  (Ollama)     │          │
-│                                        └──────────────┘          │
-│                                               │                  │
-│                                               ▼                  │
-│  ┌─────────────┐    ┌─────────────┐    ┌──────────────┐          │
-│  │  State Store │◀──▶│  Deduper /   │◀──│  Judged       │          │
-│  │  (SQLite)    │    │  Clusterer   │   │  Findings     │          │
-│  └─────────────┘    └─────────────┘    └──────────────┘          │
+│  ┌──────────────────┐    ┌──────────────┐    ┌──────────────┐   │
+│  │  Context Gatherer │◀──│  Deduped      │───▶│  LLM Judge    │   │
+│  │  (file-proximity  │   │  Findings     │   │  (Ollama)     │   │
+│  │   heuristics)     │   └──────────────┘    └──────────────┘   │
+│  └──────────────────┘                               │            │
+│                                                     ▼            │
+│  ┌─────────────┐    ┌─────────────┐    ┌──────────────────┐     │
+│  │  State Store │◀──│  Persistence  │◀──│  Judged Findings │     │
+│  │  (SQLite v4) │   │  Tracker     │   │                  │     │
+│  └─────────────┘    └─────────────┘    └──────────────────┘     │
 │                           │                                      │
 │                           ▼                                      │
 │                    ┌─────────────┐    ┌──────────────┐           │
 │                    │  Morning     │───▶│  Human        │           │
 │                    │  Report      │    │  Approval     │           │
-│                    └─────────────┘    └──────────────┘           │
-│                                               │                  │
-│                                               ▼                  │
-│                                        ┌──────────────┐          │
-│                                        │  GitHub       │          │
-│                                        │  Issue Creator│          │
-│                                        └──────────────┘          │
+│                    │ (+ clustering)│    └──────────────┘           │
+│                    └─────────────┘           │                   │
+│                                              ▼                   │
+│                                       ┌──────────────┐           │
+│                                       │  GitHub       │           │
+│                                       │  Issue Creator│           │
+│                                       └──────────────┘           │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+**Pipeline order:** Detectors → Fingerprint → Dedup → Context → Judge → Persistence → Store → Report. Dedup runs *before* context gathering and judging to avoid wasting effort on suppressed or duplicate findings.
 
 ## Component responsibilities
 
@@ -46,78 +48,92 @@
 
 Detectors produce raw candidate findings. They come in three tiers:
 
-**Tier 1 — Deterministic**: Lint output, test failures, TODO/FIXME scans, dependency audit, SQLFluff, Semgrep rules, ast-grep patterns. Cheap, reliable, no model needed.
+**Tier 1 — Deterministic**: Lint output (ruff), TODO/FIXME scanning, dependency audit (pip-audit). Cheap, reliable, no model needed.
 
-**Tier 2 — Heuristic**: Git-history hotspots, churn rate, complexity metrics, dead-code analysis via tree-sitter reachability. Also model-free.
+**Tier 2 — Heuristic**: Git-history hotspots (commit frequency analysis). Also model-free.
 
-**Tier 3 — LLM-assisted**: The model reads code + context and judges whether something is problematic. This is where the model earns its keep, but also where false positives live.
+**Tier 3 — LLM-assisted**: Docs-drift doc-code comparison via Ollama. The model evaluates whether documentation accurately describes the code, not the primary signal source.
 
-The MVP should be **mostly Tier 1 + 2, with the LLM as the judgment/summarization layer**, not the primary signal source.
+The architecture is **mostly Tier 1 + 2, with the LLM as the judgment/summarization layer**, not the primary signal source.
 
 Every detector produces a `Finding` conforming to the [Detector Interface](detector-interface.md).
 
-### 2. Context Gatherer
+**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2).
 
-For each candidate finding, retrieves supporting context:
-- Relevant code (via embeddings search or tree-sitter symbol extraction)
-- Related tests, docs, config
-- Git history for the affected area
+### 2. Fingerprint Assignment
 
-Uses local embeddings (e.g., Qwen3-Embedding-0.6B) + reranker (e.g., bge-reranker-v2-m3) to select the most relevant context windows.
+Each finding receives a content-based fingerprint (SHA-256 of `detector:category:file_path:normalized_content`, truncated to 16 hex chars). Normalization is detector-specific to ensure stability across trivial changes like whitespace or line-number shifts.
 
-### 3. LLM Judge
+### 3. Deduplicator
+
+Compares fingerprints against the state store to:
+- Skip previously suppressed findings
+- Skip duplicates within the same run
+- Mark recurring findings (found in prior runs) for higher visibility
+
+### 4. Context Gatherer
+
+For each candidate finding, retrieves supporting context using file-proximity heuristics:
+- Surrounding code lines (±5 lines around the affected location)
+- Related test files (convention-based matching: `test_<module>.py`)
+- Recent git log for the affected file
+
+**Current implementation**: Heuristic-only (no embeddings). Upgrading to embedding-based retrieval is tracked as TD-001 / OQ-004.
+
+### 5. LLM Judge
 
 A small local model (via Ollama) that receives each finding + its gathered context and answers:
 - Is this likely real?
 - What evidence supports it?
 - How severe is it?
-- What GitHub issue should be opened?
 
-This is a structured judgment task, not open-ended generation. The model doesn't invent findings — it evaluates candidates produced by deterministic/heuristic detectors.
+This is a structured judgment task, not open-ended generation. The model doesn't invent findings — it evaluates candidates produced by deterministic/heuristic detectors. The judge is optional and can be skipped with `--skip-judge`.
 
-### 4. State Store (SQLite)
+### 6. Persistence Tracker
+
+Updates per-fingerprint occurrence counts. Findings seen across multiple runs get `occurrence_count` and `recurring` annotations, enabling the report to show recurrence badges (♻️ ×N) and new-vs-recurring breakdowns.
+
+### 7. State Store (SQLite)
 
 Persistent state across runs. Tracks:
 - Previous findings (fingerprinted for dedup)
 - Suppression flags (user-marked false positives)
-- Run history (when, what scope, how many findings)
-- Finding lifecycle (new → confirmed → suppressed → resolved)
+- Run history (when, what scope, how many findings, commit SHA)
+- Finding lifecycle (new → confirmed → approved → suppressed → resolved)
 - Finding persistence (occurrence counts across runs)
 - LLM interaction log (prompts, responses, tokens, timing, verdicts for every LLM call)
 
-Schema version is tracked with an ordered migration framework. Current schema: v3.
+Schema version is tracked with an ordered migration framework. Current schema: v4.
 
-This is a Phase 1 design decision, not Phase 2. Deduplication is a trust feature.
+This is a Phase 1 design decision, not a later addition. Deduplication is a trust feature.
 
-### 5. Deduper / Clusterer
-
-Compares new findings against state store to:
-- Skip previously suppressed findings
-- Group related findings (e.g., same pattern across multiple files)
-- Track finding persistence (same issue found on 3 consecutive runs = higher confidence)
-
-### 6. Morning Report
+### 8. Morning Report
 
 Primary output. Markdown formatted, designed to be scannable in under 2 minutes:
 - One line per finding with severity, confidence, category
+- Findings grouped by severity → category
+- Related findings clustered by directory (3+ findings collapse into `<details>` blocks)
 - Expandable evidence sections
-- Clear approve/suppress actions per finding
-- Summary statistics (new, recurring, resolved since last run)
+- Judge summary and verdict badges (♻️ recurring, ⚠️ FP?)
+- Clear approve/suppress actions per finding with fingerprint IDs
+- Summary statistics (severity counts, new vs recurring, per-detector breakdown)
+- LOW findings truncated at 20 to prevent report bloat
 
-### 7. GitHub Issue Creator
+### 9. GitHub Issue Creator
 
-Takes approved findings and creates GitHub issues. Only runs after explicit human approval. Does not plan implementation, does not open PRs.
+Takes approved findings and creates GitHub issues. Only runs after explicit human approval via `sentinel create-issues`. Deduplicates against existing open issues using fingerprint markers in issue bodies. Supports dry-run mode.
 
 ## What runs where
 
 | Component | Runs on | Resource profile |
 |-----------|---------|-----------------|
-| Detectors | CPU | Lightweight — linters, grep, tree-sitter |
-| Embeddings | GPU (8 GB VRAM) | Qwen3-Embedding-0.6B via Ollama |
-| Reranker | GPU or CPU | bge-reranker-v2-m3 |
+| Detectors | CPU | Lightweight — linters, grep, subprocess |
+| Context Gatherer | CPU | File reads, git log commands |
 | LLM Judge | GPU (8 GB VRAM) | Qwen3.5 4B Q4_K_M via Ollama (~2.8 GB) |
 | State Store | Disk | SQLite, negligible |
 | Report | CPU | Markdown generation |
+
+Embeddings and reranker models are not yet implemented (see TD-001). When added, they will also use GPU via Ollama.
 
 ## Trigger modes
 

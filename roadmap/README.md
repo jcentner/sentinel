@@ -19,7 +19,7 @@ Local Repo Sentinel development follows a phased approach. Each phase has a plan
 
 Phase planning docs live in `roadmap/phases/` and are created via the `/phase-plan` prompt.
 
-### Phase 0: Project Foundation (Current)
+### Phase 0: Project Foundation
 - Project vision and strategy docs
 - Architecture overview and detector interface design
 - ADR system with 6 initial decisions
@@ -27,7 +27,7 @@ Phase planning docs live in `roadmap/phases/` and are created via the `/phase-pl
 - Open questions, tech debt, and glossary systems
 - Competitive analysis and critical review
 
-### Phase 1: MVP Core (Next)
+### Phase 1: MVP Core
 - ~~Resolve OQ-001 (implementation language)~~ → ADR-007
 - ~~Resolve OQ-007 (eval criteria)~~ → ADR-008
 - Core run loop: trigger → detect → gather context → judge → report
@@ -47,7 +47,7 @@ Phase planning docs live in `roadmap/phases/` and are created via the `/phase-pl
 - ~~False-positive suppression UX~~ ✅
 - ~~Finding persistence scoring (recurring = higher confidence)~~ ✅
 - ~~Report format improvements~~ ✅
-- Incremental run optimization (deferred)
+- ~~Incremental run optimization~~ ✅
 
 ### Phase 4: Extended Detectors
 - ~~Git-hotspot analysis~~ ✅

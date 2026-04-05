@@ -1,6 +1,6 @@
 # Detector Interface Specification
 
-> **Status**: Active — implemented in Phase 1 MVP. Updated for Phase 2 (docs-drift detector).
+> **Status**: Active — reflects implementation as of Session 8.
 
 ## Design principle
 
@@ -12,7 +12,6 @@ Every detector outputs zero or more `Finding` objects:
 
 ```
 Finding:
-  id:           string        # Unique fingerprint for dedup (hash of detector + category + file_path + key content)
   detector:     string        # Which detector produced this (e.g., "lint-runner", "todo-scanner")
   category:     string        # Finding category (see categories below)
   severity:     "low" | "medium" | "high" | "critical"
@@ -24,6 +23,8 @@ Finding:
   line_end:     int | null    # Optional end line
   evidence:     Evidence[]    # Supporting evidence items
   context:      object | null # Additional detector-specific metadata
+  fingerprint:  string        # Content-hash for dedup (assigned post-construction by the pipeline, not by detectors)
+  status:       FindingStatus # Lifecycle state: new, confirmed, approved, suppressed, resolved
   timestamp:    datetime      # When the finding was produced
 ```
 
@@ -78,7 +79,7 @@ DetectorContext:
   run_id:       int | null        # Current run ID for LLM log entries
 ```
 
-> **Note**: The original spec included `previous_run: RunSummary | null` in DetectorContext for delta/trend detection. This is deferred to Phase 2 when trend-based detectors (e.g., git-hotspots) are implemented.
+> **Note**: The original spec included `previous_run: RunSummary | null` in DetectorContext for delta/trend detection. This is not yet implemented. Git-hotspots works without it by querying git log directly.
 
 ## Planned detectors (MVP)
 
