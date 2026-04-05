@@ -439,7 +439,11 @@ class DocsDriftDetector(Detector):
 
     @staticmethod
     def _parse_pyproject_deps(path: Path) -> set[str]:
-        """Extract dependency names from pyproject.toml using stdlib tomllib."""
+        """Extract dependency names from pyproject.toml using stdlib tomllib.
+
+        Supports both PEP 621 [project.dependencies] and Poetry
+        [tool.poetry.dependencies] / [tool.poetry.group.*.dependencies].
+        """
         deps: set[str] = set()
         try:
             with open(path, "rb") as f:
@@ -447,18 +451,31 @@ class DocsDriftDetector(Detector):
         except (OSError, tomllib.TOMLDecodeError):
             return deps
 
-        # Main dependencies
+        # PEP 621: Main dependencies
         for dep_str in data.get("project", {}).get("dependencies", []):
             name = re.split(r"[>=<\[!~;]", dep_str)[0].strip()
             if name:
                 deps.add(name)
 
-        # Optional dependencies (all groups)
+        # PEP 621: Optional dependencies (all groups)
         optional = data.get("project", {}).get("optional-dependencies", {})
         for group_deps in optional.values():
             for dep_str in group_deps:
                 name = re.split(r"[>=<\[!~;]", dep_str)[0].strip()
                 if name:
+                    deps.add(name)
+
+        # Poetry: [tool.poetry.dependencies]
+        poetry_deps = data.get("tool", {}).get("poetry", {}).get("dependencies", {})
+        for name in poetry_deps:
+            if name.lower() != "python":
+                deps.add(name)
+
+        # Poetry: [tool.poetry.group.*.dependencies]
+        poetry_groups = data.get("tool", {}).get("poetry", {}).get("group", {})
+        for group in poetry_groups.values():
+            for name in group.get("dependencies", {}):
+                if name.lower() != "python":
                     deps.add(name)
 
         return deps

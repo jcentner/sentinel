@@ -76,12 +76,13 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Parse the stored `created_at` column into the Finding's `timestamp` field in `_row_to_finding`.
 
 ### TD-008: Poetry pyproject.toml dependency format not supported
-**Status**: Active
+**Status**: Resolved (Session 8)
 **Severity**: Low
 **Introduced**: Phase 2
 **Description**: The docs-drift dependency drift check only parses PEP 621 `[project.dependencies]` and pip `requirements.txt`. Poetry's `[tool.poetry.dependencies]` format is not supported.
 **Impact**: Repos using Poetry will get no dependency drift detection.
 **Proposed resolution**: Add a Poetry-format parser branch in `_check_dependency_drift`.
+**Resolution**: `_parse_pyproject_deps()` now reads `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]`, skipping `python` entries. 4 new tests.
 
 ## Resolved
 
@@ -90,6 +91,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 - **TD-005**: Markdown HTML comment TODOs now detected by `_scan_markdown_todos()` in the TODO scanner.
 - **TD-006**: dep-audit now targets the repo's declared dependencies (pyproject.toml or requirements.txt), not the running environment.
 - **TD-007**: `_row_to_finding` now restores the `created_at` timestamp from the database.
+- **TD-008**: Poetry pyproject.toml dependency format now supported in docs-drift.
 
 ## Won't Fix
 

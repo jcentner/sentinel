@@ -487,3 +487,81 @@ class TestDocCodeDrift:
         findings = detector.detect(ctx)
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
         assert len(drift) == 0
+
+
+class TestPoetryDependencyDrift:
+    """Tests for Poetry pyproject.toml dependency format (TD-008)."""
+
+    def test_poetry_deps_not_flagged(self, detector, tmp_path):
+        """Packages in [tool.poetry.dependencies] should not be flagged."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.poetry]\nname = "myapp"\nversion = "1.0.0"\n\n'
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.10"\n'
+            'click = "^8.0"\n'
+            'httpx = "^0.27"\n'
+        )
+        (tmp_path / "README.md").write_text(
+            "## Install\n\n```bash\npip install click httpx\n```\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        dep_findings = [f for f in findings if f.context.get("pattern") == "dependency-drift"]
+        assert len(dep_findings) == 0
+
+    def test_poetry_missing_dep_flagged(self, detector, tmp_path):
+        """Package in docs but not in poetry deps should be flagged."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.poetry]\nname = "myapp"\nversion = "1.0.0"\n\n'
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.10"\n'
+            'click = "^8.0"\n'
+        )
+        (tmp_path / "README.md").write_text(
+            "## Install\n\n```bash\npip install click flask\n```\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        dep_findings = [f for f in findings if f.context.get("pattern") == "dependency-drift"]
+        assert len(dep_findings) == 1
+        assert "flask" in dep_findings[0].title.lower()
+
+    def test_poetry_group_deps_not_flagged(self, detector, tmp_path):
+        """Packages in [tool.poetry.group.*.dependencies] should not be flagged."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.poetry]\nname = "myapp"\nversion = "1.0.0"\n\n'
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.10"\n'
+            'click = "^8.0"\n\n'
+            "[tool.poetry.group.dev.dependencies]\n"
+            'pytest = "^8.0"\n'
+            'ruff = "^0.4"\n'
+        )
+        (tmp_path / "README.md").write_text(
+            "## Install\n\n```bash\npip install click pytest ruff\n```\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        dep_findings = [f for f in findings if f.context.get("pattern") == "dependency-drift"]
+        assert len(dep_findings) == 0
+
+    def test_python_not_flagged_as_dep(self, detector, tmp_path):
+        """'python' in [tool.poetry.dependencies] should be ignored."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.poetry]\nname = "myapp"\nversion = "1.0.0"\n\n'
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.10"\n'
+        )
+        (tmp_path / "README.md").write_text(
+            "## Install\n\n```bash\npip install python\n```\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        dep_findings = [f for f in findings if f.context.get("pattern") == "dependency-drift"]
+        # "python" is not a real pip package name, but the point is that
+        # it should not be double-counted from poetry deps
+        assert len(dep_findings) == 0
