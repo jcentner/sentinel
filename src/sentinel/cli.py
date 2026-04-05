@@ -46,6 +46,7 @@ def scan(
     """Run detectors against a repository and generate a morning report."""
     from sentinel.config import load_config
     from sentinel.core.runner import prepare_incremental, run_scan
+    from sentinel.models import ScopeType
     from sentinel.store.db import get_connection
 
     repo = Path(repo_path).resolve()
@@ -62,19 +63,17 @@ def scan(
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
 
-    output_path = output or str(repo / config.output_dir / "report.md")
-
-    scope_type = None
-    changed_files = None
-    if incremental:
-        from sentinel.models import ScopeType
-        scope_type, changed_files = prepare_incremental(str(repo), conn)
-        if scope_type == ScopeType.INCREMENTAL and changed_files is not None and len(changed_files) == 0:
-            click.echo("No changes since last run — nothing to scan.")
-            conn.close()
-            return
-
     try:
+        output_path = output or str(repo / config.output_dir / "report.md")
+
+        scope_type = None
+        changed_files = None
+        if incremental:
+            scope_type, changed_files = prepare_incremental(str(repo), conn)
+            if scope_type == ScopeType.INCREMENTAL and changed_files is not None and len(changed_files) == 0:
+                click.echo("No changes since last run — nothing to scan.")
+                return
+
         kwargs: dict = dict(
             model=config.model,
             ollama_url=config.ollama_url,

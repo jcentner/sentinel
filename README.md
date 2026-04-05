@@ -28,7 +28,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 5 detectors, LLM judge, docs-drift detection, finding persistence, git churn hotspots, and GitHub issue creation. 237 tests, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 5 detectors, LLM judge, docs-drift detection, finding persistence, git churn hotspots, and GitHub issue creation. 252 tests, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
@@ -57,7 +57,7 @@ The `[detectors]` extra installs ruff and pip-audit for full detector coverage.
 sentinel scan /path/to/repo
 ```
 
-This produces a markdown report at `/path/to/repo/.sentinel/report-<run-id>.md`.
+This produces a markdown report at `/path/to/repo/.sentinel/report.md`.
 
 **Scan without the LLM judge** (if Ollama is not running):
 
@@ -65,7 +65,7 @@ This produces a markdown report at `/path/to/repo/.sentinel/report-<run-id>.md`.
 sentinel scan /path/to/repo --skip-judge
 ```
 
-**Incremental scan** (only files changed since the last run):
+**Incremental scan** (only files with committed changes since the last run):
 
 ```bash
 sentinel scan /path/to/repo --incremental

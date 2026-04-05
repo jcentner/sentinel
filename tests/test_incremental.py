@@ -7,8 +7,8 @@ import subprocess
 import pytest
 
 from sentinel.core.runner import (
-    _git_changed_files,
-    _git_head_sha,
+    git_changed_files,
+    git_head_sha,
     prepare_incremental,
     run_scan,
 )
@@ -39,17 +39,17 @@ def git_repo(tmp_path):
 
 
 def test_git_head_sha_returns_sha(git_repo):
-    sha = _git_head_sha(str(git_repo))
+    sha = git_head_sha(str(git_repo))
     assert sha is not None
     assert len(sha) == 40
 
 
 def test_git_head_sha_non_git(tmp_path):
-    assert _git_head_sha(str(tmp_path)) is None
+    assert git_head_sha(str(tmp_path)) is None
 
 
 def test_git_changed_files_detects_changes(git_repo):
-    sha1 = _git_head_sha(str(git_repo))
+    sha1 = git_head_sha(str(git_repo))
     # Make a second commit
     (git_repo / "new.py").write_text("# new\n")
     subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True, check=True)
@@ -57,14 +57,20 @@ def test_git_changed_files_detects_changes(git_repo):
         ["git", "commit", "-m", "add new"],
         cwd=git_repo, capture_output=True, check=True,
     )
-    changed = _git_changed_files(str(git_repo), sha1)
+    changed = git_changed_files(str(git_repo), sha1)
     assert "new.py" in changed
 
 
 def test_git_changed_files_empty_when_same_sha(git_repo):
-    sha = _git_head_sha(str(git_repo))
-    changed = _git_changed_files(str(git_repo), sha)
+    sha = git_head_sha(str(git_repo))
+    changed = git_changed_files(str(git_repo), sha)
     assert changed == []
+
+
+def test_git_changed_files_returns_none_on_bad_sha(git_repo):
+    """git diff with a nonexistent SHA returns None (not empty list)."""
+    result = git_changed_files(str(git_repo), "0" * 40)
+    assert result is None
 
 
 def test_prepare_incremental_no_prior_run(git_repo):

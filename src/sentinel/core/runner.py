@@ -20,7 +20,7 @@ from sentinel.store.runs import complete_run, create_run, get_last_completed_run
 logger = logging.getLogger(__name__)
 
 
-def _git_head_sha(repo_root: str) -> str | None:
+def git_head_sha(repo_root: str) -> str | None:
     """Return the HEAD commit SHA for the repo, or None if not a git repo."""
     try:
         result = subprocess.run(
@@ -34,8 +34,13 @@ def _git_head_sha(repo_root: str) -> str | None:
     return None
 
 
-def _git_changed_files(repo_root: str, since_sha: str) -> list[str]:
-    """Return list of files changed between *since_sha* and HEAD (relative paths)."""
+def git_changed_files(repo_root: str, since_sha: str) -> list[str] | None:
+    """Return files changed between *since_sha* and HEAD (relative paths).
+
+    Returns None if the git diff command fails (e.g. since_sha was
+    force-pushed away), as distinct from an empty list meaning no
+    files changed.
+    """
     try:
         result = subprocess.run(
             ["git", "diff", "--name-only", since_sha, "HEAD"],
@@ -45,7 +50,7 @@ def _git_changed_files(repo_root: str, since_sha: str) -> list[str]:
             return [f for f in result.stdout.strip().splitlines() if f]
     except (OSError, subprocess.TimeoutExpired):
         pass
-    return []
+    return None
 
 
 def run_scan(
@@ -66,7 +71,7 @@ def run_scan(
     Returns (run_summary, findings, report_text).
     """
     repo_root = str(Path(repo_path).resolve())
-    commit_sha = _git_head_sha(repo_root)
+    commit_sha = git_head_sha(repo_root)
 
     # 1. Create run record
     run = create_run(conn, repo_root, scope, commit_sha=commit_sha)
@@ -177,7 +182,7 @@ def prepare_incremental(
         logger.info("No prior run with commit SHA — falling back to full scan")
         return ScopeType.FULL, None
 
-    head = _git_head_sha(repo_root)
+    head = git_head_sha(repo_root)
     if head is None:
         logger.info("Not a git repo — falling back to full scan")
         return ScopeType.FULL, None
@@ -186,7 +191,14 @@ def prepare_incremental(
         logger.info("HEAD unchanged since last run (%s) — nothing new", head[:8])
         return ScopeType.INCREMENTAL, []
 
-    changed = _git_changed_files(repo_root, last_run.commit_sha)
+    changed = git_changed_files(repo_root, last_run.commit_sha)
+    if changed is None:
+        logger.warning(
+            "git diff failed (SHA %s may no longer exist) — falling back to full scan",
+            last_run.commit_sha[:8],
+        )
+        return ScopeType.FULL, None
+
     logger.info(
         "Incremental scan: %d files changed since %s",
         len(changed), last_run.commit_sha[:8],

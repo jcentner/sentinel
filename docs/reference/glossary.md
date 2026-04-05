@@ -23,4 +23,5 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Occurrence count** | The number of scan runs in which a specific finding fingerprint has been seen. Displayed as ♻️ ×N in reports. |
 | **Git hotspot** | A file with unusually high commit frequency (churn), identified by statistical outlier analysis on git log data. |
 | **GitHub issue creation** | The optional Phase 5 feature that creates GitHub issues from human-approved findings. Requires explicit approval and a GitHub token. |
+| **Incremental scan** | A scan that only runs detectors on files with committed changes since the last completed run. Uses git commit SHA comparison (`git diff`). Falls back to a full scan if no prior run exists or the prior SHA is unreachable. |
 | **LLM log** | Structured SQLite table (`llm_log`) that records every LLM interaction — prompts, responses, token counts, timing, and verdicts — for statistical analysis and accuracy review. |
