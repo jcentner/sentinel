@@ -107,6 +107,7 @@ def get_known_fingerprints(conn: sqlite3.Connection) -> set[str]:
 def _row_to_finding(row: sqlite3.Row) -> Finding:
     """Convert a database row to a Finding object."""
     import json
+    from datetime import datetime
 
     evidence_data = json.loads(row["evidence_json"])
     evidence = [Evidence.from_dict(e) for e in evidence_data]
@@ -114,6 +115,8 @@ def _row_to_finding(row: sqlite3.Row) -> Finding:
     context = None
     if row["context_json"]:
         context = json.loads(row["context_json"])
+
+    timestamp = datetime.fromisoformat(row["created_at"])
 
     return Finding(
         detector=row["detector"],
@@ -129,4 +132,5 @@ def _row_to_finding(row: sqlite3.Row) -> Finding:
         context=context,
         fingerprint=row["fingerprint"],
         status=FindingStatus(row["status"]),
+        timestamp=timestamp,
     )

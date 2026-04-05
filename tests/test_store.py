@@ -126,6 +126,21 @@ class TestFindings:
         assert findings[0].severity == Severity.MEDIUM
         assert len(findings[0].evidence) == 1
 
+    def test_timestamp_round_trip(self, db_conn):
+        """Finding timestamp should survive DB insert + retrieve (TD-007)."""
+        run = create_run(db_conn, "/tmp/repo")
+        finding = _sample_finding()
+        original_ts = finding.timestamp
+        insert_finding(db_conn, run.id, finding)
+
+        retrieved = get_findings_by_run(db_conn, run.id)[0]
+        # Should preserve the original timestamp, not generate a new one
+        assert retrieved.timestamp.year == original_ts.year
+        assert retrieved.timestamp.month == original_ts.month
+        assert retrieved.timestamp.day == original_ts.day
+        assert retrieved.timestamp.hour == original_ts.hour
+        assert retrieved.timestamp.minute == original_ts.minute
+
     def test_get_by_id(self, db_conn):
         run = create_run(db_conn, "/tmp/repo")
         fid = insert_finding(db_conn, run.id, _sample_finding())

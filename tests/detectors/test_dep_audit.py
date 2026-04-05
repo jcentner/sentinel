@@ -60,7 +60,9 @@ class TestDepAudit:
 
     @patch("sentinel.detectors.dep_audit.subprocess.run")
     def test_parses_vulnerabilities(self, mock_run, auditor, tmp_path):
-        (tmp_path / "pyproject.toml").write_text("[project]\nname='test'\n")
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "test"\ndependencies = ["requests>=2.25"]\n'
+        )
         mock_run.return_value = MagicMock(
             returncode=1, stdout=SAMPLE_AUDIT_OUTPUT, stderr=""
         )
@@ -69,10 +71,15 @@ class TestDepAudit:
         assert len(findings) == 1  # Only requests has vulns
         assert "PYSEC-2023-001" in findings[0].title
         assert findings[0].severity == Severity.HIGH
+        # Should use --requirement with a temp file (no requirements.txt)
+        cmd = mock_run.call_args[0][0]
+        assert "--requirement" in cmd
 
     @patch("sentinel.detectors.dep_audit.subprocess.run")
     def test_clean_dependencies(self, mock_run, auditor, tmp_path):
-        (tmp_path / "pyproject.toml").write_text("[project]\nname='test'\n")
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "test"\ndependencies = ["safe>=1.0"]\n'
+        )
         mock_run.return_value = MagicMock(
             returncode=0,
             stdout=json.dumps({"dependencies": [{"name": "safe", "version": "1.0", "vulns": []}]}),
@@ -107,7 +114,9 @@ class TestDepAudit:
 
     @patch("sentinel.detectors.dep_audit.subprocess.run")
     def test_evidence_content(self, mock_run, auditor, tmp_path):
-        (tmp_path / "pyproject.toml").write_text("[project]\nname='test'\n")
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "test"\ndependencies = ["requests>=2.25"]\n'
+        )
         mock_run.return_value = MagicMock(
             returncode=1, stdout=SAMPLE_AUDIT_OUTPUT, stderr=""
         )
@@ -132,3 +141,23 @@ class TestDepAudit:
         assert not auditor._is_python_project(tmp_path)
         (tmp_path / "pyproject.toml").write_text("")
         assert auditor._is_python_project(tmp_path)
+
+    def test_pyproject_no_deps_skips(self, auditor, tmp_path):
+        """pyproject.toml without dependencies should skip (not audit current env)."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\n')
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        # Should return empty without calling pip-audit at all
+        findings = auditor.detect(ctx)
+        assert findings == []
+
+    def test_extract_pyproject_deps(self, auditor, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "test"\ndependencies = ["click>=8.0", "httpx>=0.27"]\n'
+        )
+        deps = auditor._extract_pyproject_deps(tmp_path)
+        assert deps == ["click>=8.0", "httpx>=0.27"]
+
+    def test_extract_pyproject_no_deps(self, auditor, tmp_path):
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\n')
+        deps = auditor._extract_pyproject_deps(tmp_path)
+        assert deps is None

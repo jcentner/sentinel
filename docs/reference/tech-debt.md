@@ -57,7 +57,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Either add a markdown-aware TODO pattern to the TODO scanner (only matching HTML comments) or add a simple TODO check to the docs-drift detector.
 
 ### TD-006: dep-audit audits current environment, not target repo
-**Status**: Active
+**Status**: Resolved (Session 4)
 **Severity**: Medium
 **Introduced**: Phase 1
 **Description**: The dep-audit detector runs `pip-audit` against the running Python environment rather than parsing the target repo's declared dependencies (pyproject.toml, requirements.txt). When scanning an external repo, it reports vulnerabilities in *Sentinel's own* deps rather than the target's.
@@ -65,7 +65,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Parse the target repo's dependency manifest and either (a) run `pip-audit -r requirements.txt` pointing at the target, or (b) resolve dependencies in a temporary venv.
 
 ### TD-007: Finding timestamp lost on DB round-trip
-**Status**: Active
+**Status**: Resolved (Session 4)
 **Severity**: Low
 **Introduced**: Phase 1
 **Description**: `_row_to_finding` in `findings.py` does not restore the `timestamp` column from the database. Findings reloaded from the store get a new `datetime.now()` via the dataclass default.
@@ -82,7 +82,8 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 
 ## Resolved
 
-(None yet)
+- **TD-006**: dep-audit now targets the repo's declared dependencies (pyproject.toml or requirements.txt), not the running environment.
+- **TD-007**: `_row_to_finding` now restores the `created_at` timestamp from the database.
 
 ## Won't Fix
 

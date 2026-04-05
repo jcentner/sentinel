@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import tempfile
+import tomllib
 from pathlib import Path
 
 from sentinel.detectors.base import Detector
@@ -54,14 +56,34 @@ class DepAudit(Detector):
             logger.info("No Python project markers found — skipping dep-audit")
             return []
 
+        # Resolve a requirements source for the target repo.
+        # This ensures we audit the target's deps, not Sentinel's own env.
+        req_file = self._find_requirements(repo_root)
+        pyproject_deps = None
+        if not req_file:
+            pyproject_deps = self._extract_pyproject_deps(repo_root)
+            if not pyproject_deps:
+                logger.info("No requirements.txt or pyproject.toml dependencies — skipping dep-audit")
+                return []
+
         # Build command: --format json for structured output
         cmd = ["pip-audit", "--format=json", "--output=-"]
 
-        # If there's a requirements file, use it directly
-        req_file = self._find_requirements(repo_root)
         if req_file:
             cmd.extend(["--requirement", str(req_file)])
+            return self._exec_audit(cmd, repo_root)
 
+        # Generate a temp requirements file from pyproject.toml deps
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", prefix="sentinel-deps-", delete=True
+        ) as tmp:
+            tmp.write("\n".join(pyproject_deps) + "\n")
+            tmp.flush()
+            cmd.extend(["--requirement", tmp.name])
+            return self._exec_audit(cmd, repo_root)
+
+    def _exec_audit(self, cmd: list[str], repo_root: Path) -> list[Finding]:
+        """Execute pip-audit and parse its JSON output."""
         try:
             result = subprocess.run(
                 cmd,
@@ -113,6 +135,27 @@ class DepAudit(Detector):
             if path.exists():
                 return path
         return None
+
+    @staticmethod
+    def _extract_pyproject_deps(repo_root: Path) -> list[str] | None:
+        """Extract dependency specifiers from pyproject.toml.
+
+        Returns a list of PEP 508 dependency strings suitable for a
+        requirements file, or None if no dependencies are declared.
+        """
+        pyproject = repo_root / "pyproject.toml"
+        if not pyproject.exists():
+            return None
+        try:
+            with open(pyproject, "rb") as f:
+                data = tomllib.load(f)
+        except (OSError, tomllib.TOMLDecodeError):
+            return None
+
+        deps: list[str] = list(data.get("project", {}).get("dependencies", []))
+        if not deps:
+            return None
+        return deps
 
     @staticmethod
     def _vuln_to_finding(dep: dict, vuln: dict) -> Finding:

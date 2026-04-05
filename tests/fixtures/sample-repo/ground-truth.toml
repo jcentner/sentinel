@@ -1,0 +1,114 @@
+# Ground truth for the seeded sample-repo test fixture.
+# Used by `sentinel eval` and `tests/test_eval.py` to measure precision/recall.
+#
+# Each entry uses fuzzy matching: detector must match exactly,
+# file_path and title are substring matches (case-insensitive for title).
+
+# Detectors to exclude from evaluation
+exclude_detectors = ["dep-audit"]
+
+# ── Expected true positives ──────────────────────────────────────
+
+# docs-drift: stale references
+[[expected]]
+detector = "docs-drift"
+file_path = "README.md"
+title = "old_handler.py"
+
+[[expected]]
+detector = "docs-drift"
+file_path = "README.md"
+title = "docs/api.md"
+
+[[expected]]
+detector = "docs-drift"
+file_path = "getting-started.md"
+title = "overview.md"
+
+# docs-drift: dependency drift
+[[expected]]
+detector = "docs-drift"
+file_path = "README.md"
+title = "flask"
+
+[[expected]]
+detector = "docs-drift"
+file_path = "README.md"
+title = "numpy"
+
+# todo-fixme
+[[expected]]
+detector = "todo-scanner"
+file_path = "config.py"
+title = "TODO"
+
+[[expected]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "Add proper logging"
+
+[[expected]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "FIXME"
+
+[[expected]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "HACK"
+
+[[expected]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "this IS a real comment"
+
+[[expected]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "XXX"
+
+# lint
+[[expected]]
+detector = "lint-runner"
+file_path = "main.py"
+title = "F401"
+
+[[expected]]
+detector = "lint-runner"
+file_path = "main.py"
+title = "F841"
+
+# ── Known false positive patterns (should NOT appear) ────────────
+
+# Code block content should not be flagged
+[[false_positives]]
+detector = "docs-drift"
+file_path = "README.md"
+title = "does_not_exist.py"
+
+[[false_positives]]
+detector = "docs-drift"
+file_path = "README.md"
+title = "nonexistent_file.py"
+
+[[false_positives]]
+detector = "docs-drift"
+file_path = "README.md"
+title = "path/to/nonexistent.md"
+
+# String literal TODOs should not be flagged
+[[false_positives]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "inside a string"
+
+[[false_positives]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "fake"
+
+# Mid-sentence TODO mention should not be flagged
+[[false_positives]]
+detector = "todo-scanner"
+file_path = "main.py"
+title = "find TODOs"

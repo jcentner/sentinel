@@ -162,5 +162,80 @@ def history(repo: str, db: str | None, limit: int) -> None:
         conn.close()
 
 
+@main.command()
+@click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
+@click.option("--ground-truth", "-g", default=None, type=click.Path(exists=True),
+              help="Path to ground-truth.toml file (default: <repo>/ground-truth.toml)")
+@click.option("--db", default=None, help="Database path")
+def eval(
+    repo_path: str,
+    ground_truth: str | None,
+    db: str | None,
+) -> None:
+    """Evaluate detector precision/recall against annotated ground truth.
+
+    Runs all detectors on REPO_PATH and compares results to GROUND_TRUTH.
+    Prints precision, recall, and details of mismatches.
+    """
+    from sentinel.core.eval import evaluate, load_ground_truth
+    from sentinel.core.runner import run_scan
+    from sentinel.store.db import get_connection
+
+    repo = Path(repo_path).resolve()
+
+    # Find ground truth file
+    gt_path = Path(ground_truth) if ground_truth else repo / "ground-truth.toml"
+    if not gt_path.exists():
+        click.echo(f"Ground truth file not found: {gt_path}", err=True)
+        click.echo("Create a ground-truth.toml file or use --ground-truth to specify one.", err=True)
+        raise SystemExit(1)
+
+    gt = load_ground_truth(gt_path)
+
+    # Run scan (skip LLM judge for deterministic evaluation)
+    conn = get_connection(db or ":memory:")
+    try:
+        _, findings, _ = run_scan(
+            str(repo), conn, skip_judge=True, output_path="/dev/null",
+        )
+    finally:
+        conn.close()
+
+    result = evaluate(findings, gt)
+
+    # Print results
+    click.echo("")
+    click.echo("═══ Sentinel Evaluation ═══")
+    click.echo(f"Repo:     {repo}")
+    click.echo(f"Findings: {result.total_findings}")
+    click.echo(f"TP:       {result.true_positives}")
+    click.echo(f"Missing:  {len(result.missing)}")
+    click.echo(f"FP found: {result.false_positives_found}")
+    click.echo("")
+    click.echo(f"Precision: {result.precision:.0%}")
+    click.echo(f"Recall:    {result.recall:.0%}")
+
+    if result.missing:
+        click.echo("")
+        click.echo("Missing expected findings:")
+        for m in result.missing:
+            click.echo(f"  - [{m['detector']}] {m.get('file_path', '?')} / {m.get('title', '?')}")
+
+    if result.unexpected_fps:
+        click.echo("")
+        click.echo("Known false positives that appeared:")
+        for fp in result.unexpected_fps:
+            click.echo(f"  - {fp}")
+
+    # Exit code: 0 if precision >= 70% and recall >= 90%
+    if result.precision >= 0.70 and result.recall >= 0.90:
+        click.echo("")
+        click.echo("✓ PASS — meets ADR-008 targets (precision ≥70%, recall ≥90%)")
+    else:
+        click.echo("")
+        click.echo("✗ FAIL — below ADR-008 targets")
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
     main()
