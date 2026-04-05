@@ -1,6 +1,6 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 8 — clustering, markdown TODOs, Poetry support)
+> Last updated: 2026-04-05 (Session 8 — clustering, tech debt cleanup, docs alignment)
 
 ## Session 8 Summary
 
@@ -28,6 +28,12 @@ Reduce morning report noise via finding clustering, resolve remaining low-severi
 12. Python version entries excluded automatically
 13. 4 new tests for Poetry format
 
+**Docs-code alignment (major docs update):**
+14. Rewrote `docs/architecture/overview.md` — corrected pipeline diagram, removed aspirational embeddings claims, updated schema version, added clustering/persistence/fingerprinting as explicit pipeline steps
+15. Updated `docs/architecture/detector-interface.md` — renamed `id` to `fingerprint`, added `status` field, fixed `previous_run` note
+16. Fixed `roadmap/README.md` — corrected stale phase labels, marked incremental as complete
+17. Added 6 new glossary terms: clustering, FindingCluster, targeted scan, ground truth, evaluation, migration framework
+
 ### Decisions Made This Session
 1. Clustering is purely a report-layer feature — no model changes or pipeline modifications needed
 2. Cluster minimum size is 3 (below that, show individually) — balances grouping vs. hiding
@@ -37,7 +43,7 @@ Reduce morning report noise via finding clustering, resolve remaining low-severi
 
 ### Test Results
 ```
-281 passed in 15.56s
+281 passed in 16.66s
 ruff check: All checks passed
 ```
 
@@ -53,6 +59,7 @@ ruff check: All checks passed
 - **Tech debt**: 2 active (TD-001, TD-002), 6 resolved
 - **Lint**: Clean (ruff)
 - **Ground truth**: 15 expected TPs in eval fixture
+- **Docs**: Architecture overview, detector interface, roadmap, and glossary all aligned with actual implementation
 
 ### What Remains / Next Priority
 1. TD-001: Context gatherer upgrade to embedding-based (needs OQ-004 resolution)
@@ -81,6 +88,10 @@ None.
 - `tests/fixtures/sample-repo/ground-truth.toml` — 2 new expected TPs
 - `tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md` — documented markdown TODO TPs
 - `docs/reference/tech-debt.md` — TD-005 and TD-008 resolved
+- `docs/architecture/overview.md` — full rewrite to match implementation
+- `docs/architecture/detector-interface.md` — Finding schema updated
+- `roadmap/README.md` — phase labels and incremental status fixed
+- `docs/reference/glossary.md` — 6 new terms added
 - `README.md` — updated test count, clustering feature
 
 ## Previous Sessions
