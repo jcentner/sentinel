@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+logger = logging.getLogger(__name__)
 
-_SCHEMA_SQL = """\
+# Bump this when adding new migrations. Must equal the highest migration version.
+SCHEMA_VERSION = 2
+
+# -------------------------------------------------------------------
+# Base schema (v1) — applied to fresh databases
+# -------------------------------------------------------------------
+_SCHEMA_V1_SQL = """\
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY
 );
@@ -53,6 +60,25 @@ CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status);
 CREATE INDEX IF NOT EXISTS idx_suppressions_fingerprint ON suppressions(fingerprint);
 """
 
+# -------------------------------------------------------------------
+# Migrations — applied sequentially after the base schema
+# Each entry: (version, description, SQL string)
+# -------------------------------------------------------------------
+_MIGRATIONS: list[tuple[int, str, str]] = [
+    (
+        2,
+        "add finding_persistence table",
+        """\
+CREATE TABLE IF NOT EXISTS finding_persistence (
+    fingerprint TEXT PRIMARY KEY,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    occurrence_count INTEGER NOT NULL DEFAULT 1
+);
+""",
+    ),
+]
+
 
 def get_connection(db_path: str | Path) -> sqlite3.Connection:
     """Open (or create) a SQLite database and ensure schema is current."""
@@ -69,15 +95,33 @@ def get_connection(db_path: str | Path) -> sqlite3.Connection:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create tables if they don't exist and track schema version."""
-    conn.executescript(_SCHEMA_SQL)
+    """Create tables if they don't exist and apply pending migrations."""
+    conn.executescript(_SCHEMA_V1_SQL)
 
     row = conn.execute(
         "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
     ).fetchone()
 
-    if row is None:
-        conn.execute(
-            "INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,)
-        )
+    current_version = row["version"] if row else 0
+
+    if current_version == 0:
+        # Fresh database — stamp it at v1
+        conn.execute("INSERT INTO schema_version (version) VALUES (?)", (1,))
         conn.commit()
+        current_version = 1
+
+    # Apply any pending migrations
+    _apply_migrations(conn, current_version)
+
+
+def _apply_migrations(conn: sqlite3.Connection, current_version: int) -> None:
+    """Apply all migrations newer than current_version."""
+    for version, description, sql in _MIGRATIONS:
+        if version > current_version:
+            logger.info("Applying migration v%d: %s", version, description)
+            conn.executescript(sql)
+            conn.execute(
+                "INSERT INTO schema_version (version) VALUES (?)", (version,)
+            )
+            conn.commit()
+            logger.info("Migration v%d applied successfully", version)

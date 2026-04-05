@@ -33,12 +33,13 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Migrate to async in Phase 2 when concurrent detector execution matters. Spec updated to reflect sync for now.
 
 ### TD-003: No schema migration system
-**Status**: Active
+**Status**: Resolved (Session 5)
 **Severity**: Medium
 **Introduced**: Phase 1
 **Description**: The SQLite store tracks a `SCHEMA_VERSION` integer but has no migration framework. Schema changes require manual SQL scripts or database recreation.
 **Impact**: Upgrading between versions may lose data.
 **Proposed resolution**: Add a simple migration runner (ordered SQL files or Python functions keyed by version) before Phase 2 adds new tables.
+**Resolution**: Implemented migration framework in `store/db.py`. Migrations are ordered `(version, description, sql)` tuples applied sequentially. Base schema (v1) is always created, then pending migrations are applied on DB open. First migration (v2) adds `finding_persistence` table.
 
 ### TD-004: Config values not type-validated
 **Status**: Active
@@ -82,6 +83,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 
 ## Resolved
 
+- **TD-003**: Schema migration system implemented in `store/db.py` with ordered migrations and version tracking.
 - **TD-006**: dep-audit now targets the repo's declared dependencies (pyproject.toml or requirements.txt), not the running environment.
 - **TD-007**: `_row_to_finding` now restores the `created_at` timestamp from the database.
 

@@ -58,8 +58,11 @@ def _build_report(findings: list[Finding], run: RunSummary) -> str:
     lines.append("")
 
     # New vs recurring breakdown
-    new_count = sum(1 for f in findings if not (f.context and f.context.get("recurring")))
-    recurring_count = sum(1 for f in findings if f.context and f.context.get("recurring"))
+    recurring_count = sum(
+        1 for f in findings
+        if f.context and f.context.get("occurrence_count", 1) > 1
+    )
+    new_count = len(findings) - recurring_count
     lines.append(f"**New**: {new_count} | **Recurring**: {recurring_count}")
     lines.append("")
 
@@ -108,21 +111,21 @@ def _format_finding_line(finding: Finding) -> str:
             location += f":{finding.line_start}"
 
     confidence_pct = int(finding.confidence * 100)
-    recurring = ""
-    if finding.context and finding.context.get("recurring"):
-        recurring = " ♻️"
-    verdict = ""
-    if finding.context and finding.context.get("judge_verdict"):
-        v = finding.context["judge_verdict"]
-        if v == "likely_false_positive":
-            verdict = " ⚠️ FP?"
+
+    badges = ""
+    if finding.context:
+        occ = finding.context.get("occurrence_count", 1)
+        if occ > 1:
+            badges += f" ♻️ ×{occ}"
+        if finding.context.get("judge_verdict") == "likely_false_positive":
+            badges += " ⚠️ FP?"
 
     # Include fingerprint as ID for suppress/approve commands
     fid = ""
     if finding.fingerprint:
         fid = f" `[{finding.fingerprint}]`"
 
-    return f"- **{finding.title}** — {location} (confidence: {confidence_pct}%){recurring}{verdict}{fid}"
+    return f"- **{finding.title}** — {location} (confidence: {confidence_pct}%){badges}{fid}"
 
 
 def _format_evidence_block(finding: Finding) -> str:

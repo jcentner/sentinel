@@ -15,7 +15,7 @@ from sentinel.models import (
     ScopeType,
     Severity,
 )
-from sentinel.store.db import get_connection
+from sentinel.store.db import SCHEMA_VERSION, get_connection
 from sentinel.store.findings import (
     get_finding_by_id,
     get_findings_by_run,
@@ -24,6 +24,10 @@ from sentinel.store.findings import (
     insert_finding,
     suppress_finding,
     update_finding_status,
+)
+from sentinel.store.persistence import (
+    get_persistence_info,
+    update_persistence,
 )
 from sentinel.store.runs import (
     complete_run,
@@ -67,18 +71,70 @@ class TestDatabase:
         assert "findings" in names
         assert "suppressions" in names
         assert "schema_version" in names
+        assert "finding_persistence" in names
 
     def test_schema_version(self, db_conn):
-        row = db_conn.execute("SELECT version FROM schema_version").fetchone()
-        assert row["version"] == 1
+        row = db_conn.execute(
+            "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+        ).fetchone()
+        assert row["version"] == SCHEMA_VERSION
 
     def test_reopen_same_db(self, tmp_path):
         db_path = tmp_path / "sentinel.db"
         conn1 = get_connection(db_path)
         conn1.close()
         conn2 = get_connection(db_path)
-        row = conn2.execute("SELECT version FROM schema_version").fetchone()
-        assert row["version"] == 1
+        row = conn2.execute(
+            "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+        ).fetchone()
+        assert row["version"] == SCHEMA_VERSION
+        conn2.close()
+
+    def test_migration_from_v1(self, tmp_path):
+        """Simulate a v1 database and verify migration to v2 applies."""
+        import sqlite3
+
+        db_path = tmp_path / "old.db"
+        # Create a v1-style database manually
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("CREATE TABLE schema_version (version INTEGER PRIMARY KEY)")
+        conn.execute("INSERT INTO schema_version (version) VALUES (1)")
+        conn.execute(
+            """CREATE TABLE runs (
+                id INTEGER PRIMARY KEY, repo_path TEXT, started_at TEXT,
+                completed_at TEXT, scope TEXT DEFAULT 'full', finding_count INTEGER DEFAULT 0
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE findings (
+                id INTEGER PRIMARY KEY, run_id INTEGER, fingerprint TEXT,
+                detector TEXT, category TEXT, severity TEXT, confidence REAL,
+                title TEXT, description TEXT, file_path TEXT, line_start INTEGER,
+                line_end INTEGER, evidence_json TEXT, context_json TEXT,
+                status TEXT DEFAULT 'new', created_at TEXT
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE suppressions (
+                id INTEGER PRIMARY KEY, fingerprint TEXT UNIQUE,
+                reason TEXT, suppressed_at TEXT
+            )"""
+        )
+        conn.commit()
+        conn.close()
+
+        # Reopen via get_connection — migration should apply
+        conn2 = get_connection(db_path)
+        tables = conn2.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+        names = {t["name"] for t in tables}
+        assert "finding_persistence" in names
+
+        row = conn2.execute(
+            "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+        ).fetchone()
+        assert row["version"] == SCHEMA_VERSION
         conn2.close()
 
 
@@ -184,3 +240,54 @@ class TestSuppressions:
         update_finding_status(db_conn, fid, FindingStatus.CONFIRMED)
         found = get_finding_by_id(db_conn, fid)
         assert found.status == FindingStatus.CONFIRMED
+
+
+class TestPersistence:
+    def test_first_occurrence(self, db_conn):
+        result = update_persistence(db_conn, ["fp-001"])
+        assert "fp-001" in result
+        assert result["fp-001"].occurrence_count == 1
+
+    def test_multiple_occurrences(self, db_conn):
+        update_persistence(db_conn, ["fp-001"])
+        update_persistence(db_conn, ["fp-001"])
+        result = update_persistence(db_conn, ["fp-001"])
+        assert result["fp-001"].occurrence_count == 3
+
+    def test_batch_update(self, db_conn):
+        result = update_persistence(db_conn, ["fp-A", "fp-B", "fp-C"])
+        assert len(result) == 3
+        assert all(info.occurrence_count == 1 for info in result.values())
+
+    def test_mixed_new_and_existing(self, db_conn):
+        update_persistence(db_conn, ["fp-A"])
+        update_persistence(db_conn, ["fp-A"])
+        result = update_persistence(db_conn, ["fp-A", "fp-B"])
+        assert result["fp-A"].occurrence_count == 3
+        assert result["fp-B"].occurrence_count == 1
+
+    def test_get_persistence_info(self, db_conn):
+        update_persistence(db_conn, ["fp-X", "fp-Y"])
+        update_persistence(db_conn, ["fp-X"])
+
+        info = get_persistence_info(db_conn, ["fp-X", "fp-Y", "fp-Z"])
+        assert "fp-X" in info
+        assert info["fp-X"].occurrence_count == 2
+        assert "fp-Y" in info
+        assert info["fp-Y"].occurrence_count == 1
+        assert "fp-Z" not in info  # Never seen
+
+    def test_empty_fingerprints(self, db_conn):
+        result = update_persistence(db_conn, [])
+        assert result == {}
+        info = get_persistence_info(db_conn, [])
+        assert info == {}
+
+    def test_timestamps_updated(self, db_conn):
+        result1 = update_persistence(db_conn, ["fp-T"])
+        first_seen = result1["fp-T"].first_seen
+
+        result2 = update_persistence(db_conn, ["fp-T"])
+        # first_seen should not change, last_seen should be >= first
+        assert result2["fp-T"].first_seen == first_seen
+        assert result2["fp-T"].last_seen >= result2["fp-T"].first_seen

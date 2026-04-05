@@ -13,6 +13,7 @@ from sentinel.core.report import generate_report
 from sentinel.detectors.base import Detector, get_all_detectors
 from sentinel.models import DetectorContext, Finding, RunSummary, ScopeType
 from sentinel.store.findings import insert_finding
+from sentinel.store.persistence import update_persistence
 from sentinel.store.runs import complete_run, create_run
 
 logger = logging.getLogger(__name__)
@@ -88,10 +89,23 @@ def run_scan(
     for f in deduped:
         insert_finding(conn, run.id, f)
 
-    # 9. Complete run
+    # 9. Track finding persistence (occurrence counts)
+    fingerprints = [f.fingerprint for f in deduped if f.fingerprint]
+    persistence = update_persistence(conn, fingerprints)
+    for f in deduped:
+        if f.fingerprint in persistence:
+            info = persistence[f.fingerprint]
+            if f.context is None:
+                f.context = {}
+            f.context["occurrence_count"] = info.occurrence_count
+            f.context["first_seen"] = info.first_seen.isoformat()
+            if info.occurrence_count > 1:
+                f.context["recurring"] = True
+
+    # 10. Complete run
     complete_run(conn, run.id, finding_count=len(deduped))
 
-    # 10. Generate report
+    # 11. Generate report
     if output_path is None:
         output_path = str(Path(repo_root) / ".sentinel" / f"report-{run.id}.md")
 

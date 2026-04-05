@@ -79,9 +79,10 @@ class TestReportGeneration:
         assert "Evidence" in report
 
     def test_recurring_marker(self):
-        f = _make_finding(context={"recurring": True})
+        f = _make_finding(context={"occurrence_count": 3, "recurring": True})
         report = generate_report([f], _make_run())
         assert "♻️" in report
+        assert "×3" in report
         # Recurring count in summary
         assert "**Recurring**: 1" in report
 
