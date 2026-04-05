@@ -6,12 +6,14 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 
 ## What it does
 
-- Runs deterministic detectors: TODO/FIXME scanner, linter (ruff), dependency audit (pip-audit), docs-drift checker
+- Runs 5 detectors: TODO/FIXME scanner, linter (ruff), dependency audit (pip-audit), docs-drift checker, git churn hotspots
 - Gathers contextual evidence per finding (surrounding code, git history, related tests)
 - Uses a local LLM via Ollama as a judgment/summarization layer (optional — degrades gracefully)
 - Fingerprints and deduplicates findings across runs via SQLite
+- Tracks finding persistence across runs (recurring findings get higher visibility)
 - Produces a scannable markdown morning report grouped by severity
-- Supports suppressing false positives and approving findings for issue creation
+- Supports suppressing false positives and approving findings for GitHub issue creation
+- Creates GitHub issues from approved findings (with deduplication and dry-run mode)
 
 ## What it explicitly does not do
 
@@ -26,7 +28,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**Phase 2 (Docs-Drift) complete** — 4 detectors, LLM judge, and docs-drift detection with stale references, dependency drift, and LLM-assisted doc-code comparison. See the [roadmap](roadmap/) for what's next.
+**All MVP success criteria met.** 5 detectors, LLM judge, docs-drift detection, finding persistence, git churn hotspots, and GitHub issue creation. 237 tests, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
@@ -63,6 +65,12 @@ This produces a markdown report at `/path/to/repo/.sentinel/report-<run-id>.md`.
 sentinel scan /path/to/repo --skip-judge
 ```
 
+**Incremental scan** (only files changed since the last run):
+
+```bash
+sentinel scan /path/to/repo --incremental
+```
+
 **Suppress a false positive:**
 
 ```bash
@@ -85,12 +93,47 @@ sentinel history
 
 | Option | Description |
 |--------|-------------|
-| `--model TEXT` | Ollama model name (default: `qwen3:4b`) |
+| `--model TEXT` | Ollama model name (default: `qwen3.5:4b`) |
 | `--ollama-url TEXT` | Ollama API URL (default: `http://localhost:11434`) |
 | `-o, --output TEXT` | Custom report output path |
 | `--skip-judge` | Skip LLM judge, use raw detector findings |
+| `--incremental` | Only scan files changed since the last completed run |
 | `--db TEXT` | Custom database path |
 | `-v, --verbose` | Enable verbose logging |
+
+**Evaluate detector accuracy against ground truth:**
+
+```bash
+sentinel eval /path/to/repo
+```
+
+**Create GitHub issues from approved findings:**
+
+```bash
+# Set credentials
+export SENTINEL_GITHUB_OWNER=your-org
+export SENTINEL_GITHUB_REPO=your-repo
+export SENTINEL_GITHUB_TOKEN=ghp_...
+
+# Preview what would be created
+sentinel create-issues --dry-run
+
+# Create issues
+sentinel create-issues
+```
+
+### Configuration
+
+Create a `sentinel.toml` in your repo root to customize behavior:
+
+```toml
+[sentinel]
+model = "qwen3.5:4b"          # Ollama model name
+ollama_url = "http://localhost:11434"
+skip_judge = false             # true to skip LLM judgment
+db_path = ".sentinel/sentinel.db"
+output_dir = ".sentinel"
+```
 
 ### Development
 

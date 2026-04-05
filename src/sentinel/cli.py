@@ -30,6 +30,10 @@ def main(verbose: bool) -> None:
 @click.option("--output", "-o", default=None, help="Report output path")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
 @click.option("--db", default=None, help="Database path")
+@click.option(
+    "--incremental", is_flag=True,
+    help="Only scan files changed since the last completed run",
+)
 def scan(
     repo_path: str,
     model: str | None,
@@ -37,10 +41,11 @@ def scan(
     output: str | None,
     skip_judge: bool,
     db: str | None,
+    incremental: bool,
 ) -> None:
     """Run detectors against a repository and generate a morning report."""
     from sentinel.config import load_config
-    from sentinel.core.runner import run_scan
+    from sentinel.core.runner import prepare_incremental, run_scan
     from sentinel.store.db import get_connection
 
     repo = Path(repo_path).resolve()
@@ -59,16 +64,32 @@ def scan(
 
     output_path = output or str(repo / config.output_dir / "report.md")
 
+    scope_type = None
+    changed_files = None
+    if incremental:
+        from sentinel.models import ScopeType
+        scope_type, changed_files = prepare_incremental(str(repo), conn)
+        if scope_type == ScopeType.INCREMENTAL and changed_files is not None and len(changed_files) == 0:
+            click.echo("No changes since last run — nothing to scan.")
+            conn.close()
+            return
+
     try:
-        run, findings, _report = run_scan(
-            str(repo),
-            conn,
+        kwargs: dict = dict(
             model=config.model,
             ollama_url=config.ollama_url,
             output_path=output_path,
             skip_judge=config.skip_judge,
         )
+        if scope_type is not None:
+            kwargs["scope"] = scope_type
+        if changed_files is not None:
+            kwargs["changed_files"] = changed_files
+
+        run, findings, _report = run_scan(str(repo), conn, **kwargs)
         click.echo(f"Scan complete: {len(findings)} findings in run #{run.id}")
+        if incremental and changed_files:
+            click.echo(f"Incremental: {len(changed_files)} files changed since last run")
         click.echo(f"Report: {output_path}")
     finally:
         conn.close()

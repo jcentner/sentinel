@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import subprocess
 from pathlib import Path
 
 from sentinel.core.context import gather_context
@@ -14,9 +15,37 @@ from sentinel.detectors.base import Detector, get_all_detectors
 from sentinel.models import DetectorContext, Finding, RunSummary, ScopeType
 from sentinel.store.findings import insert_finding
 from sentinel.store.persistence import update_persistence
-from sentinel.store.runs import complete_run, create_run
+from sentinel.store.runs import complete_run, create_run, get_last_completed_run
 
 logger = logging.getLogger(__name__)
+
+
+def _git_head_sha(repo_root: str) -> str | None:
+    """Return the HEAD commit SHA for the repo, or None if not a git repo."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, cwd=repo_root, timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def _git_changed_files(repo_root: str, since_sha: str) -> list[str]:
+    """Return list of files changed between *since_sha* and HEAD (relative paths)."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", since_sha, "HEAD"],
+            capture_output=True, text=True, cwd=repo_root, timeout=30,
+        )
+        if result.returncode == 0:
+            return [f for f in result.stdout.strip().splitlines() if f]
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return []
 
 
 def run_scan(
@@ -37,9 +66,10 @@ def run_scan(
     Returns (run_summary, findings, report_text).
     """
     repo_root = str(Path(repo_path).resolve())
+    commit_sha = _git_head_sha(repo_root)
 
     # 1. Create run record
-    run = create_run(conn, repo_root, scope)
+    run = create_run(conn, repo_root, scope, commit_sha=commit_sha)
     logger.info("Started run #%d on %s (scope: %s)", run.id, repo_root, scope.value)
 
     # 2. Build detector context
@@ -129,3 +159,36 @@ def _ensure_detectors_loaded() -> None:
     import sentinel.detectors.git_hotspots
     import sentinel.detectors.lint_runner
     import sentinel.detectors.todo_scanner  # noqa: F401
+
+
+def prepare_incremental(
+    repo_path: str, conn: sqlite3.Connection
+) -> tuple[ScopeType, list[str] | None]:
+    """Determine scope and changed files for an incremental scan.
+
+    Returns (scope, changed_files):
+      - If a prior run with a commit SHA exists and files changed: INCREMENTAL + file list
+      - Otherwise: FULL + None (falls back to a full scan)
+    """
+    repo_root = str(Path(repo_path).resolve())
+    last_run = get_last_completed_run(conn, repo_root)
+
+    if last_run is None or last_run.commit_sha is None:
+        logger.info("No prior run with commit SHA — falling back to full scan")
+        return ScopeType.FULL, None
+
+    head = _git_head_sha(repo_root)
+    if head is None:
+        logger.info("Not a git repo — falling back to full scan")
+        return ScopeType.FULL, None
+
+    if head == last_run.commit_sha:
+        logger.info("HEAD unchanged since last run (%s) — nothing new", head[:8])
+        return ScopeType.INCREMENTAL, []
+
+    changed = _git_changed_files(repo_root, last_run.commit_sha)
+    logger.info(
+        "Incremental scan: %d files changed since %s",
+        len(changed), last_run.commit_sha[:8],
+    )
+    return ScopeType.INCREMENTAL, changed

@@ -1,13 +1,89 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 6 — real-world test evaluation)
+> Last updated: 2026-04-05 (Session 7 — polish and incremental scans)
 
-## Session 6 Summary
+## Session 7 Summary
 
 ### Current Objective
-Evaluate report from real-world test run on agent-realtor repo and refine detectors based on findings.
+Polish the project for real-world usability: README accuracy, config validation, incremental scanning.
 
 ### What Was Accomplished
+
+**README updated to reflect reality:**
+1. Status section updated: "Phase 2 complete" → "All MVP success criteria met"
+2. Detectors listed: 5 (was 4), including git-hotspots
+3. Default model corrected: `qwen3.5:4b` (was `qwen3:4b`)
+4. New commands documented: `eval`, `create-issues`, `--incremental`
+5. Configuration section added (`sentinel.toml` format)
+
+**Config type validation (TD-004 resolved):**
+6. `_validate_config()` checks key validity and type correctness at load time
+7. Unknown keys raise `ConfigError` with clear message listing valid keys
+8. Wrong types raise `ConfigError` with expected vs actual type
+9. 6 tests: defaults, valid config, wrong type model, wrong type skip_judge, unknown key, partial config
+
+**Incremental scan support:**
+10. DB migration v4: `commit_sha TEXT` column on `runs` table
+11. `_git_head_sha()` and `_git_changed_files()` helpers in runner
+12. `prepare_incremental()` function: queries last completed run's SHA, computes diff
+13. CLI `--incremental` flag wired through to `run_scan()` with `scope=INCREMENTAL`
+14. Early exit with message when HEAD is unchanged since last run
+15. `create_run()` and `_row_to_run()` handle `commit_sha` field
+16. `get_last_completed_run()` query added to `runs.py`
+17. 9 tests: SHA retrieval, changed file detection, prepare_incremental scenarios, persistence
+
+### Decisions Made This Session
+1. Config validation uses dataclass field introspection for type checking — no external validation library needed
+2. Incremental scan uses git commit SHA comparison (not timestamps) for reliability across rebases
+3. When HEAD is unchanged since last run, `--incremental` exits early with a message instead of running an empty scan
+4. `git_hotspots` is inherently repo-wide — it does not filter by changed files (correct by design)
+
+### Test Results
+```
+252 passed in 15.25s
+ruff check: All checks passed
+```
+
+### Repository State
+- **Phases**: 0–3 and 5 complete, Phase 4 in progress (git-hotspots done)
+- **Implementation**: 18 Python modules in `src/sentinel/`
+- **Tests**: 17 test files, 252 tests
+- **Detectors**: todo-scanner, lint-runner, dep-audit, docs-drift, git-hotspots
+- **CLI**: scan (with --incremental), eval, suppress, approve, history, create-issues
+- **DB schema**: v4 (migration framework, finding persistence, llm_log, commit_sha)
+- **Open questions**: 4 open (OQ-002, OQ-004, OQ-005, OQ-006), 3 resolved
+- **ADRs**: 8 accepted
+- **Tech debt**: 4 active (TD-001, TD-002, TD-005, TD-008), 4 resolved
+- **Lint**: Clean (ruff)
+
+### What Remains / Next Priority
+1. TD-001: Context gatherer upgrade to embedding-based (needs OQ-004 resolution)
+2. TD-002: Async detector interface (low priority)
+3. TD-005: TODO comments in markdown invisible (low priority)
+4. TD-008: Poetry pyproject.toml format (low priority)
+5. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, complexity/dead-code
+6. Multi-repo support (OQ-005)
+7. Finding grouping by root cause (e.g., 15 stale links from same moved directory)
+8. Custom detector plugin system
+
+### Blocked Items
+None.
+
+### Files Created This Session
+- `tests/test_config.py` — 6 config validation tests
+- `tests/test_incremental.py` — 9 incremental scan tests
+
+### Files Modified This Session
+- `README.md` — updated status, detectors, commands, model, config section
+- `src/sentinel/config.py` — added `ConfigError`, `_validate_config()`
+- `src/sentinel/core/runner.py` — `_git_head_sha()`, `_git_changed_files()`, `prepare_incremental()`, commit SHA storage
+- `src/sentinel/store/db.py` — migration v4 (commit_sha column), SCHEMA_VERSION bump
+- `src/sentinel/store/runs.py` — `commit_sha` in create/retrieve, `get_last_completed_run()`
+- `src/sentinel/models.py` — `commit_sha` field on `RunSummary`
+- `src/sentinel/cli.py` — `--incremental` flag on scan command
+- `docs/reference/tech-debt.md` — TD-004 resolved
+
+## Previous Sessions
 
 **Real-world report evaluation (396 findings, 14,555 lines):**
 1. Analyzed Sentinel report generated from a real TypeScript/Node.js repo (agent-realtor)

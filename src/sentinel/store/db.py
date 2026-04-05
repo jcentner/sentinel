@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -105,6 +105,11 @@ CREATE INDEX IF NOT EXISTS idx_llm_log_purpose ON llm_log(purpose);
 CREATE INDEX IF NOT EXISTS idx_llm_log_verdict ON llm_log(verdict);
 CREATE INDEX IF NOT EXISTS idx_llm_log_finding_fingerprint ON llm_log(finding_fingerprint);
 """,
+    ),
+    (
+        4,
+        "add commit_sha column to runs table",
+        "ALTER TABLE runs ADD COLUMN commit_sha TEXT;",
     ),
 ]
 

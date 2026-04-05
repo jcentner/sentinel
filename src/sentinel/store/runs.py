@@ -9,13 +9,16 @@ from sentinel.models import RunSummary, ScopeType
 
 
 def create_run(
-    conn: sqlite3.Connection, repo_path: str, scope: ScopeType = ScopeType.FULL
+    conn: sqlite3.Connection,
+    repo_path: str,
+    scope: ScopeType = ScopeType.FULL,
+    commit_sha: str | None = None,
 ) -> RunSummary:
     """Create a new run record and return a RunSummary."""
     now = datetime.now(UTC)
     cur = conn.execute(
-        "INSERT INTO runs (repo_path, started_at, scope) VALUES (?, ?, ?)",
-        (repo_path, now.isoformat(), scope.value),
+        "INSERT INTO runs (repo_path, started_at, scope, commit_sha) VALUES (?, ?, ?, ?)",
+        (repo_path, now.isoformat(), scope.value, commit_sha),
     )
     conn.commit()
     return RunSummary(
@@ -23,6 +26,7 @@ def create_run(
         repo_path=repo_path,
         started_at=now,
         scope=scope,
+        commit_sha=commit_sha,
     )
 
 
@@ -62,11 +66,31 @@ def get_run_by_id(conn: sqlite3.Connection, run_id: int) -> RunSummary | None:
     return _row_to_run(row)
 
 
+def get_last_completed_run(
+    conn: sqlite3.Connection, repo_path: str
+) -> RunSummary | None:
+    """Return the most recent completed run for a repo, or None."""
+    row = conn.execute(
+        "SELECT * FROM runs WHERE repo_path = ? AND completed_at IS NOT NULL "
+        "ORDER BY id DESC LIMIT 1",
+        (repo_path,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _row_to_run(row)
+
+
 def _row_to_run(row: sqlite3.Row) -> RunSummary:
     """Convert a database row to a RunSummary."""
     completed = None
     if row["completed_at"]:
         completed = datetime.fromisoformat(row["completed_at"])
+
+    # commit_sha may not exist in older databases without migration v4
+    try:
+        commit_sha = row["commit_sha"]
+    except (IndexError, KeyError):
+        commit_sha = None
 
     return RunSummary(
         id=row["id"],
@@ -75,4 +99,5 @@ def _row_to_run(row: sqlite3.Row) -> RunSummary:
         completed_at=completed,
         scope=ScopeType(row["scope"]),
         finding_count=row["finding_count"],
+        commit_sha=commit_sha,
     )

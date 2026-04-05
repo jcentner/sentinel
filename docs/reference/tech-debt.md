@@ -42,12 +42,13 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Implemented migration framework in `store/db.py`. Migrations are ordered `(version, description, sql)` tuples applied sequentially. Base schema (v1) is always created, then pending migrations are applied on DB open. First migration (v2) adds `finding_persistence` table.
 
 ### TD-004: Config values not type-validated
-**Status**: Active
+**Status**: Resolved (Session 7)
 **Severity**: Low
 **Introduced**: Phase 1
 **Description**: `load_config()` reads `sentinel.toml` values but does not validate types. `skip_judge = "yes"` or `model = 42` would be silently accepted.
 **Impact**: Confusing runtime errors from bad config instead of clear validation messages.
 **Proposed resolution**: Add type checks at config load time or use a validation library.
+**Resolution**: `_validate_config()` checks type and key validity at load time. Unknown keys and wrong types raise `ConfigError` with clear messages. 6 tests.
 
 ### TD-005: TODO comments in markdown are invisible
 **Status**: Active
@@ -84,6 +85,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 ## Resolved
 
 - **TD-003**: Schema migration system implemented in `store/db.py` with ordered migrations and version tracking.
+- **TD-004**: Config validation in `config.py` — type checks and unknown key rejection at load time.
 - **TD-006**: dep-audit now targets the repo's declared dependencies (pyproject.toml or requirements.txt), not the running environment.
 - **TD-007**: `_row_to_finding` now restores the `created_at` timestamp from the database.
 

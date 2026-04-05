@@ -151,3 +151,4 @@ class RunSummary:
     completed_at: datetime | None = None
     scope: ScopeType = ScopeType.FULL
     finding_count: int = 0
+    commit_sha: str | None = None
