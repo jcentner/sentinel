@@ -5,10 +5,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import httpx
-import pytest
 
 from sentinel.core.ollama import check_ollama, embed_texts
-
 
 # ── check_ollama ─────────────────────────────────────────────────────
 
