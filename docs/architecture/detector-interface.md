@@ -1,6 +1,6 @@
 # Detector Interface Specification
 
-> **Status**: Active — reflects implementation as of Session 8.
+> **Status**: Active — reflects implementation as of 2026-04-05.
 
 ## Design principle
 
@@ -86,7 +86,6 @@ DetectorContext:
 | Detector | Tier | Categories | Status | Description |
 |----------|------|------------|--------|-------------|
 | `lint-runner` | Deterministic | code-quality | ✅ Implemented | Wraps ESLint, ruff, etc. and normalizes output |
-| `test-runner` | Deterministic | test-health | Planned | Runs test suite, captures failures |
 | `todo-scanner` | Deterministic | todo-fixme | ✅ Implemented | Grep for TODO/FIXME/HACK with age from git blame |
 | `dep-audit` | Deterministic | dependency | ✅ Implemented | Wraps npm audit, pip-audit |
 | `docs-drift` | Deterministic + LLM | docs-drift | ✅ Implemented | Compares docs ↔ code, docs ↔ docs for consistency |
@@ -106,6 +105,7 @@ The tier is `LLM_ASSISTED` because the LLM comparison is available, but the prim
 
 | Detector | Tier | Categories | Description |
 |----------|------|------------|-------------|
+| `test-runner` | Deterministic | test-health | Runs test suite, captures failures |
 | `sql-antipattern` | Deterministic + LLM | performance | SQLFluff + LLM for semantic suggestions (CTE, N+1) |
 | `semgrep-runner` | Deterministic | security, code-quality | Wraps Semgrep with custom rules |
 | `dead-code` | Heuristic | code-quality | Tree-sitter reachability analysis |

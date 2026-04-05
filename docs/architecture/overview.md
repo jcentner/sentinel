@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-> **Status**: Active — reflects implementation as of Session 9 (Phase 4 in progress).
+> **Status**: Active — reflects implementation as of 2026-04-05 (Phase 4 in progress).
 
 ## High-level data flow
 
@@ -147,13 +147,13 @@ Embeddings are implemented via Ollama's `/api/embed` endpoint (ADR-009). Reranke
 
 ## Trigger modes
 
-- **Cron**: Nightly scheduled run (primary use case)
-- **Git hook**: On last push of the day or on specific events
-- **Manual**: On-demand CLI invocation
-- **Watch**: File-system watcher for continuous development (future)
+- **Manual**: On-demand CLI invocation (`sentinel scan <repo>`) — the only currently implemented trigger.
+- **Cron / systemd timer**: Users can schedule overnight runs using their system's cron or systemd timer. See the README for setup instructions. Sentinel itself does not include a built-in scheduler.
+- **Git hook**: On last push of the day or on specific events (not implemented — potential future addition).
+- **Watch**: File-system watcher for continuous development (not implemented — future).
 
 ## Scope per run
 
-- **Default**: Changed files since last run (efficient, incremental)
-- **Full**: Entire repository (periodic deep scan)
-- **Targeted**: Specific paths or detector categories (diagnostic)
+- **Full**: Entire repository (default). Runs all detectors on all files.
+- **Incremental**: Changed files since last completed run. Enabled via `--incremental` CLI flag.
+- **Targeted**: Specific paths or detector categories (available in runner API via `target_paths` parameter; CLI `--target` flag available).

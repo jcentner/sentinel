@@ -78,6 +78,12 @@ sentinel scan /path/to/repo --incremental
 sentinel scan /path/to/repo --embed-model nomic-embed-text
 ```
 
+**Targeted scan** (specific files or directories only):
+
+```bash
+sentinel scan /path/to/repo --target src/auth --target src/api/routes.py
+```
+
 **Build the embedding index separately** (optional — scan auto-builds when `--embed-model` is used):
 
 ```bash
@@ -88,12 +94,16 @@ sentinel index /path/to/repo
 
 ```bash
 sentinel suppress <finding-id>
+# Or from a different directory:
+sentinel suppress <finding-id> --repo /path/to/repo
 ```
 
 **Approve a finding for issue creation:**
 
 ```bash
 sentinel approve <finding-id>
+# Or from a different directory:
+sentinel approve <finding-id> --repo /path/to/repo
 ```
 
 **View scan history:**
@@ -111,13 +121,17 @@ sentinel history
 | `-o, --output TEXT` | Custom report output path |
 | `--skip-judge` | Skip LLM judge, use raw detector findings |
 | `--incremental` | Only scan files changed since the last completed run |
+| `--embed-model TEXT` | Ollama embedding model for semantic context (e.g. `nomic-embed-text`) |
+| `--target, -t TEXT` | Scan only specific paths (repeatable) |
 | `--db TEXT` | Custom database path |
-| `-v, --verbose` | Enable verbose logging |
+
+> **Note**: `-v, --verbose` is a global flag placed before the subcommand: `sentinel -v scan /path/to/repo`.
 
 **Evaluate detector accuracy against ground truth:**
 
 ```bash
 sentinel eval /path/to/repo
+sentinel eval /path/to/repo --ground-truth /path/to/ground-truth.toml
 ```
 
 **Create GitHub issues from approved findings:**
@@ -146,7 +160,56 @@ ollama_url = "http://localhost:11434"
 skip_judge = false             # true to skip LLM judgment
 db_path = ".sentinel/sentinel.db"
 output_dir = ".sentinel"
+embed_model = ""               # Ollama embedding model (e.g. "nomic-embed-text")
+embed_chunk_size = 50          # lines per chunk for embedding
+embed_chunk_overlap = 10       # overlap lines between chunks
 ```
+
+### Scheduling overnight runs
+
+Sentinel does not include a built-in scheduler. Use your system's scheduling tools to run scans overnight.
+
+**Linux/WSL (cron):**
+
+```bash
+# Edit your crontab
+crontab -e
+
+# Run a full scan at 2 AM every night
+0 2 * * * /path/to/sentinel/.venv/bin/sentinel scan /path/to/repo --skip-judge >> /tmp/sentinel.log 2>&1
+
+# Or with the LLM judge (requires Ollama running)
+0 2 * * * /path/to/sentinel/.venv/bin/sentinel scan /path/to/repo >> /tmp/sentinel.log 2>&1
+```
+
+**Linux/WSL (systemd timer):**
+
+```bash
+# Create ~/.config/systemd/user/sentinel-scan.service
+[Unit]
+Description=Sentinel overnight scan
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/sentinel/.venv/bin/sentinel scan /path/to/repo
+
+# Create ~/.config/systemd/user/sentinel-scan.timer
+[Unit]
+Description=Run Sentinel scan nightly
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+systemctl --user enable --now sentinel-scan.timer
+```
+
+The morning report will be at `/path/to/repo/.sentinel/report.md`.
 
 ### Development
 
