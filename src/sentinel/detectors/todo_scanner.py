@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 _COMMENT_PREFIX = re.compile(r"(#|//|/\*|^\s*\*|--|<!--)")
 # Matches TODO, FIXME, HACK, XXX — non-greedy message capture to allow
 # finditer to find multiple tags on the same line.
+# Negative lookahead (?!-) rejects compound words like "todo-scanner".
 _TODO_PATTERN = re.compile(
-    r"\b(TODO|FIXME|HACK|XXX)\b\s*[:(]?\s*(.*?)(?=\b(?:TODO|FIXME|HACK|XXX)\b|$)",
+    r"\b(TODO|FIXME|HACK|XXX)\b(?!-)(?:\s*[:(]?\s*)(.*?)(?=\b(?:TODO|FIXME|HACK|XXX)\b(?!-)|$)",
     re.IGNORECASE,
 )
 
