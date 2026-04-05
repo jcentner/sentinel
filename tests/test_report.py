@@ -139,3 +139,41 @@ class TestReportGeneration:
         report = generate_report([f], _make_run())
         # Should not crash, just no ID shown
         assert "Test finding" in report
+
+    def test_low_findings_truncated_when_exceeding_cap(self):
+        """Reports should truncate LOW findings to keep the report scannable."""
+        from sentinel.core.report import _MAX_LOW_FINDINGS
+
+        # Create more LOW findings than the cap
+        lows = [
+            _make_finding(severity=Severity.LOW, title=f"Low issue {i}")
+            for i in range(_MAX_LOW_FINDINGS + 10)
+        ]
+        report = generate_report(lows, _make_run())
+
+        # Should show exactly _MAX_LOW_FINDINGS, not all
+        assert f"Low issue {_MAX_LOW_FINDINGS - 1}" in report
+        assert f"Low issue {_MAX_LOW_FINDINGS + 5}" not in report
+        assert "more LOW findings not shown" in report
+
+    def test_medium_findings_not_truncated(self):
+        """MEDIUM+ findings must all be shown regardless of count."""
+        mediums = [
+            _make_finding(severity=Severity.MEDIUM, title=f"Medium issue {i}")
+            for i in range(50)
+        ]
+        report = generate_report(mediums, _make_run())
+        # All 50 should be in the report
+        assert "Medium issue 49" in report
+        assert "not shown" not in report
+
+    def test_detector_breakdown_in_summary(self):
+        """Multiple detectors should show a per-detector count."""
+        findings = [
+            _make_finding(detector="docs-drift", title="Link broken"),
+            _make_finding(detector="docs-drift", title="Another link"),
+            _make_finding(detector="git-hotspots", title="Hot file"),
+        ]
+        report = generate_report(findings, _make_run())
+        assert "docs-drift (2)" in report
+        assert "git-hotspots (1)" in report

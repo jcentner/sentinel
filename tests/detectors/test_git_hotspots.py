@@ -8,9 +8,10 @@ import pytest
 
 from sentinel.detectors.git_hotspots import (
     GitHotspotsDetector,
+    _build_finding,
     _identify_hotspots,
 )
-from sentinel.models import DetectorContext, DetectorTier
+from sentinel.models import DetectorContext, DetectorTier, Severity
 
 
 @pytest.fixture
@@ -131,3 +132,29 @@ class TestEndToEnd:
             assert len(f.evidence) > 0
             assert "Commits:" in f.evidence[0].content
             assert "Authors:" in f.evidence[0].content
+
+
+class TestDocFileHandling:
+    """Documentation files should get reduced confidence/severity."""
+
+    def test_doc_file_capped_at_low_severity(self, tmp_path):
+        """Even high-churn .md files should stay LOW, not escalate to MEDIUM."""
+        readme = tmp_path / "README.md"
+        readme.write_text("# Hello\n")
+        finding = _build_finding("README.md", 50, {"Alice"}, 90, str(tmp_path))
+        assert finding.severity == Severity.LOW
+
+    def test_doc_file_confidence_capped(self, tmp_path):
+        """Doc files should have low confidence (churn is expected)."""
+        readme = tmp_path / "README.md"
+        readme.write_text("# Hello\n")
+        finding = _build_finding("README.md", 50, {"Alice"}, 90, str(tmp_path))
+        assert finding.confidence <= 0.30
+
+    def test_code_file_normal_severity(self, tmp_path):
+        """Code files with high churn should escalate to MEDIUM normally."""
+        code = tmp_path / "app.py"
+        code.write_text("x = 1\n")
+        finding = _build_finding("app.py", 50, {"Alice"}, 90, str(tmp_path))
+        assert finding.severity == Severity.MEDIUM
+        assert finding.confidence > 0.30

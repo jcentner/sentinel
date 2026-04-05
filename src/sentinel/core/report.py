@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
 from sentinel import __version__
 from sentinel.models import Finding, RunSummary, Severity
+
+# Maximum number of LOW findings shown in the report before truncation
+_MAX_LOW_FINDINGS = 20
 
 
 def generate_report(
@@ -66,6 +69,14 @@ def _build_report(findings: list[Finding], run: RunSummary) -> str:
     lines.append(f"**New**: {new_count} | **Recurring**: {recurring_count}")
     lines.append("")
 
+    # Per-detector breakdown
+    detector_counts = Counter(f.detector for f in findings)
+    if len(detector_counts) > 1:
+        lines.append("**By detector**: " + " · ".join(
+            f"{det} ({cnt})" for det, cnt in detector_counts.most_common()
+        ))
+        lines.append("")
+
     # Findings grouped by severity, then category
     grouped = _group_findings(findings)
     for sev in [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]:
@@ -74,15 +85,35 @@ def _build_report(findings: list[Finding], run: RunSummary) -> str:
         lines.append(f"## {sev.value.upper()}")
         lines.append("")
 
+        sev_findings = [f for cat_list in grouped[sev].values() for f in cat_list]
+        # Truncate LOW findings to keep the report scannable
+        truncated = 0
+        if sev == Severity.LOW and len(sev_findings) > _MAX_LOW_FINDINGS:
+            truncated = len(sev_findings) - _MAX_LOW_FINDINGS
+
+        shown = 0
         for category, cat_findings in sorted(grouped[sev].items()):
             lines.append(f"### {category}")
             lines.append("")
 
             for f in cat_findings:
+                if sev == Severity.LOW and shown >= _MAX_LOW_FINDINGS:
+                    break
                 lines.append(_format_finding_line(f))
                 lines.append("")
                 lines.append(_format_evidence_block(f))
                 lines.append("")
+                shown += 1
+
+            if sev == Severity.LOW and shown >= _MAX_LOW_FINDINGS:
+                break
+
+        if truncated > 0:
+            lines.append(
+                f"*... and {truncated} more LOW findings not shown. "
+                f"Use `sentinel history` to view all.*"
+            )
+            lines.append("")
 
     # Actions
     lines.append("## Actions")

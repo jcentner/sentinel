@@ -278,6 +278,10 @@ class DocsDriftDetector(Detector):
         # Skip things that are clearly not paths
         if path_text.startswith(("http://", "https://", "//", "#")):
             return None
+        # Skip absolute paths — these describe external systems (containers,
+        # servers, OS paths), not files in the repo.
+        if path_text.startswith("/"):
+            return None
         # Must look like a specific file (not a glob or variable)
         if any(c in path_text for c in "*?{}$<>"):
             return None
@@ -526,7 +530,8 @@ class DocsDriftDetector(Detector):
                 logger.debug("LLM comparing %s (line %d) vs %s (model=%s)",
                              doc_path, line_num, code_path, model)
                 result = self._llm_compare(
-                    doc_block, doc_path, code_path, code_content, model, ollama_url
+                    doc_block, doc_path, code_path, code_content, model, ollama_url,
+                    config=config,
                 )
                 if result and not result.get("is_accurate", True):
                     issue = result.get("issue", "Documentation may not match implementation")
@@ -654,6 +659,8 @@ class DocsDriftDetector(Detector):
         code_content: str,
         model: str,
         ollama_url: str,
+        *,
+        config: dict | None = None,
     ) -> dict | None:
         """Ask the LLM to compare a doc block against source code."""
         import httpx
@@ -687,15 +694,45 @@ class DocsDriftDetector(Detector):
         data = resp.json()
         text = data.get("response", "").strip()
         tokens = data.get("eval_count", 0)
+        gen_time_ns = data.get("eval_duration", 0)
+        gen_ms = gen_time_ns / 1e6
         logger.debug("Doc-code LLM response (%d tokens): %s", tokens, text[:300])
 
         # Extract JSON from response
+        result = None
         try:
             # Try to find JSON in the response
             json_match = re.search(r"\{.*\}", text, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group())
+                result = json.loads(json_match.group())
         except (json.JSONDecodeError, AttributeError):
             pass
 
-        return None
+        # Log to DB if connection available
+        _config = config or {}
+        db_conn = _config.get("_db_conn")
+        db_run_id = _config.get("_run_id")
+        if db_conn is not None:
+            is_accurate = result.get("is_accurate", True) if result else None
+            verdict = "no_parse"
+            if result is not None:
+                verdict = "accurate" if is_accurate else "drift_detected"
+            from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+            try:
+                insert_llm_log(db_conn, db_run_id, LLMLogEntry(
+                    purpose="doc-code-comparison",
+                    model=model,
+                    detector="docs-drift",
+                    finding_title=f"{doc_path} vs {code_path}",
+                    prompt=prompt,
+                    response=text or None,
+                    tokens_generated=tokens or None,
+                    generation_ms=gen_ms or None,
+                    verdict=verdict,
+                    is_real=not is_accurate if is_accurate is not None else None,
+                    summary=result.get("issue") if result else None,
+                ))
+            except Exception:
+                logger.debug("Failed to write doc-code LLM log entry", exc_info=True)
+
+        return result

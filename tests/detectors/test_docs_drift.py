@@ -187,6 +187,22 @@ class TestStaleReferences:
         findings = detector.detect(ctx)
         assert len(findings) == 0
 
+    def test_ignores_absolute_paths(self, detector, tmp_path):
+        """FP prevention: absolute paths describe external systems, not repo files."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Webhook endpoint: `/hooks/gmail-push`\n"
+            "Skills in `/app/skills/` directory.\n"
+            "Health at `/health`.\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
 
 class TestDependencyDrift:
     """Tests for dependency drift detection."""

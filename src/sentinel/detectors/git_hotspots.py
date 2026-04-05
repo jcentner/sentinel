@@ -177,6 +177,12 @@ def _identify_hotspots(
     return hotspots
 
 
+# File extensions considered documentation (churn is expected, not a risk)
+_DOC_EXTENSIONS = frozenset({
+    ".md", ".rst", ".txt", ".adoc", ".asciidoc",
+})
+
+
 def _build_finding(
     file_path: str,
     commit_count: int,
@@ -189,11 +195,16 @@ def _build_finding(
     if len(authors) > 5:
         author_str += f" (+{len(authors) - 5} more)"
 
+    is_doc_file = Path(file_path).suffix.lower() in _DOC_EXTENSIONS
+
     severity = Severity.LOW
-    if commit_count >= 30:
+    if commit_count >= 30 and not is_doc_file:
         severity = Severity.MEDIUM
 
     confidence = min(0.5 + (commit_count / 100), 0.85)
+    # Documentation files naturally churn — reduce confidence significantly
+    if is_doc_file:
+        confidence = min(confidence, 0.30)
 
     description = (
         f"This file has been modified {commit_count} times in the last {days} days "
