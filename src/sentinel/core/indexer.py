@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 _SKIP_DIRS = {
     ".git", ".hg", ".svn", "__pycache__", "node_modules", ".venv", "venv",
     ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache", "dist", "build",
-    ".sentinel", ".eggs", "*.egg-info",
+    ".sentinel", ".eggs",
 }
 
 # Binary / non-text extensions to skip
@@ -49,9 +49,8 @@ def _should_skip_file(path: Path) -> bool:
     if path.suffix.lower() in _SKIP_EXTENSIONS:
         return True
     try:
-        if path.stat().st_size > _MAX_FILE_SIZE:
-            return True
-        if path.stat().st_size == 0:
+        size = path.stat().st_size
+        if size > _MAX_FILE_SIZE or size == 0:
             return True
     except OSError:
         return True

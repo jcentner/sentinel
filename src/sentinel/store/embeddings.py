@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 import sqlite3
 import struct
 from datetime import UTC, datetime
+
+logger = logging.getLogger(__name__)
 
 
 def content_hash(text: str) -> str:
@@ -127,6 +130,14 @@ def query_similar(
     Returns a list of dicts with keys: file_path, start_line, end_line,
     content, similarity.
     """
+    total = chunk_count(conn)
+    if total > 50_000:
+        logger.warning(
+            "Embedding index has %d chunks — consider switching to sqlite-vec "
+            "for better query performance (see ADR-009)",
+            total,
+        )
+
     if exclude_file:
         rows = conn.execute(
             "SELECT file_path, start_line, end_line, content, embedding "

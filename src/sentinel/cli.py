@@ -84,6 +84,8 @@ def scan(
             output_path=output_path,
             skip_judge=config.skip_judge,
             embed_model=config.embed_model,
+            embed_chunk_size=config.embed_chunk_size,
+            embed_chunk_overlap=config.embed_chunk_overlap,
         )
         if scope_type is not None:
             kwargs["scope"] = scope_type
@@ -261,14 +263,14 @@ def history(repo: str, db: str | None, limit: int) -> None:
 
 @main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
-@click.option("--embed-model", default="nomic-embed-text",
-              help="Ollama embedding model to use")
+@click.option("--embed-model", default=None,
+              help="Ollama embedding model (default: from config or nomic-embed-text)")
 @click.option("--ollama-url", default=None, help="Ollama API URL")
 @click.option("--db", default=None, help="Database path")
 @click.option("--clear", is_flag=True, help="Clear existing index before rebuilding")
 def index(
     repo_path: str,
-    embed_model: str,
+    embed_model: str | None,
     ollama_url: str | None,
     db: str | None,
     clear: bool,
@@ -289,6 +291,9 @@ def index(
     if ollama_url:
         config.ollama_url = ollama_url
 
+    # Resolve embed model: CLI flag > config > default
+    resolved_model = embed_model or config.embed_model or "nomic-embed-text"
+
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
 
@@ -297,9 +302,9 @@ def index(
             cleared = clear_all_chunks(conn)
             click.echo(f"Cleared {cleared} existing chunks")
 
-        click.echo(f"Building embedding index with model '{embed_model}'...")
+        click.echo(f"Building embedding index with model '{resolved_model}'...")
         stats = build_index(
-            str(repo), conn, embed_model,
+            str(repo), conn, resolved_model,
             ollama_url=config.ollama_url,
             chunk_size=config.embed_chunk_size,
             chunk_overlap=config.embed_chunk_overlap,

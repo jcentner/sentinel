@@ -377,7 +377,10 @@ class TestGatherContextWithEmbeddings:
         with patch("sentinel.core.indexer.embed_texts", side_effect=mock_embed):
             build_index(str(tmp_path), conn, "test-model")
 
-        # Now gather context with embedding support
+        # Now gather context with embedding support.
+        # Patch target is sentinel.core.ollama (the source module), not
+        # sentinel.core.context, because context.py uses a deferred import
+        # inside _add_embedding_context().
         f = self._make_finding()
         with patch("sentinel.core.ollama.embed_texts", side_effect=mock_embed) as mock_ctx_embed:
             result = gather_context(

@@ -66,6 +66,8 @@ def run_scan(
     output_path: str | None = None,
     skip_judge: bool = False,
     embed_model: str = "",
+    embed_chunk_size: int = 50,
+    embed_chunk_overlap: int = 10,
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -122,6 +124,7 @@ def run_scan(
             from sentinel.core.indexer import build_index
             idx_stats = build_index(
                 repo_root, conn, embed_model, ollama_url=ollama_url,
+                chunk_size=embed_chunk_size, chunk_overlap=embed_chunk_overlap,
             )
             logger.info(
                 "Embedding index: %d files indexed, %d chunks",

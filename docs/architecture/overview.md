@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-> **Status**: Active — reflects implementation as of Session 8 (Phase 4 in progress).
+> **Status**: Active — reflects implementation as of Session 9 (Phase 4 in progress).
 
 ## High-level data flow
 
@@ -17,13 +17,13 @@
 │                                               ▼                  │
 │  ┌──────────────────┐    ┌──────────────┐    ┌──────────────┐   │
 │  │  Context Gatherer │◀──│  Deduped      │───▶│  LLM Judge    │   │
-│  │  (file-proximity  │   │  Findings     │   │  (Ollama)     │   │
-│  │   heuristics)     │   └──────────────┘    └──────────────┘   │
+│  │  (heuristic +     │   │  Findings     │   │  (Ollama)     │   │
+│  │   embeddings)     │   └──────────────┘    └──────────────┘   │
 │  └──────────────────┘                               │            │
 │                                                     ▼            │
 │  ┌─────────────┐    ┌─────────────┐    ┌──────────────────┐     │
 │  │  State Store │◀──│  Persistence  │◀──│  Judged Findings │     │
-│  │  (SQLite v4) │   │  Tracker     │   │                  │     │
+│  │  (SQLite v5) │   │  Tracker     │   │                  │     │
 │  └─────────────┘    └─────────────┘    └──────────────────┘     │
 │                           │                                      │
 │                           ▼                                      │
@@ -113,7 +113,7 @@ Persistent state across runs. Tracks:
 - Finding persistence (occurrence counts across runs)
 - LLM interaction log (prompts, responses, tokens, timing, verdicts for every LLM call)
 
-Schema version is tracked with an ordered migration framework. Current schema: v4.
+Schema version is tracked with an ordered migration framework. Current schema: v5.
 
 This is a Phase 1 design decision, not a later addition. Deduplication is a trust feature.
 
@@ -143,7 +143,7 @@ Takes approved findings and creates GitHub issues. Only runs after explicit huma
 | State Store | Disk | SQLite, negligible |
 | Report | CPU | Markdown generation |
 
-Embeddings and reranker models are not yet implemented (see TD-001). When added, they will also use GPU via Ollama.
+Embeddings are implemented via Ollama's `/api/embed` endpoint (ADR-009). Reranker models are not yet implemented.
 
 ## Trigger modes
 
