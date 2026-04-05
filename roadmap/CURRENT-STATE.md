@@ -1,8 +1,53 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 5)
+> Last updated: 2026-04-05 (Session 6 — real-world test evaluation)
 
-## Session 5 Summary
+## Session 6 Summary
+
+### Current Objective
+Evaluate report from real-world test run on agent-realtor repo and refine detectors based on findings.
+
+### What Was Accomplished
+
+**Real-world report evaluation (396 findings, 14,555 lines):**
+1. Analyzed Sentinel report generated from a real TypeScript/Node.js repo (agent-realtor)
+2. Identified three major noise sources causing the report to fail the "scannable in 2 minutes" vision criterion
+
+**Fix 1 — Docs-drift absolute path FP elimination:**
+3. Inline path checker now skips absolute paths (`/hooks/...`, `/app/skills/`, `/health`)
+4. These paths describe external systems (Docker containers, remote servers), not repo files
+5. Estimated ~200+ false positive LOW findings eliminated per scan on repos with infrastructure docs
+
+**Fix 2 — Git-hotspots documentation noise reduction:**
+6. Documentation files (.md, .rst, .txt, .adoc) now capped at confidence ≤0.30 and severity LOW
+7. High churn on docs is expected behavior (the judge was correctly marking most as FP)
+8. Code files retain normal confidence/severity escalation
+
+**Fix 3 — Report LOW truncation + detector summary:**
+9. LOW findings now truncated to 20 (configurable via `_MAX_LOW_FINDINGS`)
+10. Per-detector count breakdown added to summary section
+11. MEDIUM+ findings always shown in full — no truncation
+
+**Tests:**
+12. 7 new tests: absolute path skip, doc file severity cap, doc confidence cap, code file normal, LOW truncation, MEDIUM not truncated, detector breakdown
+13. All 234 tests pass, ruff lint clean
+
+### Decisions Made This Session
+1. Absolute paths cannot be repo-relative, so they should never trigger stale-path findings
+2. Doc file churn threshold: 0.30 confidence cap — matches the judge's own FP self-flagging behavior
+3. LOW cap at 20 — enough to show patterns without overwhelming the report. Higher severities always shown in full.
+
+### Observations from the Real-World Run
+- The 31 MEDIUM docs-drift findings (stale links) were **all true positives** — files moved to `archive/` but links not updated
+- The 3 MEDIUM git-hotspot findings were reasonable — especially the 1229-line code file with 26 commits
+- Most LOW findings were noise — absolute path references to external systems, doc file churn
+- The LLM judge was correctly identifying FPs but the findings were still cluttering the report
+- Only 2 of 5 detectors fired (docs-drift, git-hotspots). todo-scanner, lint-runner, dep-audit found nothing, which is plausible for that repo type
+- Grouping related findings (15+ stale links from same root cause) would further reduce noise — deferred as future work
+
+## Previous Sessions
+
+### Session 5 Summary
 
 ### Current Objective
 Complete Phase 3 (Refinement), advance Phase 4 (Extended Detectors), complete Phase 5 (GitHub Integration).
