@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -75,6 +75,35 @@ CREATE TABLE IF NOT EXISTS finding_persistence (
     last_seen TEXT NOT NULL,
     occurrence_count INTEGER NOT NULL DEFAULT 1
 );
+""",
+    ),
+    (
+        3,
+        "add llm_log table for structured LLM interaction logging",
+        """\
+CREATE TABLE IF NOT EXISTS llm_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER REFERENCES runs(id),
+    timestamp TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    model TEXT NOT NULL,
+    detector TEXT,
+    finding_fingerprint TEXT,
+    finding_title TEXT,
+    prompt TEXT NOT NULL,
+    response TEXT,
+    tokens_generated INTEGER,
+    generation_ms REAL,
+    verdict TEXT,
+    is_real INTEGER,
+    adjusted_severity TEXT,
+    summary TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_llm_log_run_id ON llm_log(run_id);
+CREATE INDEX IF NOT EXISTS idx_llm_log_purpose ON llm_log(purpose);
+CREATE INDEX IF NOT EXISTS idx_llm_log_verdict ON llm_log(verdict);
+CREATE INDEX IF NOT EXISTS idx_llm_log_finding_fingerprint ON llm_log(finding_fingerprint);
 """,
     ),
 ]

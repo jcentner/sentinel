@@ -134,3 +134,68 @@ class TestJudgeFindings:
     def test_empty_findings(self):
         result = judge_findings([])
         assert result == []
+
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
+    def test_judge_logs_to_db(self, mock_check, mock_post, tmp_path):
+        """When conn is provided, judge writes to llm_log table."""
+        from sentinel.models import ScopeType
+        from sentinel.store.db import get_connection
+        from sentinel.store.llm_log import get_llm_log_for_run
+        from sentinel.store.runs import create_run
+
+        conn = get_connection(tmp_path / "test.db")
+        run = create_run(conn, "/repo", ScopeType.FULL)
+
+        mock_check.return_value = True
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "response": json.dumps({
+                    "is_real": True,
+                    "adjusted_severity": "high",
+                    "summary": "Serious TODO",
+                    "reasoning": "Old and critical",
+                }),
+                "eval_count": 55,
+                "eval_duration": 1_200_000_000,
+            },
+            raise_for_status=lambda: None,
+        )
+        findings = [_make_finding(fingerprint="fp-test-123")]
+        judge_findings(findings, conn=conn, run_id=run.id)
+
+        rows = get_llm_log_for_run(conn, run.id)
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["purpose"] == "judge"
+        assert row["verdict"] == "confirmed"
+        assert row["is_real"] == 1
+        assert row["adjusted_severity"] == "high"
+        assert row["finding_fingerprint"] == "fp-test-123"
+        assert row["tokens_generated"] == 55
+        assert row["prompt"] != ""
+        conn.close()
+
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
+    def test_judge_error_logs_prompt_to_db(self, mock_check, mock_post, tmp_path):
+        """On error, the prompt is still logged to llm_log."""
+        from sentinel.models import ScopeType
+        from sentinel.store.db import get_connection
+        from sentinel.store.llm_log import get_llm_log_for_run
+        from sentinel.store.runs import create_run
+
+        conn = get_connection(tmp_path / "test.db")
+        run = create_run(conn, "/repo", ScopeType.FULL)
+
+        mock_check.return_value = True
+        mock_post.side_effect = Exception("Connection error")
+        findings = [_make_finding()]
+        judge_findings(findings, conn=conn, run_id=run.id)
+
+        rows = get_llm_log_for_run(conn, run.id)
+        assert len(rows) == 1
+        assert rows[0]["verdict"] == "error"
+        assert rows[0]["prompt"] != ""  # prompt is captured even on error
+        conn.close()

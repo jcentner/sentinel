@@ -74,6 +74,8 @@ DetectorContext:
   changed_files: string[] | null  # For incremental runs
   target_paths:  string[] | null  # For targeted runs
   config:       object            # Detector-specific configuration
+  conn:         Connection | null # Optional SQLite connection for LLM interaction logging
+  run_id:       int | null        # Current run ID for LLM log entries
 ```
 
 > **Note**: The original spec included `previous_run: RunSummary | null` in DetectorContext for delta/trend detection. This is deferred to Phase 2 when trend-based detectors (e.g., git-hotspots) are implemented.

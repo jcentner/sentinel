@@ -10,3 +10,5 @@ Send any prompt — the agent's "Now begin" section will take over. A simple Go 
 
 ## Next
 Use docs/analysis/project-history.md to write post or posts about this 
+
+Run on other repos I have like wyoclear and use insights to refine further 

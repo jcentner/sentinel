@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 import time
 
 from sentinel.core.ollama import check_ollama
@@ -20,10 +21,13 @@ def judge_findings(
     findings: list[Finding],
     model: str = _DEFAULT_MODEL,
     ollama_url: str = _DEFAULT_OLLAMA_URL,
+    conn: sqlite3.Connection | None = None,
+    run_id: int | None = None,
 ) -> list[Finding]:
     """Run each finding through the LLM judge for evaluation.
 
     If Ollama is unavailable, returns findings unchanged (graceful degradation).
+    When *conn* is provided, each LLM interaction is logged to the llm_log table.
     """
     if not findings:
         return findings
@@ -39,9 +43,10 @@ def judge_findings(
     errored = 0
     total_time = 0.0
     for i, f in enumerate(findings, 1):
+        prompt = _build_prompt(f)
         try:
             t0 = time.monotonic()
-            result = _judge_single(f, model, ollama_url)
+            result = _judge_single(f, model, ollama_url, prompt=prompt, conn=conn, run_id=run_id)
             elapsed = time.monotonic() - t0
             total_time += elapsed
             verdict = result.context.get("judge_verdict", "unknown") if result.context else "no_parse"
@@ -57,6 +62,8 @@ def judge_findings(
         except Exception:
             errored += 1
             logger.warning("Judge failed for finding: %s — using raw", f.title)
+            _log_llm_entry(conn, run_id, model, f, purpose="judge",
+                           prompt=prompt, verdict="error")
             judged.append(f)
 
     logger.info(
@@ -67,12 +74,17 @@ def judge_findings(
 
 
 def _judge_single(
-    finding: Finding, model: str, ollama_url: str
+    finding: Finding,
+    model: str,
+    ollama_url: str,
+    *,
+    prompt: str,
+    conn: sqlite3.Connection | None = None,
+    run_id: int | None = None,
 ) -> Finding:
     """Send a single finding to the LLM judge and return enriched finding."""
     import httpx
 
-    prompt = _build_prompt(finding)
     logger.debug("Judge prompt for '%s':\n%s", finding.title[:60], prompt)
 
     resp = httpx.post(
@@ -92,10 +104,12 @@ def _judge_single(
     response_text = data.get("response", "")
     tokens = data.get("eval_count", 0)
     gen_time_ns = data.get("eval_duration", 0)
+    gen_ms = gen_time_ns / 1e6
     logger.debug("Judge raw response for '%s' (%d tokens, %.0fms):\n%s",
-                 finding.title[:60], tokens, gen_time_ns / 1e6, response_text[:500])
+                 finding.title[:60], tokens, gen_ms, response_text[:500])
 
     judgment = _parse_judgment(response_text)
+    verdict = "no_parse"
     if judgment:
         finding.context = finding.context or {}
         finding.context["judge"] = judgment
@@ -112,8 +126,10 @@ def _judge_single(
         if not judgment.get("is_real", True):
             finding.confidence = min(finding.confidence, 0.3)
             finding.context["judge_verdict"] = "likely_false_positive"
+            verdict = "likely_false_positive"
         else:
             finding.context["judge_verdict"] = "confirmed"
+            verdict = "confirmed"
 
         if finding.severity != old_severity:
             logger.debug("Judge adjusted severity: %s → %s for '%s'",
@@ -123,6 +139,17 @@ def _judge_single(
             logger.debug("Judge summary for '%s': %s", finding.title[:60], summary)
     else:
         logger.debug("Judge returned no parseable judgment for '%s'", finding.title[:60])
+
+    _log_llm_entry(
+        conn, run_id, model, finding,
+        purpose="judge",
+        prompt=prompt,
+        response=response_text,
+        tokens=tokens,
+        gen_ms=gen_ms,
+        verdict=verdict,
+        judgment=judgment,
+    )
 
     return finding
 
@@ -186,3 +213,43 @@ def _parse_judgment(text: str) -> dict | None:
     except json.JSONDecodeError:
         logger.warning("Failed to parse judge JSON: %s", text[start:end][:200])
         return None
+
+
+def _log_llm_entry(
+    conn: sqlite3.Connection | None,
+    run_id: int | None,
+    model: str,
+    finding: Finding,
+    *,
+    purpose: str = "judge",
+    prompt: str = "",
+    response: str = "",
+    tokens: int = 0,
+    gen_ms: float = 0.0,
+    verdict: str = "error",
+    judgment: dict | None = None,
+) -> None:
+    """Persist an LLM interaction to the llm_log table if conn is available."""
+    if conn is None:
+        return
+    from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+    entry = LLMLogEntry(
+        purpose=purpose,
+        model=model,
+        detector=finding.detector,
+        finding_fingerprint=finding.fingerprint,
+        finding_title=finding.title,
+        prompt=prompt,
+        response=response if response else None,
+        tokens_generated=tokens if tokens is not None else None,
+        generation_ms=gen_ms if gen_ms is not None else None,
+        verdict=verdict,
+        is_real=judgment.get("is_real") if judgment else None,
+        adjusted_severity=judgment.get("adjusted_severity") if judgment else None,
+        summary=judgment.get("summary") if judgment else None,
+    )
+    try:
+        insert_llm_log(conn, run_id, entry)
+    except Exception:
+        logger.debug("Failed to write LLM log entry", exc_info=True)

@@ -137,6 +137,58 @@ class TestDatabase:
         assert row["version"] == SCHEMA_VERSION
         conn2.close()
 
+    def test_migration_from_v2(self, tmp_path):
+        """Simulate a v2 database and verify migration to v3 (llm_log) applies."""
+        import sqlite3
+
+        db_path = tmp_path / "v2.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("CREATE TABLE schema_version (version INTEGER PRIMARY KEY)")
+        conn.execute("INSERT INTO schema_version (version) VALUES (1)")
+        conn.execute("INSERT INTO schema_version (version) VALUES (2)")
+        conn.execute(
+            """CREATE TABLE runs (
+                id INTEGER PRIMARY KEY, repo_path TEXT, started_at TEXT,
+                completed_at TEXT, scope TEXT DEFAULT 'full', finding_count INTEGER DEFAULT 0
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE findings (
+                id INTEGER PRIMARY KEY, run_id INTEGER, fingerprint TEXT,
+                detector TEXT, category TEXT, severity TEXT, confidence REAL,
+                title TEXT, description TEXT, file_path TEXT, line_start INTEGER,
+                line_end INTEGER, evidence_json TEXT, context_json TEXT,
+                status TEXT DEFAULT 'new', created_at TEXT
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE suppressions (
+                id INTEGER PRIMARY KEY, fingerprint TEXT UNIQUE,
+                reason TEXT, suppressed_at TEXT
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE finding_persistence (
+                fingerprint TEXT PRIMARY KEY, first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL, occurrence_count INTEGER NOT NULL DEFAULT 1
+            )"""
+        )
+        conn.commit()
+        conn.close()
+
+        conn2 = get_connection(db_path)
+        tables = conn2.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+        names = {t["name"] for t in tables}
+        assert "llm_log" in names
+
+        row = conn2.execute(
+            "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+        ).fetchone()
+        assert row["version"] == SCHEMA_VERSION
+        conn2.close()
+
 
 class TestRuns:
     def test_create_run(self, db_conn):

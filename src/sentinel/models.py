@@ -6,6 +6,7 @@ import enum
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 
 class Severity(str, enum.Enum):
@@ -133,6 +134,11 @@ class DetectorContext:
     changed_files: list[str] | None = None
     target_paths: list[str] | None = None
     config: dict = field(default_factory=dict)
+    # Optional DB connection for structured LLM interaction logging.
+    # Set by the runner; detectors that make LLM calls can use these
+    # to persist prompt/response/verdict data for analysis.
+    conn: Any = None
+    run_id: int | None = None
 
 
 @dataclass

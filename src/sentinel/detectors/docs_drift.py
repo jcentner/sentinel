@@ -116,7 +116,7 @@ class DocsDriftDetector(Detector):
             # LLM-assisted doc-code comparison (only for key docs, when available)
             if is_key_doc and not context.config.get("skip_llm"):
                 findings.extend(
-                    self._check_doc_code_drift(content, rel_path, repo_root, context.config)
+                    self._check_doc_code_drift(content, rel_path, repo_root, context)
                 )
 
         return findings
@@ -511,11 +511,11 @@ class DocsDriftDetector(Detector):
     # ── LLM-assisted doc-code comparison ───────────────────────────
 
     def _check_doc_code_drift(
-        self, content: str, doc_path: str, repo_root: Path, config: dict
+        self, content: str, doc_path: str, repo_root: Path, context: DetectorContext
     ) -> list[Finding]:
         """Use LLM to compare code blocks in docs against actual source files."""
-        ollama_url = config.get("ollama_url", "http://localhost:11434")
-        model = config.get("model", "qwen3.5:4b")
+        ollama_url = context.config.get("ollama_url", "http://localhost:11434")
+        model = context.config.get("model", "qwen3.5:4b")
 
         if not check_ollama(ollama_url):
             logger.debug("Ollama unavailable — skipping doc-code drift for %s", doc_path)
@@ -531,7 +531,7 @@ class DocsDriftDetector(Detector):
                              doc_path, line_num, code_path, model)
                 result = self._llm_compare(
                     doc_block, doc_path, code_path, code_content, model, ollama_url,
-                    config=config,
+                    conn=context.conn, run_id=context.run_id,
                 )
                 if result and not result.get("is_accurate", True):
                     issue = result.get("issue", "Documentation may not match implementation")
@@ -660,7 +660,8 @@ class DocsDriftDetector(Detector):
         model: str,
         ollama_url: str,
         *,
-        config: dict | None = None,
+        conn: object = None,
+        run_id: int | None = None,
     ) -> dict | None:
         """Ask the LLM to compare a doc block against source code."""
         import httpx
@@ -709,27 +710,25 @@ class DocsDriftDetector(Detector):
             pass
 
         # Log to DB if connection available
-        _config = config or {}
-        db_conn = _config.get("_db_conn")
-        db_run_id = _config.get("_run_id")
-        if db_conn is not None:
+        if conn is not None:
             is_accurate = result.get("is_accurate", True) if result else None
             verdict = "no_parse"
             if result is not None:
                 verdict = "accurate" if is_accurate else "drift_detected"
             from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
             try:
-                insert_llm_log(db_conn, db_run_id, LLMLogEntry(
+                insert_llm_log(conn, run_id, LLMLogEntry(
                     purpose="doc-code-comparison",
                     model=model,
                     detector="docs-drift",
                     finding_title=f"{doc_path} vs {code_path}",
                     prompt=prompt,
-                    response=text or None,
-                    tokens_generated=tokens or None,
-                    generation_ms=gen_ms or None,
+                    response=text if text else None,
+                    tokens_generated=tokens if tokens is not None else None,
+                    generation_ms=gen_ms if gen_ms is not None else None,
                     verdict=verdict,
-                    is_real=not is_accurate if is_accurate is not None else None,
+                    # is_real is left None for doc-code comparisons;
+                    # use the verdict column (accurate/drift_detected) for analysis.
                     summary=result.get("issue") if result else None,
                 ))
             except Exception:

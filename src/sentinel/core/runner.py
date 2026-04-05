@@ -53,6 +53,8 @@ def run_scan(
             "model": model,
             "skip_llm": skip_judge,
         },
+        conn=conn,
+        run_id=run.id,
     )
 
     # 3. Run detectors (error-isolated per detector)
@@ -83,7 +85,10 @@ def run_scan(
 
     # 7. LLM Judge (optional)
     if not skip_judge:
-        deduped = judge_findings(deduped, model=model, ollama_url=ollama_url)
+        deduped = judge_findings(
+            deduped, model=model, ollama_url=ollama_url,
+            conn=conn, run_id=run.id,
+        )
     else:
         logger.info("LLM judge skipped (--skip-judge)")
 
