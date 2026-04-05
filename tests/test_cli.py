@@ -1,0 +1,293 @@
+"""CLI integration tests using Click's CliRunner."""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import pytest
+from click.testing import CliRunner
+
+from sentinel.cli import main
+
+
+@pytest.fixture
+def runner():
+    return CliRunner()
+
+
+@pytest.fixture
+def test_repo(tmp_path):
+    """Create a small git repo with known issues."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=str(repo), capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=str(repo), capture_output=True, check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=str(repo), capture_output=True, check=True,
+    )
+    (repo / "main.py").write_text(
+        "import os\n"
+        "# TODO: fix this\n"
+        "def f():\n"
+        "    pass\n"
+    )
+    subprocess.run(["git", "add", "-A"], cwd=str(repo), capture_output=True, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=str(repo), capture_output=True, check=True,
+    )
+    return repo
+
+
+@pytest.fixture
+def db_path(tmp_path):
+    return str(tmp_path / "test.db")
+
+
+# ── scan command ─────────────────────────────────────────────────────
+
+
+class TestScanCommand:
+    def test_basic_scan(self, runner, test_repo, db_path, tmp_path):
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+        ])
+        assert result.exit_code == 0
+        assert "Scan complete:" in result.output
+        assert "findings in run" in result.output
+        assert Path(out).exists()
+
+    def test_scan_nonexistent_repo(self, runner, tmp_path, db_path):
+        result = runner.invoke(main, [
+            "scan", str(tmp_path / "nope"),
+            "--skip-judge", "--db", db_path,
+        ])
+        assert result.exit_code != 0
+
+    def test_incremental_and_target_conflict(self, runner, test_repo, db_path):
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path,
+            "--incremental", "--target", "main.py",
+        ])
+        assert result.exit_code != 0
+        assert "Cannot use --incremental and --target together" in result.output
+
+    def test_targeted_scan(self, runner, test_repo, db_path, tmp_path):
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+            "--target", "main.py",
+        ])
+        assert result.exit_code == 0
+        assert "Scan complete:" in result.output
+
+    def test_verbose_flag(self, runner, test_repo, db_path, tmp_path):
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "-v", "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+        ])
+        assert result.exit_code == 0
+
+    def test_incremental_no_changes(self, runner, test_repo, db_path, tmp_path):
+        """Second incremental scan with no changes should exit early."""
+        out1 = str(tmp_path / "r1.md")
+        out2 = str(tmp_path / "r2.md")
+        # First full scan to set baseline
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out1,
+        ])
+        # Second incremental scan — no changes
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out2,
+            "--incremental",
+        ])
+        assert result.exit_code == 0
+        assert "No changes since last run" in result.output
+
+
+# ── suppress command ─────────────────────────────────────────────────
+
+
+class TestSuppressCommand:
+    def test_suppress_nonexistent_finding(self, runner, test_repo, db_path):
+        # Initialize DB with a scan first
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        result = runner.invoke(main, [
+            "suppress", "99999",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+        assert "not found" in result.output
+
+    def test_suppress_existing_finding(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        result = runner.invoke(main, [
+            "suppress", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "-r", "False positive",
+        ])
+        assert result.exit_code == 0
+        assert "Suppressed finding #1" in result.output
+
+
+# ── approve command ──────────────────────────────────────────────────
+
+
+class TestApproveCommand:
+    def test_approve_nonexistent_finding(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        result = runner.invoke(main, [
+            "approve", "99999",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+        assert "not found" in result.output
+
+    def test_approve_existing_finding(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        result = runner.invoke(main, [
+            "approve", "1",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Approved finding #1" in result.output
+        assert "create-issues" in result.output
+
+
+# ── history command ──────────────────────────────────────────────────
+
+
+class TestHistoryCommand:
+    def test_history_empty(self, runner, test_repo, db_path):
+        result = runner.invoke(main, [
+            "history", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "No runs found" in result.output
+
+    def test_history_after_scan(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        result = runner.invoke(main, [
+            "history", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Findings" in result.output
+        assert str(test_repo) in result.output
+
+
+# ── create-issues command ────────────────────────────────────────────
+
+
+class TestCreateIssuesCommand:
+    def test_no_approved_findings(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        result = runner.invoke(main, [
+            "create-issues",
+            "--repo", str(test_repo), "--db", db_path, "--dry-run",
+        ])
+        assert result.exit_code == 0
+        assert "No approved findings" in result.output
+
+    def test_dry_run_without_github_config(self, runner, test_repo, db_path):
+        """Dry run without GitHub config should show what would be created."""
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        # Approve a finding
+        runner.invoke(main, [
+            "approve", "1",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        result = runner.invoke(main, [
+            "create-issues",
+            "--repo", str(test_repo), "--db", db_path, "--dry-run",
+        ], env={})
+        assert result.exit_code == 0
+        assert "DRY RUN" in result.output
+
+    def test_missing_github_config_no_dry_run(self, runner, test_repo, db_path):
+        """Without GitHub config and no --dry-run, should fail."""
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", "/dev/null",
+        ])
+        runner.invoke(main, [
+            "approve", "1",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        result = runner.invoke(main, [
+            "create-issues",
+            "--repo", str(test_repo), "--db", db_path,
+        ], env={})
+        assert result.exit_code != 0
+        assert "GitHub config required" in result.output
+
+
+# ── eval command ─────────────────────────────────────────────────────
+
+
+class TestEvalCommand:
+    def test_eval_missing_ground_truth(self, runner, test_repo, db_path):
+        result = runner.invoke(main, [
+            "eval", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+        assert "Ground truth file not found" in result.output
+
+    def test_eval_with_sample_repo(self, runner, db_path):
+        """Eval against the built-in sample repo fixture."""
+        sample_repo = Path(__file__).parent / "fixtures" / "sample-repo"
+        if not sample_repo.exists():
+            pytest.skip("sample-repo fixture not found")
+        gt = sample_repo / "ground-truth.toml"
+        if not gt.exists():
+            pytest.skip("ground-truth.toml not found")
+        result = runner.invoke(main, [
+            "eval", str(sample_repo),
+            "--ground-truth", str(gt), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Precision:" in result.output
+        assert "Recall:" in result.output
+        assert "PASS" in result.output
+
+
+# ── version ──────────────────────────────────────────────────────────
+
+
+class TestVersion:
+    def test_version(self, runner):
+        result = runner.invoke(main, ["--version"])
+        assert result.exit_code == 0
+        assert "sentinel" in result.output
