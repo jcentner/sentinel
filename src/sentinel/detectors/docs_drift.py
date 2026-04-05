@@ -151,6 +151,22 @@ class DocsDriftDetector(Detector):
                     results.append(Path(dirpath) / fname)
         return results
 
+    @staticmethod
+    def _collect_repo_files(root: Path) -> set[str]:
+        """Collect all repo-relative file and directory paths for suffix matching."""
+        paths: set[str] = set()
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+            rel_dir = str(Path(dirpath).relative_to(root))
+            if rel_dir != ".":
+                paths.add(rel_dir)
+                paths.add(rel_dir + "/")
+            for fname in filenames:
+                full = Path(dirpath) / fname
+                rel = full.relative_to(root)
+                paths.add(str(rel))
+        return paths
+
     # ── Stale reference detection ──────────────────────────────────
 
     def _check_stale_references(
@@ -159,6 +175,9 @@ class DocsDriftDetector(Detector):
         findings: list[Finding] = []
         doc_dir = (repo_root / doc_path).parent
         lines = content.splitlines()
+
+        # Build a set of all repo-relative file paths for suffix matching
+        repo_files = self._collect_repo_files(repo_root)
 
         in_fenced_block = False
         for line_num, line in enumerate(lines, start=1):
@@ -184,6 +203,7 @@ class DocsDriftDetector(Detector):
                 path_text = match.group(1)
                 finding = self._check_inline_path(
                     path_text, doc_path, doc_dir, repo_root, line_num, line,
+                    repo_files=repo_files,
                 )
                 if finding:
                     findings.append(finding)
@@ -271,6 +291,8 @@ class DocsDriftDetector(Detector):
         repo_root: Path,
         line_num: int,
         line: str,
+        *,
+        repo_files: set[str] | None = None,
     ) -> Finding | None:
         # Only check things that look like relative file paths
         # Must contain at least one / and an extension, or start with a known prefix
@@ -300,6 +322,15 @@ class DocsDriftDetector(Detector):
                 continue  # Outside repo
             if resolved.exists():
                 return None
+
+        # Suffix match: check if path_text matches the tail of any repo file.
+        # This catches module-relative references like `store/db.py` that
+        # actually refer to `src/sentinel/store/db.py`.
+        if repo_files:
+            suffix = "/" + path_text
+            for f in repo_files:
+                if f == path_text or f.endswith(suffix):
+                    return None
 
         return Finding(
             detector=self.name,

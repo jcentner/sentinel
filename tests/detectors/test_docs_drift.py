@@ -125,6 +125,18 @@ class TestStaleReferences:
         findings = detector.detect(ctx)
         assert len(findings) == 0
 
+    def test_ignores_suffix_matching_inline_path(self, detector, tmp_path):
+        """FP prevention: module-relative path like `store/db.py` that matches
+        a file deeper in the repo (e.g. `src/sentinel/store/db.py`)."""
+        (tmp_path / "src" / "sentinel" / "store").mkdir(parents=True)
+        (tmp_path / "src" / "sentinel" / "store" / "db.py").write_text("x = 1\n")
+        readme = tmp_path / "README.md"
+        readme.write_text("Migration logic is in `store/db.py`.\n")
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        assert len(findings) == 0
+
     def test_ignores_simple_code_no_path(self, detector, tmp_path):
         """FP prevention: single-word backtick code should not be treated as path."""
         readme = tmp_path / "README.md"
