@@ -1,0 +1,76 @@
+{
+  "run": {
+    "id": 1,
+    "repo_path": "/home/user/sentinel",
+    "started_at": "2026-04-06T22:26:16.881042+00:00",
+    "completed_at": "2026-04-06T22:26:22.194371+00:00",
+    "scope": "full",
+    "finding_count": 92,
+    "commit_sha": "a93fbdc9d7aaa2ecef450dba775fb31a629a7425"
+  },
+  "findings": [
+    {
+      "detector": "complexity",
+      "category": "code-quality",
+      "severity": "high",
+      "confidence": 0.95,
+      "title": "Complex function: scan (cyclomatic complexity 23 (threshold: 10), 77 lines (threshold: 50))",
+      "description": "`scan` has cyclomatic complexity 23 (threshold: 10) and 77 lines (threshold: 50).",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/sentinel/cli.py",
+          "content": "Function scan at src/sentinel/cli.py:57",
+          "line_range": [57, 145]
+        }
+      ],
+      "file_path": "src/sentinel/cli.py",
+      "line_start": 57,
+      "line_end": 145,
+      "fingerprint": "2aa0a9db9d98bb22",
+      "metadata": {
+        "cyclomatic_complexity": 23,
+        "line_count": 77
+      }
+    },
+    {
+      "detector": "docs-drift",
+      "category": "docs-drift",
+      "severity": "medium",
+      "confidence": 0.95,
+      "title": "Stale reference: src/sentinel/pipeline.py",
+      "description": "docs/architecture/overview.md references src/sentinel/pipeline.py which does not exist",
+      "evidence": [
+        {
+          "type": "doc_reference",
+          "source": "docs/architecture/overview.md",
+          "content": "Reference points to src/sentinel/pipeline.py which does not exist",
+          "line_range": [42, 42]
+        }
+      ],
+      "file_path": "docs/architecture/overview.md",
+      "line_start": 42,
+      "fingerprint": "a1b2c3d4e5f6g7h8"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "TODO: Add proper logging configuration",
+      "description": "TODO comment found in tests/fixtures/sample-repo/src/myapp/main.py:5",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "tests/fixtures/sample-repo/src/myapp/main.py",
+          "content": "# TODO: Add proper logging configuration",
+          "line_range": [5, 5]
+        }
+      ],
+      "file_path": "tests/fixtures/sample-repo/src/myapp/main.py",
+      "line_start": 5,
+      "fingerprint": "c3d4e5f6g7h8i9j0"
+    }
+  ],
+  "report_path": "/home/user/sentinel/report-1.md"
+}
