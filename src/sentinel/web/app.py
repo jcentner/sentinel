@@ -93,11 +93,22 @@ async def run_detail(request: Request) -> Response:
     for f in findings:
         grouped.setdefault(f.severity.value, []).append(f)
 
-    # Cluster findings within each severity group by parent directory
-    from sentinel.core.clustering import FindingCluster, cluster_findings
+    # Cluster findings within each severity group:
+    # 1. Pattern-based clustering (root cause: same detector + similar title)
+    # 2. Directory-based clustering for remaining standalone findings
+    from sentinel.core.clustering import FindingCluster, cluster_by_pattern, cluster_findings
     clustered: dict[str, list[Finding | FindingCluster]] = {}
     for sev, sev_findings in grouped.items():
-        clustered[sev] = cluster_findings(sev_findings)
+        # First pass: group by pattern (root cause)
+        pattern_result = cluster_by_pattern(sev_findings)
+        # Second pass: directory-cluster the remaining standalone findings
+        remaining = [item for item in pattern_result if isinstance(item, Finding)]
+        pattern_clusters = [item for item in pattern_result if isinstance(item, FindingCluster)]
+        dir_result = cluster_findings(remaining)
+        # Combine: pattern clusters first, then dir clusters, then standalone
+        combined: list[Finding | FindingCluster] = list(pattern_clusters)
+        combined.extend(dir_result)
+        clustered[sev] = combined
 
     return templates.TemplateResponse(request, "run_detail.html", {
         "run": run,

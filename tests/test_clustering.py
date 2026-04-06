@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from sentinel.core.clustering import (
     FindingCluster,
+    _normalize_title,
+    cluster_by_pattern,
     cluster_findings,
 )
 from sentinel.core.report import generate_report
@@ -220,3 +222,90 @@ class TestReportClustering:
         ]
         report = generate_report(items, _make_run())
         assert "docs/guides" in report
+
+
+# ── Pattern clustering tests ─────────────────────────────────────────
+
+
+class TestNormalizeTitle:
+    def test_strips_file_path(self):
+        assert _normalize_title("TODO found in `src/main.py`") == "TODO found"
+
+    def test_strips_line_number(self):
+        assert _normalize_title("Unused import:42") == "Unused import"
+
+    def test_strips_trailing_paren(self):
+        assert _normalize_title("Stale link (was docs/old.md)") == "Stale link"
+
+    def test_preserves_core_message(self):
+        assert _normalize_title("[unused] func is unused") == "[unused] func is unused"
+
+    def test_empty_string(self):
+        assert _normalize_title("") == ""
+
+
+class TestClusterByPattern:
+    def test_groups_same_pattern(self):
+        """Findings from the same detector with similar titles cluster."""
+        items = [
+            _f("src/a.py", detector="lint-runner", title="[F401] Unused import in `src/a.py`"),
+            _f("src/b.py", detector="lint-runner", title="[F401] Unused import in `src/b.py`"),
+            _f("src/c.py", detector="lint-runner", title="[F401] Unused import in `src/c.py`"),
+        ]
+        result = cluster_by_pattern(items)
+        clusters = [r for r in result if isinstance(r, FindingCluster)]
+        assert len(clusters) == 1
+        assert clusters[0].cluster_type == "pattern"
+        assert len(clusters[0].findings) == 3
+
+    def test_different_detectors_not_grouped(self):
+        """Same title pattern but different detectors → no cluster."""
+        items = [
+            _f("a.py", detector="lint-runner", title="Issue in `a.py`"),
+            _f("b.py", detector="todo-scanner", title="Issue in `b.py`"),
+            _f("c.py", detector="docs-drift", title="Issue in `c.py`"),
+        ]
+        result = cluster_by_pattern(items)
+        # All standalone — different detectors
+        assert all(isinstance(r, Finding) for r in result)
+
+    def test_below_min_size_not_clustered(self):
+        items = [
+            _f("a.py", detector="lint-runner", title="Unused import in `a.py`"),
+            _f("b.py", detector="lint-runner", title="Unused import in `b.py`"),
+        ]
+        result = cluster_by_pattern(items, min_size=3)
+        assert all(isinstance(r, Finding) for r in result)
+
+    def test_pattern_label(self):
+        items = [
+            _f("a.py", detector="docs-drift", title="Stale link in `README.md`"),
+            _f("b.py", detector="docs-drift", title="Stale link in `GUIDE.md`"),
+            _f("c.py", detector="docs-drift", title="Stale link in `API.md`"),
+        ]
+        result = cluster_by_pattern(items)
+        clusters = [r for r in result if isinstance(r, FindingCluster)]
+        assert len(clusters) == 1
+        assert "docs-drift" in clusters[0].pattern_label
+        assert "Stale link" in clusters[0].pattern_label
+
+    def test_mixed_clusterable_and_standalone(self):
+        items = [
+            _f("a.py", detector="lint-runner", title="[F401] Unused import in `a.py`"),
+            _f("b.py", detector="lint-runner", title="[F401] Unused import in `b.py`"),
+            _f("c.py", detector="lint-runner", title="[F401] Unused import in `c.py`"),
+            _f("d.py", detector="todo-scanner", title="TODO found"),
+        ]
+        result = cluster_by_pattern(items)
+        clusters = [r for r in result if isinstance(r, FindingCluster)]
+        standalone = [r for r in result if isinstance(r, Finding)]
+        assert len(clusters) == 1
+        assert len(standalone) == 1
+
+    def test_empty_input(self):
+        assert cluster_by_pattern([]) == []
+
+    def test_min_size_one_returns_all_as_list(self):
+        items = [_f("a.py")]
+        result = cluster_by_pattern(items, min_size=1)
+        assert len(result) == 1
