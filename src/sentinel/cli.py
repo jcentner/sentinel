@@ -15,13 +15,22 @@ from sentinel import __version__
 @click.group()
 @click.version_option(version=__version__, prog_name="sentinel")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose logging")
-def main(verbose: bool) -> None:
+@click.option("-q", "--quiet", is_flag=True, help="Suppress all output except errors and JSON")
+@click.pass_context
+def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     """Local Repo Sentinel — overnight code health monitoring.
 
     Exit codes: 0 = success, 1 = error or eval below threshold.
     Use --json-output on any subcommand for machine-readable output.
     """
-    level = logging.DEBUG if verbose else logging.INFO
+    ctx.ensure_object(dict)
+    ctx.obj["quiet"] = quiet
+    if quiet:
+        level = logging.ERROR
+    elif verbose:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

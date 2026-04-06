@@ -602,3 +602,23 @@ class TestVersion:
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
         assert "sentinel" in result.output
+
+
+# ── quiet mode ───────────────────────────────────────────────────────
+
+
+class TestQuietMode:
+    def test_quiet_flag_accepted(self, runner):
+        result = runner.invoke(main, ["-q", "--help"])
+        assert result.exit_code == 0
+
+    def test_quiet_suppresses_scan_output(self, runner, test_repo, tmp_path):
+        db_path = str(tmp_path / "test.db")
+        result = runner.invoke(main, [
+            "-q", "scan", str(test_repo),
+            "--skip-judge", "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        # Quiet mode should have minimal output (no log lines)
+        assert "[INFO]" not in result.output
+        assert "[DEBUG]" not in result.output
