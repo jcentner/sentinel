@@ -1,73 +1,70 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 15 — 5 slices: reviewer fixes, JSON CLI, eval chart, go-linter, run comparison)
+> Last updated: 2026-04-06 (Session 16 — 3 slices: vision cleanup, rust-clippy, annotations)
 
-## Session 15 Summary
+## Session 16 Summary
 
 ### Current Objective
-Fix reviewer findings from Session 14, then continue with highest-leverage improvements across CLI, detectors, and web UI.
+Continue multi-language detector expansion and web UI enhancements.
 
 ### What Was Accomplished
 
-**Slice 0 — Reviewer findings fix:**
-1. Docs drift: schema v5→v6 (overview, glossary), routes table, detector-interface rows
-2. Resource leak: mem_conn try/finally in web eval POST
-3. Performance: eslint_runner `_has_js_files()` skips vendored dirs
-4. Test coverage: 4 eval-history CLI tests
+**Slice 0 — Vision lock cleanup + lint fix:**
+1. Stripped implementation specifics from VISION-LOCK.md (test counts, command lists, detector enumerations, metric current values)
+2. VISION-LOCK is now a strategic document — implementation state tracked in CURRENT-STATE only
+3. Fixed 4 RUF015 lint warnings in go-linter tests (next() vs [0])
 
-**Slice 1 — Complete JSON output + `__main__.py`:**
-5. `--json-output` on `suppress` and `approve` commands (all 11 commands now support it)
-6. Fixed `show` command not-found to respect `--json-output`
-7. Added `python -m sentinel` entry point
-8. 4 new tests
+**Slice 1 — Rust clippy detector:**
+4. 9th detector: wraps `cargo clippy --message-format=json` for Rust repos
+5. JSON Lines parsing (compiler-message entries only)
+6. Auto-skip non-Rust repos (checks for Cargo.toml or .rs files, skips `target/` dir)
+7. Elevates clippy::correctness and clippy::suspicious lints to HIGH
+8. Incremental and targeted scope support (post-filter on clippy output)
+9. Deduplicates findings by file:line:message within a single run
+10. 38 new tests
 
-**Slice 2 — Eval trend SVG chart:**
-9. Server-side SVG chart on eval history page (precision/recall polylines)
-10. Theme-aware colors, threshold lines, Y/X axis labels
-11. 2 new tests with coordinate validation
-
-**Slice 3 — Go linter detector (golangci-lint):**
-12. 8th detector: wraps golangci-lint for Go repos
-13. Auto-skip non-Go repos, elevates security linters (gosec, govet, staticcheck, errcheck) to HIGH
-14. Incremental and targeted scope support
-15. 29 new tests
-
-**Slice 4 — Run comparison:**
-16. `compare_runs()` in store layer: fingerprint-based set operations
-17. `/runs/{id}/compare/{base_id}` web route with new/resolved/persistent sections
-18. "Compare with" dropdown on run detail page
-19. 6 new tests
+**Slice 2 — Finding annotations/notes:**
+11. DB migration v7: `annotations` table (finding_id, content, created_at)
+12. Store layer: `add_annotation()`, `get_annotations()`, `delete_annotation()` with `Annotation` dataclass
+13. Web routes: `POST /findings/{id}/annotations` (add), `POST .../annotations/{id}/delete` (delete)
+14. htmx-friendly responses for both add and delete
+15. Finding detail template: Notes section with add form and delete buttons
+16. CSS for annotation styling
+17. 12 new tests (5 store, 7 web)
 
 ### Test Results
 ```
-533 passed
+583 passed
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
 ### Repository State
-- **Implementation**: 29+ Python modules in `src/sentinel/`
-- **Tests**: 533 passing
-- **Detectors**: 8 (todo-scanner, lint-runner, eslint-runner, go-linter, dep-audit, docs-drift, git-hotspots, complexity)
-- **CLI**: 11 commands, all with `--json-output`, plus `python -m sentinel`
-- **Web UI**: 13 routes, eval trend chart, run comparison, clustering, dark/light mode
-- **DB schema**: v6
+- **Implementation**: 30+ Python modules in `src/sentinel/`
+- **Tests**: 583 passing
+- **Detectors**: 9 (todo-scanner, lint-runner, eslint-runner, go-linter, rust-clippy, dep-audit, docs-drift, git-hotspots, complexity)
+- **CLI**: 10 commands, all with `--json-output`, plus `python -m sentinel`
+- **Web UI**: 16 routes, annotations, eval trend chart, run comparison, clustering, dark/light mode
+- **DB schema**: v7
 - **Lint/Type**: Clean (ruff, mypy strict)
-- **Vision**: v2.1
 
 ### What Remains / Next Priority
-1. TD-002: Async detector interface (low priority)
+1. Real-world validation — run Sentinel on non-Python repos to validate multi-language detectors
 2. Multi-repo support (OQ-005)
-3. Packaging & distribution (PyPI)
-4. Detector: Rust linter (clippy)
-5. Web UI: finding annotation/notes feature
+3. Packaging & distribution (PyPI, CI/CD)
+4. Model benchmarking (Qwen3.5 4B vs 9B quality comparison)
+5. Root-cause finding grouping in web UI
+6. TD-002: Async detector interface (low priority)
 
 ### Blocked Items
 None.
 
+### Decisions Made
+- VISION-LOCK is strategic only — no test counts, command enumerations, or current metric values. Implementation state tracked in CURRENT-STATE.md and architecture docs.
+
 ---
 
-## Session 14 Summary
+## Session 15 Summary
 
 ### Current Objective
 CLI as AI-agent interface, multi-language detector support, web UI clustering, persistent eval metrics.
