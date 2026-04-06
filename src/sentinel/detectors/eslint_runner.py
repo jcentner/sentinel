@@ -55,7 +55,7 @@ def _has_js_files(repo_root: Path) -> bool:
     # Check for any JS/TS files, skipping vendored/hidden dirs
     _SKIP_DIRS = frozenset({".git", ".sentinel", "node_modules", "dist", "build", ".venv", "__pycache__"})
     for p in repo_root.rglob("*"):
-        if _SKIP_DIRS & set(p.parts):
+        if _SKIP_DIRS & set(p.relative_to(repo_root).parts):
             continue
         if p.is_file() and p.suffix in _JS_EXTENSIONS:
             return True

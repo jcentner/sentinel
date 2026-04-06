@@ -22,8 +22,10 @@ mypy src/sentinel/ --strict  # Type check
 
 ```
 src/sentinel/
+├── __main__.py             # python -m sentinel entry point
 ├── cli.py                  # Click CLI entry point
 ├── config.py               # sentinel.toml loader
+├── github.py               # GitHub issue creation
 ├── models.py               # Finding, Evidence dataclasses
 ├── core/
 │   ├── runner.py           # Pipeline orchestrator
@@ -32,7 +34,9 @@ src/sentinel/
 │   ├── dedup.py            # Fingerprinting and deduplication
 │   ├── report.py           # Markdown report generator
 │   ├── clustering.py       # Pattern + directory clustering
-│   └── eval.py             # Precision/recall evaluation
+│   ├── eval.py             # Precision/recall evaluation
+│   ├── indexer.py          # Embedding index builder
+│   └── ollama.py           # Ollama API client
 ├── detectors/
 │   ├── base.py             # Detector ABC + auto-registry
 │   ├── todo_scanner.py     # TODO/FIXME scanner
@@ -48,7 +52,10 @@ src/sentinel/
 │   ├── db.py               # SQLite connection + migrations
 │   ├── findings.py         # Finding CRUD
 │   ├── runs.py             # Run history
-│   └── eval_store.py       # Eval results persistence
+│   ├── eval_store.py       # Eval results persistence
+│   ├── embeddings.py       # Embedding vector storage
+│   ├── llm_log.py          # LLM interaction logging
+│   └── persistence.py      # State persistence helpers
 └── web/
     ├── app.py              # Starlette web UI
     ├── templates/           # Jinja2 templates

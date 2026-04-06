@@ -167,7 +167,9 @@ class GoLinter(Detector):
                 confidence=1.0,
                 file_path=rel_path,
                 line_start=line if line else None,
-                evidence=[evidence],                context={"linter": from_linter, "tool": "golangci-lint"},            ))
+                evidence=[evidence],
+                context={"linter": from_linter, "tool": "golangci-lint"},
+            ))
 
         return findings
 

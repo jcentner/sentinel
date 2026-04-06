@@ -39,3 +39,6 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Theme toggle** | A dark/light mode switch in the web UI header. Preference is stored in `localStorage` and applied via inline script before render to prevent flash-of-wrong-theme. |
 | **htmx** | A JavaScript library used for progressive enhancement in the web UI. Enables inline actions (approve/suppress update the status badge without a full page reload). Loaded from a vendored static file, no build step required. |
 | **Annotation** | A user note attached to a finding for triage context. Stored in the `annotations` table; displayed on the finding detail page with add/delete via htmx. |
+| **scan-all** | CLI command (`sentinel scan-all`) that scans multiple repositories into a shared database in one invocation. Each repo is scanned independently; partial failures do not abort the batch (exit code 2 on partial failure). |
+| **doctor** | CLI command (`sentinel doctor`) that checks availability of external tools (git, ruff, pip-audit, eslint, biome, golangci-lint, cargo, ollama) and optional Python packages. Supports `--json-output`. |
+| **init** | CLI command (`sentinel init <repo>`) that scaffolds a new repo for Sentinel: creates `sentinel.toml` with documented defaults, `.sentinel/` directory, and `.gitignore` entry. |

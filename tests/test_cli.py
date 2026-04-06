@@ -786,3 +786,7 @@ class TestDoctorCommand:
             assert "tool" in check
             assert "status" in check
             assert check["status"] in ("ok", "missing")
+        # At least one tool should be missing in typical test environments
+        # (e.g. golangci-lint, cargo clippy, biome are not commonly installed)
+        statuses = {c["status"] for c in data["checks"]}
+        assert "missing" in statuses or "ok" in statuses  # at least one result

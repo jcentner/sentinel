@@ -178,10 +178,16 @@ Embeddings are implemented via Ollama's `/api/embed` endpoint (ADR-009). Reranke
 ## Trigger modes
 
 - **Manual**: On-demand CLI invocation (`sentinel scan <repo>`) — the primary trigger mode.
+- **Multi-repo**: `sentinel scan-all REPO1 REPO2 ...` scans multiple repositories into a shared database in one invocation.
 - **Web UI**: Configurable scan form in `sentinel serve` web interface — supports repo path override, model selection, skip-judge, and incremental mode.
 - **Cron / systemd timer**: Users can schedule overnight runs using their system's cron or systemd timer. See the README for setup instructions. Sentinel itself does not include a built-in scheduler.
 - **Git hook**: On last push of the day or on specific events (not implemented — potential future addition).
 - **Watch**: File-system watcher for continuous development (not implemented — future).
+
+## Setup and diagnostics
+
+- **`sentinel init <repo>`**: Scaffolds a `sentinel.toml` with documented defaults, creates `.sentinel/` directory, and adds it to `.gitignore`.
+- **`sentinel doctor`**: Checks availability of external tools (git, ruff, pip-audit, eslint, biome, golangci-lint, cargo clippy, ollama) and optional Python packages. Supports `--json-output` for machine-readable output.
 
 ## Scope per run
 

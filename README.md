@@ -29,7 +29,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 9 detectors (Python, JS/TS, Go, Rust, deps, docs, git) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, finding annotations, multi-repo scanning, and `--json-output` on all commands for machine-readable CLI output. 610 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 9 detectors (Python, JS/TS, Go, Rust, deps, docs, git) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, finding annotations, multi-repo scanning, and `--json-output` on all commands for machine-readable CLI output. 614 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
@@ -173,10 +173,11 @@ sentinel doctor --json-output   # machine-readable
 | `--incremental` | Only scan files changed since the last completed run |
 | `--embed-model TEXT` | Ollama embedding model for semantic context (e.g. `nomic-embed-text`) |
 | `--target, -t TEXT` | Scan only specific paths (repeatable) |
+| `-q, --quiet` | Suppress all output except errors |
 | `--json-output` | Output results as JSON (machine-readable) |
 | `--db TEXT` | Custom database path |
 
-> **Note**: `-v, --verbose` is a global flag placed before the subcommand: `sentinel -v scan /path/to/repo`.
+> **Note**: `-v, --verbose` and `-q, --quiet` are global flags placed before the subcommand: `sentinel -v scan /path/to/repo`. They are mutually exclusive.
 
 **Evaluate detector accuracy against ground truth:**
 

@@ -24,7 +24,7 @@ Finding #1
   Detector:    complexity
   Severity:    HIGH
   Confidence:  95%
-  Status:      active
+  Status:      new
   Description: `scan` has cyclomatic complexity 23 (threshold: 10)...
   Evidence:    4 items
   Fingerprint: 2aa0a9db9d98bb22
