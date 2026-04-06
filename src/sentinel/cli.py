@@ -848,3 +848,79 @@ def init(repo_path: str, force: bool) -> None:
 
     click.echo("Done. Run 'sentinel scan .' to scan this repo.")
 
+
+_TOOL_CHECKS: list[tuple[str, list[str], str]] = [
+    ("git", ["git", "--version"], "Required — version control integration"),
+    ("ruff", ["ruff", "--version"], "Python linter (lint-runner detector)"),
+    ("pip-audit", ["pip-audit", "--version"], "Python dependency audit (dep-audit detector)"),
+    ("eslint", ["eslint", "--version"], "JS/TS linter (eslint-runner detector)"),
+    ("biome", ["biome", "--version"], "JS/TS linter — faster alternative to ESLint"),
+    ("golangci-lint", ["golangci-lint", "--version"], "Go linter (go-linter detector)"),
+    ("cargo", ["cargo", "--version"], "Rust toolchain (rust-clippy detector)"),
+]
+
+
+@main.command()
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def doctor(output_json: bool) -> None:
+    """Check system dependencies and report what's available.
+
+    Verifies that external tools used by detectors are installed
+    and accessible. Also checks Ollama connectivity.
+    """
+    import shutil
+    import subprocess as sp
+
+    results: list[dict[str, str]] = []
+
+    for name, cmd, description in _TOOL_CHECKS:
+        if shutil.which(cmd[0]):
+            try:
+                out = sp.run(cmd, capture_output=True, text=True, timeout=5)
+                version = out.stdout.strip().split("\n")[0] if out.stdout else "installed"
+                results.append({"tool": name, "status": "ok", "version": version, "description": description})
+            except (sp.TimeoutExpired, OSError):
+                results.append({"tool": name, "status": "ok", "version": "installed", "description": description})
+        else:
+            results.append({"tool": name, "status": "missing", "version": "", "description": description})
+
+    # Check Ollama
+    try:
+        import httpx
+        resp = httpx.get("http://localhost:11434/api/tags", timeout=3)
+        models = [m["name"] for m in resp.json().get("models", [])]
+        results.append({
+            "tool": "ollama",
+            "status": "ok",
+            "version": f"{len(models)} model(s): {', '.join(models[:5])}",
+            "description": "LLM inference (judge + embeddings)",
+        })
+    except Exception:
+        results.append({
+            "tool": "ollama",
+            "status": "missing",
+            "version": "",
+            "description": "LLM inference (judge + embeddings) — optional",
+        })
+
+    # Check optional Python packages
+    for pkg, desc in [("starlette", "Web UI (sentinel serve)"), ("jinja2", "Web UI templates")]:
+        try:
+            __import__(pkg)
+            results.append({"tool": pkg, "status": "ok", "version": "installed", "description": desc})
+        except ImportError:
+            results.append({"tool": pkg, "status": "missing", "version": "", "description": desc})
+
+    if output_json:
+        click.echo(json.dumps({"checks": results}, indent=2))
+    else:
+        click.echo("Sentinel Doctor\n")
+        for r in results:
+            icon = "✓" if r["status"] == "ok" else "✗"
+            version_str = f" ({r['version']})" if r["version"] else ""
+            click.echo(f"  {icon} {r['tool']:20s}{version_str}")
+            if r["status"] == "missing":
+                click.echo(f"    └─ {r['description']}")
+        ok = sum(1 for r in results if r["status"] == "ok")
+        click.echo(f"\n{ok}/{len(results)} checks passed")
+

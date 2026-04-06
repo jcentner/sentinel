@@ -761,3 +761,28 @@ class TestScanAllCommand:
         # Should exit 2 (partial failure)
         assert result.exit_code == 2
         assert "Scanned 1/2 repos" in result.output
+
+
+# ── doctor command ───────────────────────────────────────────────────
+
+
+class TestDoctorCommand:
+    def test_doctor_runs(self, runner):
+        result = runner.invoke(main, ["doctor"])
+        assert result.exit_code == 0
+        assert "Sentinel Doctor" in result.output
+        assert "checks passed" in result.output
+        # git should always be available in test environment
+        assert "git" in result.output
+
+    def test_doctor_json_output(self, runner):
+        result = runner.invoke(main, ["doctor", "--json-output"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "checks" in data
+        assert any(c["tool"] == "git" for c in data["checks"])
+        # Each check should have required fields
+        for check in data["checks"]:
+            assert "tool" in check
+            assert "status" in check
+            assert check["status"] in ("ok", "missing")
