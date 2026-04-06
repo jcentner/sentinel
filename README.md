@@ -29,7 +29,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 7 detectors (including JS/TS via ESLint/Biome) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, and `--json-output` for machine-readable CLI output. 481 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 7 detectors (including JS/TS via ESLint/Biome) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, and `--json-output` on all commands for machine-readable CLI output. 496 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
@@ -194,6 +194,10 @@ sentinel eval /path/to/repo --json-output
 
 # JSON issue creation results
 sentinel create-issues --dry-run --json-output
+
+# JSON triage actions
+sentinel suppress 42 -r "False positive" --json-output
+sentinel approve 42 --json-output
 ```
 
 Exit codes: `0` = success, `1` = error or eval below threshold.

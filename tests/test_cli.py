@@ -209,6 +209,38 @@ class TestSuppressCommand:
         assert result.exit_code == 0
         assert "Suppressed finding #1" in result.output
 
+    def test_suppress_json_output(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "suppress", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "-r", "False positive", "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["id"] == 1
+        assert data["status"] == "suppressed"
+        assert data["reason"] == "False positive"
+        assert "fingerprint" in data
+        assert "title" in data
+
+    def test_suppress_json_not_found(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "suppress", "99999",
+            "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code != 0
+        data = json.loads(result.output)
+        assert "error" in data
+
 
 # ── approve command ──────────────────────────────────────────────────
 
@@ -238,6 +270,37 @@ class TestApproveCommand:
         assert result.exit_code == 0
         assert "Approved finding #1" in result.output
         assert "create-issues" in result.output
+
+    def test_approve_json_output(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "approve", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["id"] == 1
+        assert data["status"] == "approved"
+        assert "fingerprint" in data
+        assert "title" in data
+
+    def test_approve_json_not_found(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "approve", "99999",
+            "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code != 0
+        data = json.loads(result.output)
+        assert "error" in data
 
 
 # ── show command ─────────────────────────────────────────────────────

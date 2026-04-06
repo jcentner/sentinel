@@ -19,7 +19,7 @@ def main(verbose: bool) -> None:
     """Local Repo Sentinel — overnight code health monitoring.
 
     Exit codes: 0 = success, 1 = error or eval below threshold.
-    Use --json-output on scan/show/history/eval/create-issues for machine-readable output.
+    Use --json-output on any subcommand for machine-readable output.
     """
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
@@ -139,7 +139,8 @@ def scan(
 @click.option("--reason", "-r", default=None, help="Reason for suppression")
 @click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
 @click.option("--db", default=None, help="Database path")
-def suppress(finding_id: int, reason: str | None, repo: str, db: str | None) -> None:
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def suppress(finding_id: int, reason: str | None, repo: str, db: str | None, output_json: bool) -> None:
     """Suppress a finding by its ID (exclude from future reports)."""
     from sentinel.config import load_config
     from sentinel.store.db import get_connection
@@ -153,11 +154,23 @@ def suppress(finding_id: int, reason: str | None, repo: str, db: str | None) -> 
     try:
         finding = get_finding_by_id(conn, finding_id)
         if finding is None:
-            click.echo(f"Finding #{finding_id} not found.", err=True)
+            if output_json:
+                click.echo(json.dumps({"error": f"Finding #{finding_id} not found"}))
+            else:
+                click.echo(f"Finding #{finding_id} not found.", err=True)
             raise SystemExit(1)
 
         suppress_finding(conn, finding.fingerprint, reason=reason)
-        click.echo(f"Suppressed finding #{finding_id}: {finding.title}")
+        if output_json:
+            click.echo(json.dumps({
+                "id": finding_id,
+                "fingerprint": finding.fingerprint,
+                "title": finding.title,
+                "status": "suppressed",
+                "reason": reason,
+            }))
+        else:
+            click.echo(f"Suppressed finding #{finding_id}: {finding.title}")
     finally:
         conn.close()
 
@@ -166,7 +179,8 @@ def suppress(finding_id: int, reason: str | None, repo: str, db: str | None) -> 
 @click.argument("finding_id", type=int)
 @click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
 @click.option("--db", default=None, help="Database path")
-def approve(finding_id: int, repo: str, db: str | None) -> None:
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def approve(finding_id: int, repo: str, db: str | None, output_json: bool) -> None:
     """Approve a finding (mark it for GitHub issue creation)."""
     from sentinel.config import load_config
     from sentinel.models import FindingStatus
@@ -181,12 +195,23 @@ def approve(finding_id: int, repo: str, db: str | None) -> None:
     try:
         finding = get_finding_by_id(conn, finding_id)
         if finding is None:
-            click.echo(f"Finding #{finding_id} not found.", err=True)
+            if output_json:
+                click.echo(json.dumps({"error": f"Finding #{finding_id} not found"}))
+            else:
+                click.echo(f"Finding #{finding_id} not found.", err=True)
             raise SystemExit(1)
 
         update_finding_status(conn, finding_id, FindingStatus.APPROVED)
-        click.echo(f"Approved finding #{finding_id}: {finding.title}")
-        click.echo("Run 'sentinel create-issues' to create GitHub issues from approved findings.")
+        if output_json:
+            click.echo(json.dumps({
+                "id": finding_id,
+                "fingerprint": finding.fingerprint,
+                "title": finding.title,
+                "status": "approved",
+            }))
+        else:
+            click.echo(f"Approved finding #{finding_id}: {finding.title}")
+            click.echo("Run 'sentinel create-issues' to create GitHub issues from approved findings.")
     finally:
         conn.close()
 
@@ -210,7 +235,10 @@ def show(finding_id: int, repo: str, db: str | None, output_json: bool) -> None:
     try:
         finding = get_finding_by_id(conn, finding_id)
         if finding is None:
-            click.echo(f"Finding #{finding_id} not found.", err=True)
+            if output_json:
+                click.echo(json.dumps({"error": f"Finding #{finding_id} not found"}))
+            else:
+                click.echo(f"Finding #{finding_id} not found.", err=True)
             raise SystemExit(1)
 
         if output_json:

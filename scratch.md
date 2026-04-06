@@ -19,7 +19,7 @@ Eval qwen3.5-4B vs 9B quantized - sufficient context length on 8GB VRAM? how muc
 
 Multi-language repo support? Does this only do python right now? What about wyoclear stack (nextjs), agent-realtor stack, and hiveclaw (go)? How to manage this? 
 
-CLI / UI feature parity - usable by both AI agents and humans equally well. More sophisticated coding agent can approve github issues, for instance, via CLI nativelty. Good help and docs and so on. 
+CLI / UI feature parity - usable by both AI agents and humans equally well. More sophisticated coding agent can approve github issues, for instance, via CLI nativelty. Good help and docs and so on. CLI is native to agents, UI native to humans. 
 
 
 Turn this autonomous loop and vision lock and everything setup into its own repo. This is a good framework to work from for a while before moving on to multiple parallel agents, when there are mature options for that. 
