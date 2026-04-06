@@ -11,6 +11,8 @@ Use docs/analysis/project-history.md to write post or posts about this
 
 Run on other repos I have like wyoclear and use insights to refine further 
 
+Ensure the detectors are actually valuable intel (rust clippy? is a linter really valuable?) 
+
 CI/CD, build process, test coverage report on repo, other polish and delivery stuff 
 
 output samples for people to see what it looks like 
