@@ -112,6 +112,27 @@ sentinel approve <finding-id> --repo /path/to/repo
 sentinel history
 ```
 
+**Inspect a specific finding:**
+
+```bash
+sentinel show <finding-id>
+```
+
+**Launch the web UI for browser-based review:**
+
+```bash
+pip install sentinel[web]    # one-time: install web dependencies
+sentinel serve /path/to/repo
+sentinel serve /path/to/repo --port 9000
+```
+
+The web UI runs on `http://127.0.0.1:8888` by default. It provides:
+- Run history with finding counts
+- Findings grouped by severity with inline approve/suppress actions
+- Filter by severity, status, or detector
+- Scan Now button to trigger a scan from the browser
+- Finding detail view with full evidence
+
 ### Options
 
 | Option | Description |

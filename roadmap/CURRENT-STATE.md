@@ -1,6 +1,82 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 10 — docs alignment, mypy, FP reduction, test coverage, custom detectors)
+> Last updated: 2026-04-05 (Session 11 — web UI, complexity detector, show command, report naming)
+
+## Session 11 Summary
+
+### Current Objective
+Post-MVP feature implementation: web UI (VISION-REVISION-002), complexity detector, `sentinel show` command, report naming fix.
+
+### What Was Accomplished
+
+**Report naming fix:**
+1. CLI default changed: when `-o` not provided, `output_path=None` so runner generates `report-{run.id}.md`
+
+**Complexity detector (new):**
+2. AST-based detector for cyclomatic complexity (>10) and function length (>50 lines)
+3. Severity scaling: >2x threshold = HIGH, >1.5x = MEDIUM, else LOW
+4. Handles syntax errors gracefully, skips non-Python files
+5. 20 tests covering CC calculation, function lines, integration, edge cases
+
+**`sentinel show` command (new):**
+6. Inspect any finding by ID: title, detector, category, severity, confidence, status, fingerprint, location, description, evidence, recurrence
+7. 2 new tests
+
+**Web UI — `sentinel serve` (VISION-REVISION-002):**
+8. Starlette + Jinja2 + htmx server-rendered interface, no JS build step
+9. Routes: / (redirect to latest run), /runs (history), /runs/{id} (detail), /findings/{id} (detail), /findings/{id}/action (approve/suppress), /scan (trigger)
+10. Filter findings by severity, status, or detector via query params
+11. Scan Now button triggers POST /scan from the browser
+12. htmx inline approve/suppress actions (progressive enhancement)
+13. Minimal CSS with severity/status badges
+14. Added `Finding.id` field to model for DB round-tripping
+15. Added `check_same_thread` param to `get_connection` for web use
+16. Dependencies: starlette>=0.40, jinja2>=3.1, uvicorn>=0.30, python-multipart>=0.0.9 (optional `[web]` group)
+17. 23 web tests, all passing
+
+### Decisions Made This Session
+1. Complexity detector thresholds: CC>10, function lines>50 (industry standard)
+2. Web UI uses optional dependency group `[web]` — core CLI works without web deps
+3. `Finding.id` added as optional field (None by default, populated from DB)
+4. `check_same_thread=False` needed for Starlette's threadpool execution
+5. No built-in scheduler — existing decision stands (cron/systemd)
+6. htmx from CDN (unpkg) for progressive enhancement
+
+### Test Results
+```
+421 passed in 26.49s
+ruff check: All checks passed
+mypy: All checks passed
+```
+
+### Repository State
+- **Implementation**: 25+ Python modules in `src/sentinel/`
+- **Tests**: 24+ test files, 421 tests
+- **Detectors**: todo-scanner, lint-runner, dep-audit, docs-drift, git-hotspots, complexity + custom detector plugin system
+- **CLI**: scan, eval, suppress, approve, show, history, create-issues, index, serve (10 commands)
+- **Web UI**: Starlette-based, server-rendered with htmx, filter/approve/suppress/scan
+- **DB schema**: v5 (with Finding.id round-tripping)
+- **Open questions**: 2 open (OQ-005, OQ-006), 5 resolved
+- **ADRs**: 9 accepted
+- **Tech debt**: 1 active (TD-002 async), 7 resolved
+- **Lint**: Clean (ruff)
+- **Type check**: Clean (mypy strict)
+- **Docs**: Updated README with show/serve commands
+
+### What Remains / Next Priority
+1. TD-002: Async detector interface (low priority)
+2. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, test-runner (deferred)
+3. Multi-repo support (OQ-005)
+4. Finding grouping by root cause (deeper than directory clustering)
+5. VISION-LOCK.md may need a revision to reflect web UI as shipped capability
+
+### Blocked Items
+None.
+
+### Vision Completion Status
+All 7 MVP success criteria met. VISION-REVISION-002 web UI features delivered.
+
+---
 
 ## Session 10 Summary
 
