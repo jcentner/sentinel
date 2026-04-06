@@ -163,6 +163,44 @@ output_dir = ".sentinel"
 embed_model = ""               # Ollama embedding model (e.g. "nomic-embed-text")
 embed_chunk_size = 50          # lines per chunk for embedding
 embed_chunk_overlap = 10       # overlap lines between chunks
+detectors_dir = ""             # path to directory with custom detector .py files
+```
+
+### Custom Detectors
+
+Add your own detectors by creating Python files in a directory and pointing `detectors_dir` at it:
+
+```python
+# my_detectors/license_check.py
+from sentinel.detectors.base import Detector
+from sentinel.models import DetectorContext, DetectorTier, Finding, Severity
+
+class LicenseDetector(Detector):
+    @property
+    def name(self): return "license-check"
+    @property
+    def description(self): return "Check for LICENSE file"
+    @property
+    def tier(self): return DetectorTier.DETERMINISTIC
+    @property
+    def categories(self): return ["compliance"]
+
+    def detect(self, context):
+        from pathlib import Path
+        if not (Path(context.repo_root) / "LICENSE").exists():
+            return [Finding(
+                detector=self.name, category="compliance",
+                title="Missing LICENSE file", severity=Severity.MEDIUM,
+                confidence=1.0, description="No LICENSE file found in repo root.",
+                evidence=[],
+            )]
+        return []
+```
+
+```toml
+# sentinel.toml
+[sentinel]
+detectors_dir = "my_detectors"
 ```
 
 ### Scheduling overnight runs

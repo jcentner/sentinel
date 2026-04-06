@@ -112,6 +112,18 @@ The tier is `LLM_ASSISTED` because the LLM comparison is available, but the prim
 | `config-drift` | Deterministic | config-drift | Compare env configs, schema vs. defaults |
 | `complexity` | Heuristic | code-quality | Cyclomatic complexity, function length |
 
+## Custom detectors
+
+Sentinel supports loading user-defined detectors from a directory configured via `detectors_dir` in `sentinel.toml`. Each `.py` file in the directory is dynamically imported at scan time. Any class extending `Detector` is auto-registered via `__init_subclass__` and participates in the scan.
+
+Requirements:
+- File must be a valid Python module (not starting with `_`)
+- Detector class must extend `sentinel.detectors.base.Detector`
+- Must implement: `name`, `description`, `tier`, `categories`, `detect()`
+- `detect()` should return `list[Finding]` and never raise
+
+See the README for a concrete example.
+
 ## Docs-drift detector: detailed design
 
 This is a first-class detector category because:
