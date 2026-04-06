@@ -88,16 +88,20 @@ class EslintRunner(Detector):
             logger.debug("eslint-runner: no JS/TS files found — skipping")
             return []
 
-        # Try biome first (faster, zero-config), then eslint
-        findings = self._try_biome(context, repo_root)
-        if findings is not None:
-            return findings
+        try:
+            # Try biome first (faster, zero-config), then eslint
+            findings = self._try_biome(context, repo_root)
+            if findings is not None:
+                return findings
 
-        findings = self._try_eslint(context, repo_root)
-        if findings is not None:
-            return findings
+            findings = self._try_eslint(context, repo_root)
+            if findings is not None:
+                return findings
+        except Exception:
+            logger.exception("eslint-runner: unexpected error")
+            return []
 
-        logger.debug("eslint-runner: neither biome nor eslint found — skipping")
+        logger.warning("eslint-runner: neither biome nor eslint found — skipping")
         return []
 
     def _try_biome(

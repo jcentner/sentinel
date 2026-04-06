@@ -78,11 +78,15 @@ class GoLinter(Detector):
             logger.debug("go-linter: no Go files found — skipping")
             return []
 
-        findings = self._try_golangci_lint(context, repo_root)
-        if findings is not None:
-            return findings
+        try:
+            findings = self._try_golangci_lint(context, repo_root)
+            if findings is not None:
+                return findings
+        except Exception:
+            logger.exception("go-linter: unexpected error")
+            return []
 
-        logger.debug("go-linter: golangci-lint not found — skipping")
+        logger.warning("go-linter: golangci-lint not found — skipping")
         return []
 
     def _try_golangci_lint(

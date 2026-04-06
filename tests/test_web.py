@@ -193,6 +193,29 @@ class TestRunDetail:
         # Standalone finding should also appear
         assert "Unused variable" in resp.text
 
+    def test_pattern_clustering(self, db_conn: sqlite3.Connection) -> None:
+        """Findings with the same detector + normalized title should group by pattern."""
+        run = create_run(db_conn, "/tmp/test-repo")
+        # 3 findings with same detector + similar title but different directories
+        for i, dir_name in enumerate(["src/auth", "src/api", "src/core"]):
+            insert_finding(db_conn, run.id, Finding(
+                detector="lint-runner",
+                category="code-quality",
+                severity=Severity.MEDIUM,
+                confidence=1.0,
+                title=f"Unused import in {dir_name}/handler.py",
+                description=f"Unused import #{i}",
+                evidence=[],
+                file_path=f"{dir_name}/handler.py",
+                fingerprint=f"pattern-fp-{i}",
+            ))
+        complete_run(db_conn, run.id, 3)
+        client = TestClient(create_app(db_conn))
+        resp = client.get(f"/runs/{run.id}")
+        assert resp.status_code == 200
+        # Pattern cluster should appear
+        assert "finding-cluster" in resp.text
+
 
 class TestRunCompare:
     def test_compare_not_found(self, app: TestClient) -> None:

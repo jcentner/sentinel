@@ -92,11 +92,15 @@ class RustClippy(Detector):
             logger.debug("rust-clippy: no Rust files found — skipping")
             return []
 
-        findings = self._try_clippy(context, repo_root)
-        if findings is not None:
-            return findings
+        try:
+            findings = self._try_clippy(context, repo_root)
+            if findings is not None:
+                return findings
+        except Exception:
+            logger.exception("rust-clippy: unexpected error")
+            return []
 
-        logger.debug("rust-clippy: cargo not found — skipping")
+        logger.warning("rust-clippy: cargo not found — skipping")
         return []
 
     def _try_clippy(
