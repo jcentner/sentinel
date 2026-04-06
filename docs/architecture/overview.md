@@ -150,6 +150,7 @@ Optional browser-based review and management interface (`sentinel serve <repo>`)
 | `/settings` | Read-only configuration viewer: sentinel.toml status, GitHub env vars |
 | `/eval` | Evaluation form + results: run detectors against ground-truth TOML |
 | `/eval/history` | Evaluation history: precision/recall trends over time |
+| `/runs/{id}/compare/{base_id}` | Run comparison: new, resolved, and persistent findings between two runs |
 
 **Key capabilities:**
 - Full CLI workflow parity — daily triage (review, approve, suppress, create issues) without the terminal

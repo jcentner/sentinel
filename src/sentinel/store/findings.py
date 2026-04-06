@@ -98,6 +98,31 @@ def update_finding_status(
     conn.commit()
 
 
+def compare_runs(
+    conn: sqlite3.Connection,
+    base_run_id: int,
+    target_run_id: int,
+) -> tuple[list[Finding], list[Finding], list[Finding]]:
+    """Compare findings between two runs using fingerprints.
+
+    Returns (new_findings, resolved_findings, persistent_findings):
+    - new: in target but not in base
+    - resolved: in base but not in target
+    - persistent: in both runs
+    """
+    base = get_findings_by_run(conn, base_run_id)
+    target = get_findings_by_run(conn, target_run_id)
+
+    base_fps = {f.fingerprint: f for f in base}
+    target_fps = {f.fingerprint: f for f in target}
+
+    new = [f for fp, f in target_fps.items() if fp not in base_fps]
+    resolved = [f for fp, f in base_fps.items() if fp not in target_fps]
+    persistent = [f for fp, f in target_fps.items() if fp in base_fps]
+
+    return new, resolved, persistent
+
+
 def get_known_fingerprints(conn: sqlite3.Connection) -> set[str]:
     """Return all fingerprints ever seen (for dedup)."""
     rows = conn.execute("SELECT DISTINCT fingerprint FROM findings").fetchall()

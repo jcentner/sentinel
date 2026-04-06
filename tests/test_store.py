@@ -17,6 +17,7 @@ from sentinel.models import (
 )
 from sentinel.store.db import SCHEMA_VERSION, get_connection
 from sentinel.store.findings import (
+    compare_runs,
     get_finding_by_id,
     get_findings_by_run,
     get_known_fingerprints,
@@ -57,6 +58,20 @@ def _sample_finding(fingerprint: str = "fp-001") -> Finding:
         evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="bad")],
         file_path="src/x.py",
         line_start=10,
+        fingerprint=fingerprint,
+    )
+
+
+def _make_finding(fingerprint: str = "fp-001", title: str = "Test finding") -> Finding:
+    return Finding(
+        detector="test-detector",
+        category="code-quality",
+        severity=Severity.MEDIUM,
+        confidence=0.8,
+        title=title,
+        description=f"Finding: {title}",
+        evidence=[],
+        file_path="src/x.py",
         fingerprint=fingerprint,
     )
 
@@ -343,6 +358,49 @@ class TestPersistence:
         # first_seen should not change, last_seen should be >= first
         assert result2["fp-T"].first_seen == first_seen
         assert result2["fp-T"].last_seen >= result2["fp-T"].first_seen
+
+
+class TestCompareRuns:
+    def test_compare_new_resolved_persistent(self, db_conn):
+        run1 = create_run(db_conn, "/tmp/repo")
+        run2 = create_run(db_conn, "/tmp/repo")
+
+        # Run 1: A, B
+        insert_finding(db_conn, run1.id, _make_finding(fingerprint="fp-a", title="A"))
+        insert_finding(db_conn, run1.id, _make_finding(fingerprint="fp-b", title="B"))
+
+        # Run 2: B, C
+        insert_finding(db_conn, run2.id, _make_finding(fingerprint="fp-b", title="B"))
+        insert_finding(db_conn, run2.id, _make_finding(fingerprint="fp-c", title="C"))
+
+        new, resolved, persistent = compare_runs(db_conn, run1.id, run2.id)
+        assert len(new) == 1
+        assert new[0].title == "C"
+        assert len(resolved) == 1
+        assert resolved[0].title == "A"
+        assert len(persistent) == 1
+        assert persistent[0].title == "B"
+
+    def test_compare_identical_runs(self, db_conn):
+        run1 = create_run(db_conn, "/tmp/repo")
+        run2 = create_run(db_conn, "/tmp/repo")
+
+        for run in [run1, run2]:
+            insert_finding(db_conn, run.id, _make_finding(fingerprint="fp-x", title="X"))
+
+        new, resolved, persistent = compare_runs(db_conn, run1.id, run2.id)
+        assert len(new) == 0
+        assert len(resolved) == 0
+        assert len(persistent) == 1
+
+    def test_compare_empty_runs(self, db_conn):
+        run1 = create_run(db_conn, "/tmp/repo")
+        run2 = create_run(db_conn, "/tmp/repo")
+
+        new, resolved, persistent = compare_runs(db_conn, run1.id, run2.id)
+        assert new == []
+        assert resolved == []
+        assert persistent == []
 
 
 class TestEvalStore:

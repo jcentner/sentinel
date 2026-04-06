@@ -64,6 +64,9 @@ async def run_detail(request: Request) -> Response:
 
     findings = get_findings_by_run(conn, run_id)
 
+    # Get other runs for comparison dropdown
+    other_runs = [r for r in get_run_history(conn, limit=20) if r.id != run_id]
+
     # Read filter query params
     filter_severity = request.query_params.get("severity", "")
     filter_status = request.query_params.get("status", "")
@@ -102,6 +105,33 @@ async def run_detail(request: Request) -> Response:
         "filter_detector": filter_detector,
         "all_detectors": all_detectors,
         "all_statuses": all_statuses,
+        "other_runs": other_runs,
+    })
+
+
+async def run_compare(request: Request) -> Response:
+    """Compare findings between two runs."""
+    from sentinel.store.findings import compare_runs
+
+    conn = _get_conn(request.app)
+    run_id = int(request.path_params["run_id"])
+    base_run_id = int(request.path_params["base_run_id"])
+
+    run = get_run_by_id(conn, run_id)
+    base_run = get_run_by_id(conn, base_run_id)
+    if not run or not base_run:
+        return Response("Run not found", status_code=404)
+
+    new_findings, resolved_findings, persistent_findings = compare_runs(
+        conn, base_run_id, run_id
+    )
+
+    return templates.TemplateResponse(request, "run_compare.html", {
+        "run": run,
+        "base_run": base_run,
+        "new_findings": new_findings,
+        "resolved_findings": resolved_findings,
+        "persistent_findings": persistent_findings,
     })
 
 
@@ -500,6 +530,7 @@ def create_app(
         Route("/", endpoint=index),
         Route("/runs", endpoint=runs_list),
         Route("/runs/{run_id:int}", endpoint=run_detail),
+        Route("/runs/{run_id:int}/compare/{base_run_id:int}", endpoint=run_compare),
         Route("/findings/{finding_id:int}", endpoint=finding_detail),
         Route("/findings/{finding_id:int}/action", endpoint=finding_action, methods=["POST"]),
         Route("/runs/{run_id:int}/bulk-action", endpoint=bulk_action, methods=["POST"]),

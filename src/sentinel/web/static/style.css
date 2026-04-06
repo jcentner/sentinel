@@ -809,6 +809,7 @@ dd { font-size: 0.9rem; }
 .stat-value.critical { color: var(--sev-critical); }
 .stat-value.high { color: var(--sev-high); }
 .stat-value.amber { color: var(--amber); }
+.stat-value.pass { color: var(--sev-low); }
 
 /* ── Config status indicator ───────────────────────────────────────── */
 
@@ -844,6 +845,7 @@ dd { font-size: 0.9rem; }
 .text-muted { color: var(--text-dim); }
 .text-faint { color: var(--text-faint); }
 .text-mono { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+.text-strikethrough { text-decoration: line-through; opacity: 0.7; }
 .mt-1 { margin-top: 0.5rem; }
 .mt-2 { margin-top: 1rem; }
 .mt-3 { margin-top: 1.5rem; }

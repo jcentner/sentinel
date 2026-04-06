@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Compare Run #{{ run.id }} vs #{{ base_run.id }}{% endblock %}
+{% block content %}
+<a href="/runs/{{ run.id }}" class="back-link">&larr; Back to Run #{{ run.id }}</a>
+
+<div class="page-header">
+  <h1>Run Comparison</h1>
+  <p class="subtitle">
+    Run #{{ run.id }} ({{ run.started_at.strftime('%Y-%m-%d %H:%M') if run.started_at else '?' }})
+    vs Run #{{ base_run.id }} ({{ base_run.started_at.strftime('%Y-%m-%d %H:%M') if base_run.started_at else '?' }})
+  </p>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">New Findings</div>
+    <div class="stat-value {% if new_findings %}high{% endif %}">+{{ new_findings|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Resolved</div>
+    <div class="stat-value {% if resolved_findings %}pass{% endif %}">-{{ resolved_findings|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Persistent</div>
+    <div class="stat-value">{{ persistent_findings|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Net Change</div>
+    {% set delta = new_findings|length - resolved_findings|length %}
+    <div class="stat-value {% if delta > 0 %}high{% elif delta < 0 %}pass{% endif %}">{{ '+' if delta > 0 else '' }}{{ delta }}</div>
+  </div>
+</div>
+
+{% if new_findings %}
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">🆕 New Findings ({{ new_findings|length }})</span>
+    <span class="subtitle">Appeared in Run #{{ run.id }} but not in Run #{{ base_run.id }}</span>
+  </div>
+  {% for f in new_findings %}
+  <div class="finding-row">
+    <span class="badge badge-{{ f.severity.value }}">{{ f.severity.value }}</span>
+    <span class="finding-title"><a href="/findings/{{ f.id }}">{{ f.title }}</a></span>
+    <span class="finding-meta">{{ f.detector }}</span>
+    {% if f.file_path %}
+    <span class="finding-location">{{ f.file_path }}{% if f.line_start %}:{{ f.line_start }}{% endif %}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if resolved_findings %}
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">✅ Resolved Findings ({{ resolved_findings|length }})</span>
+    <span class="subtitle">Present in Run #{{ base_run.id }} but not in Run #{{ run.id }}</span>
+  </div>
+  {% for f in resolved_findings %}
+  <div class="finding-row">
+    <span class="badge badge-{{ f.severity.value }}">{{ f.severity.value }}</span>
+    <span class="finding-title text-strikethrough"><a href="/findings/{{ f.id }}">{{ f.title }}</a></span>
+    <span class="finding-meta">{{ f.detector }}</span>
+    {% if f.file_path %}
+    <span class="finding-location">{{ f.file_path }}{% if f.line_start %}:{{ f.line_start }}{% endif %}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if persistent_findings %}
+<div class="card mb-2">
+  <details>
+    <summary class="card-header" style="cursor: pointer;">
+      <span class="card-title">🔄 Persistent Findings ({{ persistent_findings|length }})</span>
+      <span class="subtitle">Present in both runs</span>
+    </summary>
+    {% for f in persistent_findings %}
+    <div class="finding-row">
+      <span class="badge badge-{{ f.severity.value }}">{{ f.severity.value }}</span>
+      <span class="finding-title"><a href="/findings/{{ f.id }}">{{ f.title }}</a></span>
+      <span class="finding-meta">{{ f.detector }}</span>
+    </div>
+    {% endfor %}
+  </details>
+</div>
+{% endif %}
+
+{% if not new_findings and not resolved_findings and not persistent_findings %}
+<div class="empty-state">
+  <h2>No findings</h2>
+  <p>Neither run produced any findings.</p>
+</div>
+{% endif %}
+
+{% endblock %}

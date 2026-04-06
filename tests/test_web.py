@@ -194,6 +194,75 @@ class TestRunDetail:
         assert "Unused variable" in resp.text
 
 
+class TestRunCompare:
+    def test_compare_not_found(self, app: TestClient) -> None:
+        resp = app.get("/runs/9999/compare/9998")
+        assert resp.status_code == 404
+
+    def test_compare_runs(self, db_conn: sqlite3.Connection) -> None:
+        """Compare two runs showing new, resolved, and persistent findings."""
+        # Create two runs
+        run1 = create_run(db_conn, "/tmp/test-repo")
+        run2 = create_run(db_conn, "/tmp/test-repo")
+
+        # Run 1: findings A, B
+        insert_finding(db_conn, run1.id, Finding(
+            detector="todo-scanner", category="todo-fixme",
+            severity=Severity.MEDIUM, confidence=1.0,
+            title="TODO: fix this", description="Unresolved TODO",
+            evidence=[], file_path="main.py", fingerprint="fp-a",
+        ))
+        insert_finding(db_conn, run1.id, Finding(
+            detector="lint-runner", category="code-quality",
+            severity=Severity.HIGH, confidence=1.0,
+            title="Unused import", description="Unused import os",
+            evidence=[], file_path="main.py", fingerprint="fp-b",
+        ))
+
+        # Run 2: findings B, C (A resolved, C new, B persistent)
+        insert_finding(db_conn, run2.id, Finding(
+            detector="lint-runner", category="code-quality",
+            severity=Severity.HIGH, confidence=1.0,
+            title="Unused import", description="Unused import os",
+            evidence=[], file_path="main.py", fingerprint="fp-b",
+        ))
+        insert_finding(db_conn, run2.id, Finding(
+            detector="dep-audit", category="dependency",
+            severity=Severity.HIGH, confidence=1.0,
+            title="Vulnerable package", description="CVE-2024-1234",
+            evidence=[], file_path="requirements.txt", fingerprint="fp-c",
+        ))
+
+        client = TestClient(create_app(db_conn))
+        resp = client.get(f"/runs/{run2.id}/compare/{run1.id}")
+        assert resp.status_code == 200
+        assert "Run Comparison" in resp.text
+        # New finding (C)
+        assert "Vulnerable package" in resp.text
+        assert "New Findings" in resp.text
+        # Resolved finding (A)
+        assert "TODO: fix this" in resp.text
+        assert "Resolved" in resp.text
+        # Persistent finding (B)
+        assert "Persistent" in resp.text
+
+    def test_compare_dropdown_on_run_detail(self, db_conn: sqlite3.Connection) -> None:
+        """Run detail page shows a 'Compare with' dropdown when multiple runs exist."""
+        run1 = create_run(db_conn, "/tmp/test-repo")
+        run2 = create_run(db_conn, "/tmp/test-repo")
+        insert_finding(db_conn, run1.id, Finding(
+            detector="todo-scanner", category="todo-fixme",
+            severity=Severity.MEDIUM, confidence=1.0,
+            title="TODO: test", description="Test",
+            evidence=[], file_path="main.py", fingerprint="fp-dropdown",
+        ))
+        client = TestClient(create_app(db_conn))
+        resp = client.get(f"/runs/{run1.id}")
+        assert resp.status_code == 200
+        assert "Compare with" in resp.text
+        assert f"Run #{run2.id}" in resp.text
+
+
 class TestFindingDetail:
     def test_not_found(self, app: TestClient) -> None:
         resp = app.get("/findings/9999")
