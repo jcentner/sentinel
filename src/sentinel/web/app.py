@@ -332,8 +332,21 @@ async def eval_history_page(request: Request) -> Response:
 
     conn = _get_conn(request.app)
     results = get_eval_history(conn, limit=50)
+
+    # Build chart points in chronological order (oldest first) for SVG rendering
+    chart_points: list[dict[str, str | float]] = []
+    if len(results) >= 2:
+        chronological = list(reversed(results))
+        for r in chronological:
+            chart_points.append({
+                "precision": round(r.precision * 100, 1),
+                "recall": round(r.recall * 100, 1),
+                "label": r.evaluated_at.strftime("%m/%d") if r.evaluated_at else "?",
+            })
+
     return templates.TemplateResponse(request, "eval_history.html", {
         "results": results,
+        "chart_points": chart_points,
     })
 
 

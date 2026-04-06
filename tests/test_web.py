@@ -759,3 +759,29 @@ class TestEvalHistoryPage:
         assert "100%" in resp.text
         assert "83%" in resp.text
         assert "PASS" in resp.text
+
+    def test_eval_history_chart_with_multiple_results(self, db_conn: sqlite3.Connection) -> None:
+        """Chart SVG renders when there are 2+ eval results."""
+        import re
+
+        from sentinel.store.eval_store import save_eval_result
+        save_eval_result(db_conn, "/tmp/repo", 15, 15, 0, 0, 1.0, 1.0)
+        save_eval_result(db_conn, "/tmp/repo", 12, 10, 1, 2, 0.833, 0.833)
+        client = TestClient(create_app(db_conn))
+        resp = client.get("/eval/history")
+        assert resp.status_code == 200
+        assert "eval-chart-svg" in resp.text
+        assert "chart-line-precision" in resp.text
+        assert "chart-line-recall" in resp.text
+        assert "Precision" in resp.text and "Recall Trend" in resp.text
+        # Verify polyline contains valid numeric coordinates
+        assert re.search(r'points="\s*[\d.]+,[\d.]+ [\d.]+,[\d.]+"', resp.text)
+
+    def test_eval_history_no_chart_single_result(self, db_conn: sqlite3.Connection) -> None:
+        """No chart when only 1 eval result exists."""
+        from sentinel.store.eval_store import save_eval_result
+        save_eval_result(db_conn, "/tmp/repo", 15, 15, 0, 0, 1.0, 1.0)
+        client = TestClient(create_app(db_conn))
+        resp = client.get("/eval/history")
+        assert resp.status_code == 200
+        assert "eval-chart-svg" not in resp.text

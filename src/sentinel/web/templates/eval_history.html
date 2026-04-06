@@ -32,6 +32,73 @@
   </div>
 </div>
 
+{% if chart_points|length >= 2 %}
+<div class="card eval-chart-card">
+  <div class="card-header">
+    <span class="card-title">Precision & Recall Trend</span>
+    <span class="chart-legend">
+      <span class="legend-item"><span class="legend-swatch legend-precision"></span> Precision</span>
+      <span class="legend-item"><span class="legend-swatch legend-recall"></span> Recall</span>
+    </span>
+  </div>
+  <div class="eval-chart-container">
+    {# SVG chart: viewBox 0 0 width height, Y-axis: 0%=bottom, 100%=top #}
+    {% set chart_w = 600 %}
+    {% set chart_h = 200 %}
+    {% set pad_l = 40 %}
+    {% set pad_r = 20 %}
+    {% set pad_t = 10 %}
+    {% set pad_b = 30 %}
+    {% set plot_w = chart_w - pad_l - pad_r %}
+    {% set plot_h = chart_h - pad_t - pad_b %}
+    {% set n = chart_points|length %}
+    <svg viewBox="0 0 {{ chart_w }} {{ chart_h }}" class="eval-chart-svg" preserveAspectRatio="xMidYMid meet">
+      {# Y-axis labels and gridlines #}
+      {% for pct in [0, 25, 50, 75, 100] %}
+        {% set y = pad_t + plot_h - (pct / 100 * plot_h) %}
+        <line x1="{{ pad_l }}" y1="{{ y }}" x2="{{ chart_w - pad_r }}" y2="{{ y }}" class="chart-grid" />
+        <text x="{{ pad_l - 5 }}" y="{{ y + 4 }}" class="chart-label" text-anchor="end">{{ pct }}%</text>
+      {% endfor %}
+
+      {# Threshold lines: precision 70%, recall 90% #}
+      {% set y70 = pad_t + plot_h - (70 / 100 * plot_h) %}
+      {% set y90 = pad_t + plot_h - (90 / 100 * plot_h) %}
+      <line x1="{{ pad_l }}" y1="{{ y70 }}" x2="{{ chart_w - pad_r }}" y2="{{ y70 }}" class="chart-threshold chart-threshold-precision" />
+      <line x1="{{ pad_l }}" y1="{{ y90 }}" x2="{{ chart_w - pad_r }}" y2="{{ y90 }}" class="chart-threshold chart-threshold-recall" />
+
+      {# X-axis labels #}
+      {% for pt in chart_points %}
+        {% set x = pad_l + (loop.index0 / (n - 1) * plot_w) if n > 1 else pad_l %}
+        {% if loop.index0 % ((n // 6) + 1) == 0 or loop.last %}
+        <text x="{{ x }}" y="{{ chart_h - 5 }}" class="chart-label" text-anchor="middle">{{ pt.label }}</text>
+        {% endif %}
+      {% endfor %}
+
+      {# Precision polyline #}
+      <polyline class="chart-line chart-line-precision" fill="none" points="
+        {%- for pt in chart_points -%}
+          {{ pad_l + (loop.index0 / (n - 1) * plot_w) if n > 1 else pad_l }},{{ pad_t + plot_h - (pt.precision / 100 * plot_h) }}{{ " " if not loop.last }}
+        {%- endfor -%}
+      " />
+
+      {# Recall polyline #}
+      <polyline class="chart-line chart-line-recall" fill="none" points="
+        {%- for pt in chart_points -%}
+          {{ pad_l + (loop.index0 / (n - 1) * plot_w) if n > 1 else pad_l }},{{ pad_t + plot_h - (pt.recall / 100 * plot_h) }}{{ " " if not loop.last }}
+        {%- endfor -%}
+      " />
+
+      {# Data point dots #}
+      {% for pt in chart_points %}
+        {% set x = pad_l + (loop.index0 / (n - 1) * plot_w) if n > 1 else pad_l %}
+        <circle cx="{{ x }}" cy="{{ pad_t + plot_h - (pt.precision / 100 * plot_h) }}" r="3" class="chart-dot chart-dot-precision" />
+        <circle cx="{{ x }}" cy="{{ pad_t + plot_h - (pt.recall / 100 * plot_h) }}" r="3" class="chart-dot chart-dot-recall" />
+      {% endfor %}
+    </svg>
+  </div>
+</div>
+{% endif %}
+
 <div class="card">
 <table class="data-table">
   <thead>

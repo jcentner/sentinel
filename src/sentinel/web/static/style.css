@@ -357,6 +357,73 @@ code, .mono {
 
 /* ── Evidence ──────────────────────────────────────────────────────── */
 
+/* ── Eval trend chart ──────────────────────────────────────────────── */
+
+.eval-chart-card { margin-bottom: 1.5rem; }
+.eval-chart-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+.legend-item { display: flex; align-items: center; gap: 0.3rem; }
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  border-radius: 1px;
+}
+.legend-precision { background: var(--st-new); }
+.legend-recall { background: var(--st-approved); }
+
+.eval-chart-container {
+  padding: 1rem;
+  overflow-x: auto;
+}
+.eval-chart-svg {
+  width: 100%;
+  max-width: 600px;
+  height: auto;
+  min-height: 180px;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 0.5;
+}
+.chart-label {
+  fill: var(--text-faint);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.chart-threshold {
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.5;
+}
+.chart-threshold-precision { stroke: var(--st-new); }
+.chart-threshold-recall { stroke: var(--st-approved); }
+
+.chart-line {
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.chart-line-precision { stroke: var(--st-new); }
+.chart-line-recall { stroke: var(--st-approved); }
+
+.chart-dot-precision { fill: var(--st-new); }
+.chart-dot-recall { fill: var(--st-approved); }
+
+/* ── Evidence (cont.) ──────────────────────────────────────────────── */
+
 .evidence-block {
   background: var(--bg);
   border: 1px solid var(--border);
