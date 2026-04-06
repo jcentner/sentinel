@@ -13,7 +13,7 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Suppression** | A user decision to mark a finding as a false positive, preventing it from appearing in future reports. |
 | **LLM Judge** | The local model (via Ollama) that evaluates candidate findings in context and decides severity, confidence, and issue-worthiness. |
 | **Context Gatherer** | The retrieval component that pulls relevant code, docs, and history for each finding before LLM judgment. |
-| **Tier 1 detector** | Deterministic detector: lint, test, grep, dependency audit. Cheap and reliable. |
+| **Tier 1 detector** | Deterministic detector: lint, test, grep, dependency audit. Cheap and reliable. Includes lint-runner (ruff/Python), eslint-runner (ESLint/Biome for JS/TS), go-linter (golangci-lint for Go), todo-scanner, and dep-audit. |
 | **Tier 2 detector** | Heuristic detector: git hotspots, churn, complexity. Model-free, statistical. |
 | **Tier 3 detector** | LLM-assisted detector: model reads code + context and judges. Higher value but higher false positive rate. |
 | **Run** | A single execution of Sentinel against a repo scope (full, incremental, or targeted). |

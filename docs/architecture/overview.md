@@ -58,7 +58,7 @@ The architecture is **mostly Tier 1 + 2, with the LLM as the judgment/summarizat
 
 Every detector produces a `Finding` conforming to the [Detector Interface](detector-interface.md).
 
-**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
+**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `go-linter` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
 
 ### 2. Fingerprint Assignment
 

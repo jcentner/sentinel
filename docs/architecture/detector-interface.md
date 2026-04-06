@@ -88,6 +88,7 @@ DetectorContext:
 |----------|------|------------|--------|-------------|
 | `lint-runner` | Deterministic | code-quality | ✅ Implemented | Wraps ruff for Python linting and normalizes output |
 | `eslint-runner` | Deterministic | code-quality | ✅ Implemented | Wraps ESLint/Biome for JS/TS linting (tries Biome first, falls back to ESLint) |
+| `go-linter` | Deterministic | code-quality | ✅ Implemented | Wraps golangci-lint for Go linting with security linter elevation |
 | `todo-scanner` | Deterministic | todo-fixme | ✅ Implemented | Grep for TODO/FIXME/HACK with age from git blame |
 | `dep-audit` | Deterministic | dependency | ✅ Implemented | Wraps npm audit, pip-audit |
 | `docs-drift` | Deterministic + LLM | docs-drift | ✅ Implemented | Compares docs ↔ code, docs ↔ docs for consistency |

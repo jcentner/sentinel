@@ -6,7 +6,7 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 
 ## What it does
 
-- Runs 7 detectors: TODO/FIXME scanner, Python linter (ruff), JS/TS linter (ESLint/Biome), dependency audit (pip-audit), docs-drift checker, git churn hotspots, cyclomatic complexity
+- Runs 8 detectors: TODO/FIXME scanner, Python linter (ruff), JS/TS linter (ESLint/Biome), Go linter (golangci-lint), dependency audit (pip-audit), docs-drift checker, git churn hotspots, cyclomatic complexity
 - Gathers contextual evidence per finding (surrounding code, git history, related tests, semantic code search via embeddings)
 - Uses a local LLM via Ollama as a judgment/summarization layer (optional — degrades gracefully)
 - Fingerprints and deduplicates findings across runs via SQLite
@@ -29,7 +29,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 7 detectors (including JS/TS via ESLint/Biome) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, and `--json-output` on all commands for machine-readable CLI output. 496 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 8 detectors (including JS/TS via ESLint/Biome and Go via golangci-lint) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, and `--json-output` on all commands for machine-readable CLI output. 524 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
