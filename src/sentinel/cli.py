@@ -678,3 +678,65 @@ def serve(
 
 if __name__ == "__main__":
     main()
+
+
+_INIT_TEMPLATE = """\
+# Sentinel configuration
+# See: https://github.com/jakce/sentinel
+
+[sentinel]
+# Ollama model for LLM judge (skip_judge = true to run without)
+model = "qwen3.5:4b"
+ollama_url = "http://localhost:11434"
+skip_judge = false
+
+# Embedding model for semantic context (leave empty to disable)
+# embed_model = "nomic-embed-text"
+
+# Database and output directory (relative to repo root)
+db_path = ".sentinel/sentinel.db"
+output_dir = ".sentinel"
+
+# Custom detectors directory (leave empty for built-in only)
+# detectors_dir = ""
+"""
+
+
+@main.command()
+@click.argument("repo_path", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--force", is_flag=True, help="Overwrite existing sentinel.toml")
+def init(repo_path: str, force: bool) -> None:
+    """Initialize a sentinel.toml config file in a repository.
+
+    Creates a sentinel.toml with documented defaults. Also
+    creates the .sentinel directory and adds it to .gitignore.
+    """
+    repo = Path(repo_path).resolve()
+    config_path = repo / "sentinel.toml"
+
+    if config_path.exists() and not force:
+        click.echo(f"sentinel.toml already exists at {config_path}", err=True)
+        click.echo("Use --force to overwrite.", err=True)
+        raise SystemExit(1)
+
+    config_path.write_text(_INIT_TEMPLATE)
+    click.echo(f"Created {config_path}")
+
+    # Create .sentinel directory
+    sentinel_dir = repo / ".sentinel"
+    sentinel_dir.mkdir(exist_ok=True)
+
+    # Add .sentinel to .gitignore if not already there
+    gitignore = repo / ".gitignore"
+    if gitignore.exists():
+        content = gitignore.read_text()
+        if ".sentinel" not in content:
+            with open(gitignore, "a") as f:
+                f.write("\n# Sentinel data directory\n.sentinel/\n")
+            click.echo("Added .sentinel/ to .gitignore")
+    else:
+        gitignore.write_text("# Sentinel data directory\n.sentinel/\n")
+        click.echo("Created .gitignore with .sentinel/")
+
+    click.echo("Done. Run 'sentinel scan .' to scan this repo.")
+

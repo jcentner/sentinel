@@ -627,3 +627,54 @@ class TestQuietMode:
         result = runner.invoke(main, ["-v", "-q", "history", "--help"])
         assert result.exit_code != 0
         assert "Cannot use --verbose and --quiet together" in result.output
+
+
+# ── init command ─────────────────────────────────────────────────────
+
+
+class TestInitCommand:
+    def test_init_creates_config(self, runner, tmp_path):
+        result = runner.invoke(main, ["init", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "Created" in result.output
+        config = tmp_path / "sentinel.toml"
+        assert config.exists()
+        content = config.read_text()
+        assert "[sentinel]" in content
+        assert 'model = "qwen3.5:4b"' in content
+
+    def test_init_creates_sentinel_dir(self, runner, tmp_path):
+        runner.invoke(main, ["init", str(tmp_path)])
+        assert (tmp_path / ".sentinel").is_dir()
+
+    def test_init_creates_gitignore(self, runner, tmp_path):
+        runner.invoke(main, ["init", str(tmp_path)])
+        gitignore = tmp_path / ".gitignore"
+        assert gitignore.exists()
+        assert ".sentinel/" in gitignore.read_text()
+
+    def test_init_appends_to_existing_gitignore(self, runner, tmp_path):
+        (tmp_path / ".gitignore").write_text("*.pyc\n")
+        runner.invoke(main, ["init", str(tmp_path)])
+        content = (tmp_path / ".gitignore").read_text()
+        assert "*.pyc" in content
+        assert ".sentinel/" in content
+
+    def test_init_skips_gitignore_if_already_present(self, runner, tmp_path):
+        (tmp_path / ".gitignore").write_text(".sentinel/\n")
+        result = runner.invoke(main, ["init", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "Added .sentinel/ to .gitignore" not in result.output
+
+    def test_init_refuses_existing_config(self, runner, tmp_path):
+        (tmp_path / "sentinel.toml").write_text("[sentinel]\n")
+        result = runner.invoke(main, ["init", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "already exists" in result.output
+
+    def test_init_force_overwrites(self, runner, tmp_path):
+        (tmp_path / "sentinel.toml").write_text("[sentinel]\n")
+        result = runner.invoke(main, ["init", str(tmp_path), "--force"])
+        assert result.exit_code == 0
+        content = (tmp_path / "sentinel.toml").read_text()
+        assert 'model = "qwen3.5:4b"' in content
