@@ -1,66 +1,93 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 16 — 3 slices: vision cleanup, rust-clippy, annotations)
+> Last updated: 2026-04-06 (Session 17 — 7 slices: quiet mode, CLI refactor, CI, samples, init, scan-all, reviewer fixes)
 
-## Session 16 Summary
+## Session 17 Summary
 
 ### Current Objective
-Continue multi-language detector expansion and web UI enhancements.
+Continue iterating: CLI polish, multi-repo support, packaging, CI, documentation.
 
 ### What Was Accomplished
 
-**Slice 0 — Vision lock cleanup + lint fix:**
-1. Stripped implementation specifics from VISION-LOCK.md (test counts, command lists, detector enumerations, metric current values)
-2. VISION-LOCK is now a strategic document — implementation state tracked in CURRENT-STATE only
-3. Fixed 4 RUF015 lint warnings in go-linter tests (next() vs [0])
+**Slice 1 — CLI --quiet mode:**
+1. Added `-q`/`--quiet` flag to CLI main group
+2. Suppresses log output below ERROR level
+3. Mutually exclusive with `-v`/`--verbose` (raises UsageError)
+4. 3 tests (flag accepted, suppresses output, verbose conflict)
 
-**Slice 1 — Rust clippy detector:**
-4. 9th detector: wraps `cargo clippy --message-format=json` for Rust repos
-5. JSON Lines parsing (compiler-message entries only)
-6. Auto-skip non-Rust repos (checks for Cargo.toml or .rs files, skips `target/` dir)
-7. Elevates clippy::correctness and clippy::suspicious lints to HIGH
-8. Incremental and targeted scope support (post-filter on clippy output)
-9. Deduplicates findings by file:line:message within a single run
-10. 38 new tests
+**Slice 2 — Reviewer fixes (round 1):**
+5. Fixed open redirect via protocol-relative URL (`//evil.com`)
+6. Made `--verbose` and `--quiet` mutually exclusive
+7. Updated glossary, architecture overview, README for pattern clustering docs drift
+8. Updated clustering.py module docstring
+9. Added protocol-relative redirect test
 
-**Slice 2 — Finding annotations/notes:**
-11. DB migration v7: `annotations` table (finding_id, content, created_at)
-12. Store layer: `add_annotation()`, `get_annotations()`, `delete_annotation()` with `Annotation` dataclass
-13. Web routes: `POST /findings/{id}/annotations` (add), `POST .../annotations/{id}/delete` (delete)
-14. htmx-friendly responses for both add and delete
-15. Finding detail template: Notes section with add form and delete buttons
-16. CSS for annotation styling
-17. 12 new tests (5 store, 7 web)
+**Slice 3 — GitHub Actions CI:**
+10. `.github/workflows/ci.yml`: Python 3.11/3.12/3.13 matrix
+11. Runs ruff, mypy strict, pytest
+12. 10-minute timeout, pip caching
+
+**Slice 4 — Output samples:**
+13. `samples/` directory with README, sample-report.md, sample-json-output.json, sample-cli-session.txt
+14. Generated from real Sentinel self-scan (92 findings from 5 detectors)
+
+**Slice 5 — sentinel init command:**
+15. `sentinel init /path/to/repo` creates sentinel.toml with documented defaults
+16. Creates `.sentinel/` directory, adds it to `.gitignore`
+17. `--force` flag to overwrite existing config
+18. Line-based `.gitignore` check (avoids substring false matches)
+19. 7 tests
+
+**Slice 6 — scan command refactor:**
+20. Extracted `_apply_cli_overrides()`, `_resolve_scope()`, `_execute_scan()` helpers
+21. Reduces `scan()` cyclomatic complexity from 23 to manageable level
+22. Dogfooding: Sentinel flagged its own `scan()` as too complex
+
+**Slice 7 — Multi-repo support (scan-all):**
+23. `sentinel scan-all REPO1 REPO2 ... --db shared.db` scans multiple repos into a shared database
+24. Shares `--model`, `--ollama-url`, `--embed-model`, `--skip-judge` overrides
+25. Per-repo error handling with partial-failure exit code (2)
+26. JSON output support
+27. Resolved OQ-005 (multi-repo support)
+28. 4 tests (multiple repos, JSON output, requires DB, partial failure)
+
+**Slice 8 — Reviewer fixes (round 2):**
+29. Type annotations on helper functions (SentinelConfig, sqlite3.Connection instead of Any)
+30. `click.UsageError` instead of `SystemExit` for --incremental/--target conflict
+31. Narrowed exception types in scan-all (OSError, RuntimeError, ValueError)
+32. `load_config` moved inside try/except in scan-all loop
+33. CI: added timeout-minutes and pip cache
 
 ### Test Results
 ```
-583 passed
+611 passed
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
 ### Repository State
 - **Implementation**: 30+ Python modules in `src/sentinel/`
-- **Tests**: 583 passing
+- **Tests**: 611 passing
 - **Detectors**: 9 (todo-scanner, lint-runner, eslint-runner, go-linter, rust-clippy, dep-audit, docs-drift, git-hotspots, complexity)
-- **CLI**: 10 commands, all with `--json-output`, plus `python -m sentinel`
-- **Web UI**: 16 routes, annotations, eval trend chart, run comparison, clustering, dark/light mode
+- **CLI**: 13 commands (scan, scan-all, init, show, suppress, approve, create-issues, history, eval, eval-history, index, serve, --version)
+- **Web UI**: 16+ routes, annotations, eval trend chart, run comparison, two-pass clustering, dark/light mode
 - **DB schema**: v7
+- **CI**: GitHub Actions (Python 3.11/3.12/3.13 matrix, ruff, mypy, pytest)
 - **Lint/Type**: Clean (ruff, mypy strict)
 
 ### What Remains / Next Priority
-1. Real-world validation — run Sentinel on non-Python repos to validate multi-language detectors
-2. Multi-repo support (OQ-005)
-3. Packaging & distribution (PyPI, CI/CD)
-4. Model benchmarking (Qwen3.5 4B vs 9B quality comparison)
-5. Root-cause finding grouping in web UI
-6. TD-002: Async detector interface (low priority)
+1. Eval metrics dashboard in web UI (persistent tracking of quality trends)
+2. Model benchmarking (requires Ollama running)
+3. Packaging for PyPI (`pip install local-repo-sentinel`)
+4. Better error messages when external tools aren't installed
+5. TD-002: Async detector interface (low priority)
 
 ### Blocked Items
 None.
 
 ### Decisions Made
-- VISION-LOCK is strategic only — no test counts, command enumerations, or current metric values. Implementation state tracked in CURRENT-STATE.md and architecture docs.
+- OQ-005 resolved: Multi-repo via `scan-all` command with shared DB. Architecture invariant #6 preserved (single repo per run), multi-repo is CLI orchestration.
+- Partial failure exit code: `scan-all` exits 2 when any repo fails, 0 when all succeed.
 
 ---
 
