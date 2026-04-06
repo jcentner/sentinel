@@ -52,9 +52,12 @@ def _has_js_files(repo_root: Path) -> bool:
     """Quick check for JS/TS files in the repo root."""
     if (repo_root / "package.json").is_file():
         return True
-    # Check for any JS/TS files (limit search depth for performance)
+    # Check for any JS/TS files, skipping vendored/hidden dirs
+    _SKIP_DIRS = frozenset({".git", ".sentinel", "node_modules", "dist", "build", ".venv", "__pycache__"})
     for p in repo_root.rglob("*"):
-        if p.suffix in _JS_EXTENSIONS and ".sentinel" not in p.parts:
+        if _SKIP_DIRS & set(p.parts):
+            continue
+        if p.is_file() and p.suffix in _JS_EXTENSIONS:
             return True
     return False
 

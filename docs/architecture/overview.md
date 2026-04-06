@@ -23,7 +23,7 @@
 │                                                     ▼            │
 │  ┌─────────────┐    ┌─────────────┐    ┌──────────────────┐     │
 │  │  State Store │◀──│  Persistence  │◀──│  Judged Findings │     │
-│  │  (SQLite v5) │   │  Tracker     │   │                  │     │
+│  │  (SQLite v6) │   │  Tracker     │   │                  │     │
 │  └─────────────┘    └─────────────┘    └──────────────────┘     │
 │                           │                                      │
 │                           ▼                                      │
@@ -113,7 +113,7 @@ Persistent state across runs. Tracks:
 - Finding persistence (occurrence counts across runs)
 - LLM interaction log (prompts, responses, tokens, timing, verdicts for every LLM call)
 
-Schema version is tracked with an ordered migration framework. Current schema: v5.
+Schema version is tracked with an ordered migration framework. Current schema: v6.
 
 This is a Phase 1 design decision, not a later addition. Deduplication is a trust feature.
 
@@ -147,6 +147,9 @@ Optional browser-based review and management interface (`sentinel serve <repo>`)
 | `/findings/{id}` | Finding detail: metadata, description, evidence, approve/suppress with reason |
 | `/scan` | Configurable scan form: repo path, model override, skip-judge, incremental |
 | `/github` | GitHub Issues dashboard: config status, approved findings, create/dry-run |
+| `/settings` | Read-only configuration viewer: sentinel.toml status, GitHub env vars |
+| `/eval` | Evaluation form + results: run detectors against ground-truth TOML |
+| `/eval/history` | Evaluation history: precision/recall trends over time |
 
 **Key capabilities:**
 - Full CLI workflow parity — daily triage (review, approve, suppress, create issues) without the terminal

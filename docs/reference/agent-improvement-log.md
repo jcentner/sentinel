@@ -28,3 +28,10 @@ Changes to Copilot instructions, prompts, agents, and workflow files. Each entry
 **Change made**: Added explicit doc-sync checklist to Step 7 of the autonomous loop. The checklist requires: for any slice that adds new user-facing features, before committing, check whether each doc in the standard list (vision, architecture, README, OQ, TD, glossary) references the changed capability and is still accurate.
 **Expected benefit**: Prevents "ship code, update checkpoint, skip doc alignment" pattern. Ensures vision revisions are created when the shipped scope exceeds the last vision revision's spec.
 **Validation**: Next feature implementation session should produce doc updates in the same commit as the implementation, not as a follow-up after human prompting.
+
+### 2026-04-06 — Reviewer skipped again in Session 14 (repeat failure)
+**Problem observed**: Session 14 implemented 4 slices (JSON CLI, eslint-runner, web clustering, eval metrics) touching 18+ files including new modules, schema migration, and new web routes — all committed without running the reviewer subagent. This is the same failure as Session 9 despite the explicit post-implementation checklist added after that incident. The reviewer (run in Session 15 at user prompting) found: 4 major doc-drift issues (schema version, routes table, detector table), 1 resource leak (unclosed connection), 1 performance issue (unbounded rglob), and 1 test coverage gap. All were trivially catchable.
+**Affected file(s)**: No instruction file changes needed — the rules are already correct. This is a compliance failure, not a rule gap.
+**Change made**: No instruction changes. Session 15 fixed all 6 reviewer findings. Documenting this entry as evidence that the review step must not be skipped even when implementing multiple slices in rapid succession.
+**Expected benefit**: Reinforces that the reviewer subagent call is non-optional for any slice touching 3+ files, per the existing Step 5 checklist.
+**Validation**: Next multi-slice session must show reviewer subagent invocation before each commit, not after human prompting.

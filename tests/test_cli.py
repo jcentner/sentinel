@@ -464,6 +464,73 @@ class TestEvalCommand:
         assert data["recall"] >= 0.9
 
 
+# ── eval-history command ─────────────────────────────────────────────
+
+
+class TestEvalHistoryCommand:
+    def test_eval_history_empty(self, runner, test_repo, db_path):
+        """Eval history with no prior results shows message."""
+        result = runner.invoke(main, [
+            "eval-history", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "No evaluation results found" in result.output
+
+    def test_eval_history_json_empty(self, runner, test_repo, db_path):
+        """Eval history JSON output returns empty list when no results."""
+        result = runner.invoke(main, [
+            "eval-history", "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data == []
+
+    def test_eval_history_after_eval(self, runner, db_path):
+        """Eval history shows results after running eval."""
+        sample_repo = Path(__file__).parent / "fixtures" / "sample-repo"
+        if not sample_repo.exists():
+            pytest.skip("sample-repo fixture not found")
+        gt = sample_repo / "ground-truth.toml"
+        if not gt.exists():
+            pytest.skip("ground-truth.toml not found")
+        # Run eval first to populate data
+        runner.invoke(main, [
+            "eval", str(sample_repo),
+            "--ground-truth", str(gt), "--db", db_path,
+        ])
+        # Now check history
+        result = runner.invoke(main, [
+            "eval-history", "--repo", str(sample_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Findings" in result.output
+        assert "Prec" in result.output
+
+    def test_eval_history_json_after_eval(self, runner, db_path):
+        """Eval history JSON output includes results after running eval."""
+        sample_repo = Path(__file__).parent / "fixtures" / "sample-repo"
+        if not sample_repo.exists():
+            pytest.skip("sample-repo fixture not found")
+        gt = sample_repo / "ground-truth.toml"
+        if not gt.exists():
+            pytest.skip("ground-truth.toml not found")
+        # Run eval first
+        runner.invoke(main, [
+            "eval", str(sample_repo),
+            "--ground-truth", str(gt), "--db", db_path,
+        ])
+        result = runner.invoke(main, [
+            "eval-history", "--repo", str(sample_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) >= 1
+        assert "precision" in data[0]
+        assert "recall" in data[0]
+
+
 # ── version ──────────────────────────────────────────────────────────
 
 

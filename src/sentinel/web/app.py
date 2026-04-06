@@ -275,14 +275,17 @@ async def eval_page(request: Request) -> Response:
     def _do_eval() -> tuple[EvalResult, int]:
         gt = load_ground_truth(gt_path)
         mem_conn = get_conn(":memory:")
-        _, findings, _ = run_scan(
-            str(repo),
-            mem_conn,
-            model=config.model,
-            ollama_url=config.ollama_url,
-            skip_judge=True,
-            output_path="/dev/null",
-        )
+        try:
+            _, findings, _ = run_scan(
+                str(repo),
+                mem_conn,
+                model=config.model,
+                ollama_url=config.ollama_url,
+                skip_judge=True,
+                output_path="/dev/null",
+            )
+        finally:
+            mem_conn.close()
         result = evaluate(findings, gt)
 
         # Persist eval result to the app's DB

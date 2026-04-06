@@ -86,11 +86,13 @@ DetectorContext:
 
 | Detector | Tier | Categories | Status | Description |
 |----------|------|------------|--------|-------------|
-| `lint-runner` | Deterministic | code-quality | ✅ Implemented | Wraps ESLint, ruff, etc. and normalizes output |
+| `lint-runner` | Deterministic | code-quality | ✅ Implemented | Wraps ruff for Python linting and normalizes output |
+| `eslint-runner` | Deterministic | code-quality | ✅ Implemented | Wraps ESLint/Biome for JS/TS linting (tries Biome first, falls back to ESLint) |
 | `todo-scanner` | Deterministic | todo-fixme | ✅ Implemented | Grep for TODO/FIXME/HACK with age from git blame |
 | `dep-audit` | Deterministic | dependency | ✅ Implemented | Wraps npm audit, pip-audit |
 | `docs-drift` | Deterministic + LLM | docs-drift | ✅ Implemented | Compares docs ↔ code, docs ↔ docs for consistency |
 | `git-hotspots` | Heuristic | git-health | ✅ Implemented | Identifies high-churn files via statistical outlier analysis on git log |
+| `complexity` | Deterministic | code-quality | ✅ Implemented | Flags functions exceeding cyclomatic complexity threshold |
 
 ### docs-drift implementation notes
 

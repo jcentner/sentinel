@@ -30,7 +30,7 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Targeted scan** | A scan limited to specific file paths provided by the user. Detectors only examine the named files. |
 | **Ground truth** | A TOML manifest (`ground-truth.toml`) defining expected true positives for a test repo, used by `sentinel eval` to measure detector precision and recall. |
 | **Evaluation (eval)** | The precision/recall measurement framework that compares scan findings against a ground-truth manifest. Accessible via `sentinel eval <repo>`. |
-| **Migration framework** | The ordered schema migration system in `store/db.py` that upgrades the SQLite database from v1 to v5 with versioned DDL scripts applied on database open. |
+| **Migration framework** | The ordered schema migration system in `store/db.py` that upgrades the SQLite database from v1 to v6 with versioned DDL scripts applied on database open. |
 | **Embedding index** | A pre-computed set of vector embeddings for repo file chunks, stored in the SQLite `chunks` table. Used by the context gatherer to find semantically relevant code for each finding. |
 | **Chunk** | A contiguous segment of a source file (default: 50 lines with 10-line overlap) stored with its embedding vector for semantic search. |
 | **Cosine similarity** | The similarity metric used to compare embedding vectors (dot product / product of magnitudes). Values range from -1 (opposite) to 1 (identical). |

@@ -1,6 +1,55 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 14 — JSON CLI, eslint-runner, web clustering, eval metrics)
+> Last updated: 2026-04-06 (Session 15 — Reviewer fixes, doc-sync, test coverage)
+
+## Session 15 Summary
+
+### Current Objective
+Fix all reviewer findings from Session 14's 4 slices: doc-drift, resource leak, performance, test coverage.
+
+### What Was Accomplished
+
+1. **Docs drift — schema version**: Updated overview.md "SQLite v5" → "SQLite v6" (diagram + prose), glossary "v1 to v5" → "v1 to v6"
+2. **Docs drift — routes table**: Added `/settings`, `/eval`, `/eval/history` to overview.md routes table
+3. **Docs drift — detector-interface.md**: Added `eslint-runner` and `complexity` detector rows, clarified `lint-runner` as ruff/Python-focused
+4. **Resource leak**: Added try/finally to close `mem_conn` in web eval POST handler
+5. **Performance**: `_has_js_files()` now skips `node_modules`, `.git`, `dist`, `build`, `.venv`, `__pycache__` and checks `p.is_file()`
+6. **Test coverage**: Added 4 tests for `eval-history` CLI command (empty, JSON empty, after eval, JSON after eval)
+
+### Test Results
+```
+492 passed in 48.32s
+ruff check: All checks passed
+mypy strict: All checks passed
+```
+
+### Files Changed
+- `docs/architecture/overview.md` — schema v5→v6, routes table
+- `docs/reference/glossary.md` — migration framework version
+- `docs/architecture/detector-interface.md` — eslint-runner + complexity rows
+- `src/sentinel/detectors/eslint_runner.py` — perf fix in `_has_js_files()`
+- `src/sentinel/web/app.py` — mem_conn leak fix
+- `tests/test_cli.py` — 4 new eval-history tests
+
+### Repository State
+- **Tests**: 492 passing
+- **Detectors**: 7 (all documented in detector-interface.md)
+- **DB schema**: v6 (documented consistently)
+- **Lint/Type**: Clean
+- **Vision**: v2.1
+
+### What Remains / Next Priority
+1. Go linter integration (golangci-lint)
+2. JSON output for `suppress`/`approve` commands
+3. Eval metrics chart visualization (sparklines or SVG in web UI)
+4. TD-002: Async detector interface (low priority)
+5. Multi-repo support (OQ-005)
+6. Packaging & distribution (PyPI)
+
+### Blocked Items
+None.
+
+---
 
 ## Session 14 Summary
 
