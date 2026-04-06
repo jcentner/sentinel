@@ -71,7 +71,8 @@ def scan(
     conn = get_connection(db_path)
 
     try:
-        output_path = output or str(repo / config.output_dir / "report.md")
+        # If user gave -o, use it; otherwise let runner generate report-{run.id}.md
+        output_path = output or None
 
         scope_type = None
         changed_files = None
@@ -92,13 +93,14 @@ def scan(
         kwargs: dict[str, Any] = dict(
             model=config.model,
             ollama_url=config.ollama_url,
-            output_path=output_path,
             skip_judge=config.skip_judge,
             embed_model=config.embed_model,
             embed_chunk_size=config.embed_chunk_size,
             embed_chunk_overlap=config.embed_chunk_overlap,
             detectors_dir=config.detectors_dir,
         )
+        if output_path is not None:
+            kwargs["output_path"] = output_path
         if scope_type is not None:
             kwargs["scope"] = scope_type
         if changed_files is not None:
@@ -107,10 +109,12 @@ def scan(
             kwargs["target_paths"] = target_paths
 
         run, findings, _report = run_scan(str(repo), conn, **kwargs)
+        # Derive actual report path
+        actual_path = output_path or str(repo / config.output_dir / f"report-{run.id}.md")
         click.echo(f"Scan complete: {len(findings)} findings in run #{run.id}")
         if incremental and changed_files:
             click.echo(f"Incremental: {len(changed_files)} files changed since last run")
-        click.echo(f"Report: {output_path}")
+        click.echo(f"Report: {actual_path}")
     finally:
         conn.close()
 
