@@ -61,36 +61,23 @@ detect → fingerprint → deduplicate → gather context → judge → store �
 
 Deduplication happens before the expensive steps (context gathering, LLM judgment) so only novel, non-suppressed findings consume compute.
 
-## What Exists Today (v1.0 ship state)
+## What Exists Today
 
 ### Core Pipeline
-- **7 detectors**: todo-scanner, lint-runner, eslint-runner (JS/TS via ESLint/Biome), dep-audit, docs-drift, git-hotspots, complexity
-- **Embedding-based context gathering**: opt-in via Ollama `/api/embed`, stored in SQLite, falls back to file-proximity heuristics
-- **LLM judge**: structured judgment via Ollama (severity, confidence, evidence summary). System degrades gracefully (raw findings only) when no model is running
-- **Finding fingerprinting**: SHA256 content-hash deduplication, suppression persistence
-- **Finding persistence**: occurrence counts, first-seen tracking, recurrence badges
-- **Morning report**: markdown output, severity-grouped, LOW cap, directory clustering
+- **Pluggable detectors** covering Python, JS/TS, dependency auditing, docs-drift, git history, and code complexity
+- **Embedding-based context gathering**: opt-in via Ollama, falls back to file-proximity heuristics
+- **LLM judge**: structured judgment via Ollama. System degrades gracefully (raw findings only) when no model is running
+- **Finding fingerprinting**: content-hash deduplication, suppression persistence, occurrence tracking
+- **Morning report**: markdown output, severity-grouped, directory clustering
 
-### CLI (10 commands)
-`scan`, `eval`, `suppress`, `approve`, `show`, `history`, `create-issues`, `index`, `serve`
-
-All key commands support `--json-output` for machine-readable structured output, enabling AI agent integration.
+### CLI
+Full scan-to-triage workflow from the command line. All commands support `--json-output` for AI agent integration.
 
 ### Web UI (`sentinel serve`)
-- "Night Watch" dark-first theme with light mode toggle
-- Run dashboard with severity stat cards, filters, bulk approve/suppress
-- Finding detail with evidence, inline actions, recurrence info
-- GitHub Issues dashboard with batch issue creation and dry-run
-- Configurable scan form, evaluation page, settings viewer
+Browser-based triage interface with run review, finding detail, bulk actions, GitHub issue creation, scan configuration, and evaluation. Dark/light themes.
 
 ### GitHub Integration
-- Issue creation from approved findings with fingerprint-based dedup
-- Environment variable config (no secrets in config files)
-
-### Quality
-- 488 tests, ruff clean, mypy strict clean
-- 100% precision + 100% recall on ground-truth eval (15 TPs, 0 FPs)
-- Eval framework with ground-truth TOML, `sentinel eval` CLI + web UI
+Issue creation from approved findings with fingerprint-based dedup. Environment variable config (no secrets in config files).
 
 ## Success Criteria
 
@@ -108,14 +95,14 @@ All key commands support `--json-output` for machine-readable structured output,
 
 ## Evaluation Criteria
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Precision@k | ≥ 70% | 100% on ground truth |
-| False positive rate | < 30% per run | 0% on self-scan |
-| Review time | < 2 minutes | Achieved (web UI bulk triage) |
-| Findings → issues rate | Track only | Workflow exists, no persistent metric |
-| Detector coverage | ≥ 3 categories | 7 detectors, 5 categories (Python, JS/TS, deps, docs, git) |
-| Repeatability | 100% for deterministic | Tested |
+| Metric | Target |
+|--------|--------|
+| Precision@k | ≥ 70% |
+| False positive rate | < 30% per run |
+| Review time | < 2 minutes |
+| Findings → issues rate | Track only |
+| Detector coverage | ≥ 3 categories |
+| Repeatability | 100% for deterministic |
 
 ## Architecture Invariants
 
@@ -184,10 +171,8 @@ These are explicitly excluded from the project's vision, not deferred:
 
 ### v2.1 (2026-04-06)
 - Added eslint-runner detector for JS/TS linting via ESLint or Biome (multi-language support foundation)
-- Added `--json-output` flag to scan, show, history, eval, create-issues for machine-readable CLI output
+- Added `--json-output` flag for machine-readable CLI output
 - Success criterion #9 added: CLI usable by AI agents
-- Detector coverage updated from 6 to 7, categories from 4 to 5
-- Test count updated from 456 to 481
 
 ### v2.0 (2026-04-06)
 Consolidated from VISION-LOCK v1.0 + VISION-REVISION-001 through 005. Key changes from v1.0:
@@ -195,9 +180,8 @@ Consolidated from VISION-LOCK v1.0 + VISION-REVISION-001 through 005. Key change
 - Web UI added as a core delivery surface, not just a future item (VR-002, VR-004, VR-005)
 - Embedding-based context gathering moved from "not in MVP" to shipped (VR-003)
 - Built-in scheduling explicitly moved to "out of scope" (VR-004/TD-009)
-- "What Exists Today" section added to ground the vision in shipped reality
-- "Where We're Going" section added for forward direction
-- Route inventories, CSS details, and other implementation-level content removed (belongs in architecture docs, not vision)
+- "What Exists Today" and "Where We're Going" sections added
+- Implementation-level content removed (belongs in architecture docs, not vision)
 - Stale unresolved assumptions removed (validated by implementation experience)
 
 ### v1.0 (2026-04-04)

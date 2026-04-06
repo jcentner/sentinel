@@ -106,25 +106,25 @@ class TestParseOutput:
     def test_severity_mapping_govet(self, runner: GoLinter) -> None:
         """govet is in HIGH_SEVERITY_LINTERS → HIGH."""
         findings = runner._parse_output(SAMPLE_GOLANGCI_OUTPUT, MagicMock())
-        govet_finding = [f for f in findings if "govet" in f.title][0]
+        govet_finding = next(f for f in findings if "govet" in f.title)
         assert govet_finding.severity == Severity.HIGH
 
     def test_severity_mapping_gosec(self, runner: GoLinter) -> None:
         """gosec (security linter) → HIGH."""
         findings = runner._parse_output(SAMPLE_GOLANGCI_OUTPUT, MagicMock())
-        gosec_finding = [f for f in findings if "gosec" in f.title][0]
+        gosec_finding = next(f for f in findings if "gosec" in f.title)
         assert gosec_finding.severity == Severity.HIGH
 
     def test_severity_mapping_unused(self, runner: GoLinter) -> None:
         """unused linter with warning severity → LOW."""
         findings = runner._parse_output(SAMPLE_GOLANGCI_OUTPUT, MagicMock())
-        unused_finding = [f for f in findings if "unused" in f.title][0]
+        unused_finding = next(f for f in findings if "unused" in f.title)
         assert unused_finding.severity == Severity.LOW
 
     def test_finding_metadata(self, runner: GoLinter) -> None:
         """Findings have correct file paths and line numbers."""
         findings = runner._parse_output(SAMPLE_GOLANGCI_OUTPUT, MagicMock())
-        govet_finding = [f for f in findings if "govet" in f.title][0]
+        govet_finding = next(f for f in findings if "govet" in f.title)
         assert govet_finding.file_path == "cmd/main.go"
         assert govet_finding.line_start == 42
         assert govet_finding.detector == "go-linter"
