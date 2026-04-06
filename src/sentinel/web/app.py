@@ -86,10 +86,17 @@ async def run_detail(request: Request) -> Response:
     for f in findings:
         grouped.setdefault(f.severity.value, []).append(f)
 
+    # Cluster findings within each severity group by parent directory
+    from sentinel.core.clustering import FindingCluster, cluster_findings
+    clustered: dict[str, list[Finding | FindingCluster]] = {}
+    for sev, sev_findings in grouped.items():
+        clustered[sev] = cluster_findings(sev_findings)
+
     return templates.TemplateResponse(request, "run_detail.html", {
         "run": run,
         "findings": findings,
         "grouped": grouped,
+        "clustered": clustered,
         "filter_severity": filter_severity,
         "filter_status": filter_status,
         "filter_detector": filter_detector,

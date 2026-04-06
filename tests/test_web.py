@@ -155,6 +155,44 @@ class TestRunDetail:
         assert resp.status_code == 200
         assert "No findings match" in resp.text
 
+    def test_directory_clustering(self, db_conn: sqlite3.Connection) -> None:
+        """Run detail should group 3+ findings in the same directory into a cluster."""
+        run = create_run(db_conn, "/tmp/test-repo")
+        # Create 3 findings in the same directory — should cluster
+        for i in range(3):
+            insert_finding(db_conn, run.id, Finding(
+                detector="todo-scanner",
+                category="todo-fixme",
+                severity=Severity.MEDIUM,
+                confidence=1.0,
+                title=f"TODO in file{i}.py",
+                description=f"Unresolved TODO #{i}",
+                evidence=[],
+                file_path=f"src/utils/file{i}.py",
+                fingerprint=f"cluster-fp-{i}",
+            ))
+        # 1 standalone finding
+        insert_finding(db_conn, run.id, Finding(
+            detector="lint-runner",
+            category="code-quality",
+            severity=Severity.MEDIUM,
+            confidence=1.0,
+            title="Unused variable",
+            description="Unused var",
+            evidence=[],
+            file_path="other/standalone.py",
+            fingerprint="standalone-fp",
+        ))
+        complete_run(db_conn, run.id, 4)
+        client = TestClient(create_app(db_conn))
+        resp = client.get(f"/runs/{run.id}")
+        assert resp.status_code == 200
+        # Cluster should appear with the directory name
+        assert "src/utils" in resp.text
+        assert "finding-cluster" in resp.text
+        # Standalone finding should also appear
+        assert "Unused variable" in resp.text
+
 
 class TestFindingDetail:
     def test_not_found(self, app: TestClient) -> None:

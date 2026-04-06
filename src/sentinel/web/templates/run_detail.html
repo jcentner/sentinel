@@ -97,17 +97,43 @@
     </label>
     {{ grouped[severity]|length }} finding{{ 's' if grouped[severity]|length != 1 else '' }}
   </h2>
-  {% for f in grouped[severity] %}
+
+  {% for item in clustered[severity] %}
+  {% if item.findings is defined %}
+  {# This is a FindingCluster — render as collapsible group #}
+  <details class="finding-cluster">
+    <summary class="cluster-summary">
+      <span class="cluster-icon">📁</span>
+      <span class="cluster-label">{{ item.findings|length }} findings in <code>{{ item.common_path }}</code></span>
+    </summary>
+    <div class="cluster-body">
+      {% for f in item.findings %}
+      <div class="finding-row">
+        <input type="checkbox" name="finding_ids" value="{{ f.id }}" class="bulk-checkbox severity-{{ severity }}"
+               onchange="updateBulkCount()">
+        <span class="badge badge-{{ f.status.value }}">{{ f.status.value }}</span>
+        <span class="finding-title"><a href="/findings/{{ f.id }}">{{ f.title }}</a></span>
+        <span class="finding-meta">{{ f.detector }}</span>
+        {% if f.file_path %}
+        <span class="finding-location">{{ f.file_path }}{% if f.line_start %}:{{ f.line_start }}{% endif %}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% else %}
+  {# This is a standalone Finding #}
   <div class="finding-row">
-    <input type="checkbox" name="finding_ids" value="{{ f.id }}" class="bulk-checkbox severity-{{ severity }}"
+    <input type="checkbox" name="finding_ids" value="{{ item.id }}" class="bulk-checkbox severity-{{ severity }}"
            onchange="updateBulkCount()">
-    <span class="badge badge-{{ f.status.value }}">{{ f.status.value }}</span>
-    <span class="finding-title"><a href="/findings/{{ f.id }}">{{ f.title }}</a></span>
-    <span class="finding-meta">{{ f.detector }}</span>
-    {% if f.file_path %}
-    <span class="finding-location">{{ f.file_path }}{% if f.line_start %}:{{ f.line_start }}{% endif %}</span>
+    <span class="badge badge-{{ item.status.value }}">{{ item.status.value }}</span>
+    <span class="finding-title"><a href="/findings/{{ item.id }}">{{ item.title }}</a></span>
+    <span class="finding-meta">{{ item.detector }}</span>
+    {% if item.file_path %}
+    <span class="finding-location">{{ item.file_path }}{% if item.line_start %}:{{ item.line_start }}{% endif %}</span>
     {% endif %}
   </div>
+  {% endif %}
   {% endfor %}
 </div>
 {% endif %}
