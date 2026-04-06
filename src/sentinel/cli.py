@@ -68,67 +68,23 @@ def scan(
 ) -> None:
     """Run detectors against a repository and generate a morning report."""
     from sentinel.config import load_config
-    from sentinel.core.runner import prepare_incremental, run_scan
-    from sentinel.models import ScopeType
     from sentinel.store.db import get_connection
 
     repo = Path(repo_path).resolve()
     config = load_config(repo)
-
-    # CLI flags override config file
-    if model:
-        config.model = model
-    if ollama_url:
-        config.ollama_url = ollama_url
-    if skip_judge:
-        config.skip_judge = True
-    if embed_model:
-        config.embed_model = embed_model
+    _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model)
 
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
 
     try:
-        # If user gave -o, use it; otherwise let runner generate report-{run.id}.md
-        output_path = output or None
+        scope_result = _resolve_scope(str(repo), conn, incremental, list(target) if target else None)
+        if scope_result is None:
+            click.echo("No changes since last run — nothing to scan.")
+            return
 
-        scope_type = None
-        changed_files = None
-        target_paths = list(target) if target else None
-
-        if incremental and target_paths:
-            click.echo("Cannot use --incremental and --target together.", err=True)
-            raise SystemExit(1)
-
-        if target_paths:
-            scope_type = ScopeType.TARGETED
-        elif incremental:
-            scope_type, changed_files = prepare_incremental(str(repo), conn)
-            if scope_type == ScopeType.INCREMENTAL and changed_files is not None and len(changed_files) == 0:
-                click.echo("No changes since last run — nothing to scan.")
-                return
-
-        kwargs: dict[str, Any] = dict(
-            model=config.model,
-            ollama_url=config.ollama_url,
-            skip_judge=config.skip_judge,
-            embed_model=config.embed_model,
-            embed_chunk_size=config.embed_chunk_size,
-            embed_chunk_overlap=config.embed_chunk_overlap,
-            detectors_dir=config.detectors_dir,
-        )
-        if output_path is not None:
-            kwargs["output_path"] = output_path
-        if scope_type is not None:
-            kwargs["scope"] = scope_type
-        if changed_files is not None:
-            kwargs["changed_files"] = changed_files
-        if target_paths is not None:
-            kwargs["target_paths"] = target_paths
-
-        run, findings, _report = run_scan(str(repo), conn, **kwargs)
-        # Derive actual report path
-        actual_path = output_path or str(repo / config.output_dir / f"report-{run.id}.md")
+        run, findings, _report = _execute_scan(str(repo), conn, config, scope_result, output)
+        actual_path = output or str(repo / config.output_dir / f"report-{run.id}.md")
 
         if output_json:
             click.echo(json.dumps({
@@ -138,11 +94,88 @@ def scan(
             }, indent=2))
         else:
             click.echo(f"Scan complete: {len(findings)} findings in run #{run.id}")
-            if incremental and changed_files:
-                click.echo(f"Incremental: {len(changed_files)} files changed since last run")
+            if incremental and scope_result.get("changed_files"):
+                click.echo(f"Incremental: {len(scope_result['changed_files'])} files changed since last run")
             click.echo(f"Report: {actual_path}")
     finally:
         conn.close()
+
+
+def _apply_cli_overrides(
+    config: Any,
+    model: str | None,
+    ollama_url: str | None,
+    skip_judge: bool,
+    embed_model: str | None,
+) -> None:
+    """Apply CLI flag overrides to a loaded config."""
+    if model:
+        config.model = model
+    if ollama_url:
+        config.ollama_url = ollama_url
+    if skip_judge:
+        config.skip_judge = True
+    if embed_model:
+        config.embed_model = embed_model
+
+
+def _resolve_scope(
+    repo: str,
+    conn: Any,
+    incremental: bool,
+    target_paths: list[str] | None,
+) -> dict[str, Any] | None:
+    """Determine scan scope. Returns None if incremental with no changes."""
+    from sentinel.core.runner import prepare_incremental
+    from sentinel.models import ScopeType
+
+    if incremental and target_paths:
+        click.echo("Cannot use --incremental and --target together.", err=True)
+        raise SystemExit(1)
+
+    result: dict[str, Any] = {}
+    if target_paths:
+        result["scope"] = ScopeType.TARGETED
+        result["target_paths"] = target_paths
+    elif incremental:
+        scope_type, changed_files = prepare_incremental(repo, conn)
+        if scope_type == ScopeType.INCREMENTAL and changed_files is not None and len(changed_files) == 0:
+            return None
+        result["scope"] = scope_type
+        if changed_files is not None:
+            result["changed_files"] = changed_files
+    return result
+
+
+def _execute_scan(
+    repo: str,
+    conn: Any,
+    config: Any,
+    scope_result: dict[str, Any],
+    output_path: str | None,
+) -> Any:
+    """Execute the scan with resolved config and scope."""
+    from sentinel.core.runner import run_scan
+
+    kwargs: dict[str, Any] = dict(
+        model=config.model,
+        ollama_url=config.ollama_url,
+        skip_judge=config.skip_judge,
+        embed_model=config.embed_model,
+        embed_chunk_size=config.embed_chunk_size,
+        embed_chunk_overlap=config.embed_chunk_overlap,
+        detectors_dir=config.detectors_dir,
+    )
+    if output_path is not None:
+        kwargs["output_path"] = output_path
+    if "scope" in scope_result:
+        kwargs["scope"] = scope_result["scope"]
+    if "changed_files" in scope_result:
+        kwargs["changed_files"] = scope_result["changed_files"]
+    if "target_paths" in scope_result:
+        kwargs["target_paths"] = scope_result["target_paths"]
+
+    return run_scan(repo, conn, **kwargs)
 
 
 @main.command()
