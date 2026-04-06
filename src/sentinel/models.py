@@ -153,3 +153,14 @@ class RunSummary:
     scope: ScopeType = ScopeType.FULL
     finding_count: int = 0
     commit_sha: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "repo_path": self.repo_path,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "scope": self.scope.value,
+            "finding_count": self.finding_count,
+            "commit_sha": self.commit_sha,
+        }

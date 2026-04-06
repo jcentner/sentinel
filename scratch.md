@@ -18,3 +18,8 @@ output samples for people to see what it looks like
 Eval qwen3.5-4B vs 9B quantized - sufficient context length on 8GB VRAM? how much context length do I actually need, I can do 9B Q6 at 16k context probably? or 9B Q4 at 16-32k. First check context length, then Run a test on qwen3.5-4B vs qwen3.5:9b-q4_K_M 
 
 Multi-language repo support? Does this only do python right now? What about wyoclear stack (nextjs), agent-realtor stack, and hiveclaw (go)? How to manage this? 
+
+CLI / UI feature parity - usable by both AI agents and humans equally well. More sophisticated coding agent can approve github issues, for instance, via CLI nativelty. Good help and docs and so on. 
+
+
+Turn this autonomous loop and vision lock and everything setup into its own repo. This is a good framework to work from for a while before moving on to multiple parallel agents, when there are mature options for that. 

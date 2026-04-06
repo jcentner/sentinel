@@ -32,6 +32,17 @@ class EvalResult:
         expected = self.true_positives + len(self.missing)
         return self.true_positives / expected if expected else 0.0
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total_findings": self.total_findings,
+            "true_positives": self.true_positives,
+            "false_positives_found": self.false_positives_found,
+            "missing": self.missing,
+            "unexpected_fps": self.unexpected_fps,
+            "precision": self.precision,
+            "recall": self.recall,
+        }
+
 
 def load_ground_truth(path: Path) -> dict[str, Any]:
     """Load a TOML ground truth file."""

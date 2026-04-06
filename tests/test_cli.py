@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -156,6 +157,27 @@ class TestScanCommand:
         assert result.exit_code == 0
         assert "No changes since last run" in result.output
 
+    def test_scan_json_output(self, runner, test_repo, db_path, tmp_path):
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "run" in data
+        assert "findings" in data
+        assert "report_path" in data
+        assert isinstance(data["run"]["id"], int)
+        assert isinstance(data["findings"], list)
+        if data["findings"]:
+            f = data["findings"][0]
+            assert "detector" in f
+            assert "severity" in f
+            assert "title" in f
+            assert "fingerprint" in f
+
 
 # ── suppress command ─────────────────────────────────────────────────
 
@@ -250,6 +272,25 @@ class TestShowCommand:
         assert "Severity:" in result.output
         assert "Description:" in result.output
 
+    def test_show_json_output(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "show", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "detector" in data
+        assert "severity" in data
+        assert "title" in data
+        assert "evidence" in data
+        assert "fingerprint" in data
+        assert "status" in data
+
 
 # ── history command ──────────────────────────────────────────────────
 
@@ -274,6 +315,34 @@ class TestHistoryCommand:
         assert "Findings" in result.output
         assert str(test_repo) in result.output
 
+    def test_history_json_output_empty(self, runner, test_repo, db_path):
+        result = runner.invoke(main, [
+            "history", "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data == []
+
+    def test_history_json_output_after_scan(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "history", "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) >= 1
+        run = data[0]
+        assert "id" in run
+        assert "scope" in run
+        assert "finding_count" in run
+        assert "repo_path" in run
+
 
 # ── create-issues command ────────────────────────────────────────────
 
@@ -290,6 +359,21 @@ class TestCreateIssuesCommand:
         ])
         assert result.exit_code == 0
         assert "No approved findings" in result.output
+
+    def test_no_approved_findings_json(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "create-issues",
+            "--repo", str(test_repo), "--db", db_path, "--dry-run",
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["results"] == []
+        assert "No approved" in data["message"]
 
     def test_dry_run_without_github_config(self, runner, test_repo, db_path):
         """Dry run without GitHub config should show what would be created."""
@@ -354,6 +438,30 @@ class TestEvalCommand:
         assert "Precision:" in result.output
         assert "Recall:" in result.output
         assert "PASS" in result.output
+
+    def test_eval_json_output(self, runner, db_path):
+        """Eval JSON output against the built-in sample repo fixture."""
+        sample_repo = Path(__file__).parent / "fixtures" / "sample-repo"
+        if not sample_repo.exists():
+            pytest.skip("sample-repo fixture not found")
+        gt = sample_repo / "ground-truth.toml"
+        if not gt.exists():
+            pytest.skip("ground-truth.toml not found")
+        result = runner.invoke(main, [
+            "eval", str(sample_repo),
+            "--ground-truth", str(gt), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "precision" in data
+        assert "recall" in data
+        assert "total_findings" in data
+        assert "true_positives" in data
+        assert "passed" in data
+        assert data["passed"] is True
+        assert data["precision"] >= 0.7
+        assert data["recall"] >= 0.9
 
 
 # ── version ──────────────────────────────────────────────────────────

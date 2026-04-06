@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,11 @@ from sentinel import __version__
 @click.version_option(version=__version__, prog_name="sentinel")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose logging")
 def main(verbose: bool) -> None:
-    """Local Repo Sentinel — overnight code health monitoring."""
+    """Local Repo Sentinel — overnight code health monitoring.
+
+    Exit codes: 0 = success, 1 = error or eval below threshold.
+    Use --json-output on scan/show/history/eval/create-issues for machine-readable output.
+    """
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
@@ -37,6 +42,7 @@ def main(verbose: bool) -> None:
 )
 @click.option("--embed-model", default=None, help="Ollama embedding model (enables semantic context)")
 @click.option("--target", "-t", multiple=True, help="Scan only specific paths (repeatable)")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
 def scan(
     repo_path: str,
     model: str | None,
@@ -47,6 +53,7 @@ def scan(
     incremental: bool,
     embed_model: str | None,
     target: tuple[str, ...],
+    output_json: bool,
 ) -> None:
     """Run detectors against a repository and generate a morning report."""
     from sentinel.config import load_config
@@ -111,10 +118,18 @@ def scan(
         run, findings, _report = run_scan(str(repo), conn, **kwargs)
         # Derive actual report path
         actual_path = output_path or str(repo / config.output_dir / f"report-{run.id}.md")
-        click.echo(f"Scan complete: {len(findings)} findings in run #{run.id}")
-        if incremental and changed_files:
-            click.echo(f"Incremental: {len(changed_files)} files changed since last run")
-        click.echo(f"Report: {actual_path}")
+
+        if output_json:
+            click.echo(json.dumps({
+                "run": run.to_dict(),
+                "findings": [f.to_dict() for f in findings],
+                "report_path": actual_path,
+            }, indent=2))
+        else:
+            click.echo(f"Scan complete: {len(findings)} findings in run #{run.id}")
+            if incremental and changed_files:
+                click.echo(f"Incremental: {len(changed_files)} files changed since last run")
+            click.echo(f"Report: {actual_path}")
     finally:
         conn.close()
 
@@ -180,7 +195,8 @@ def approve(finding_id: int, repo: str, db: str | None) -> None:
 @click.argument("finding_id", type=int)
 @click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
 @click.option("--db", default=None, help="Database path")
-def show(finding_id: int, repo: str, db: str | None) -> None:
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def show(finding_id: int, repo: str, db: str | None, output_json: bool) -> None:
     """Show full details of a finding by its ID."""
     from sentinel.config import load_config
     from sentinel.store.db import get_connection
@@ -197,36 +213,39 @@ def show(finding_id: int, repo: str, db: str | None) -> None:
             click.echo(f"Finding #{finding_id} not found.", err=True)
             raise SystemExit(1)
 
-        click.echo(f"Finding #{finding_id}")
-        click.echo(f"  Title:       {finding.title}")
-        click.echo(f"  Detector:    {finding.detector}")
-        click.echo(f"  Category:    {finding.category}")
-        click.echo(f"  Severity:    {finding.severity.value}")
-        click.echo(f"  Confidence:  {finding.confidence:.0%}")
-        click.echo(f"  Status:      {finding.status.value}")
-        click.echo(f"  Fingerprint: {finding.fingerprint}")
-        if finding.file_path:
-            loc = finding.file_path
-            if finding.line_start:
-                loc += f":{finding.line_start}"
-                if finding.line_end and finding.line_end != finding.line_start:
-                    loc += f"-{finding.line_end}"
-            click.echo(f"  Location:    {loc}")
-        click.echo(f"  Description: {finding.description}")
+        if output_json:
+            click.echo(json.dumps(finding.to_dict(), indent=2))
+        else:
+            click.echo(f"Finding #{finding_id}")
+            click.echo(f"  Title:       {finding.title}")
+            click.echo(f"  Detector:    {finding.detector}")
+            click.echo(f"  Category:    {finding.category}")
+            click.echo(f"  Severity:    {finding.severity.value}")
+            click.echo(f"  Confidence:  {finding.confidence:.0%}")
+            click.echo(f"  Status:      {finding.status.value}")
+            click.echo(f"  Fingerprint: {finding.fingerprint}")
+            if finding.file_path:
+                loc = finding.file_path
+                if finding.line_start:
+                    loc += f":{finding.line_start}"
+                    if finding.line_end and finding.line_end != finding.line_start:
+                        loc += f"-{finding.line_end}"
+                click.echo(f"  Location:    {loc}")
+            click.echo(f"  Description: {finding.description}")
 
-        if finding.evidence:
-            click.echo("")
-            click.echo("  Evidence:")
-            for i, ev in enumerate(finding.evidence, 1):
-                click.echo(f"    [{i}] {ev.type.value}: {ev.source}")
-                for line in ev.content.splitlines():
-                    click.echo(f"        {line}")
+            if finding.evidence:
+                click.echo("")
+                click.echo("  Evidence:")
+                for i, ev in enumerate(finding.evidence, 1):
+                    click.echo(f"    [{i}] {ev.type.value}: {ev.source}")
+                    for line in ev.content.splitlines():
+                        click.echo(f"        {line}")
 
-        if finding.context:
-            occ = finding.context.get("occurrence_count")
-            if occ and occ > 1:
-                first_seen = finding.context.get("first_seen", "?")
-                click.echo(f"\n  Recurring: seen {occ} times (first: {first_seen})")
+            if finding.context:
+                occ = finding.context.get("occurrence_count")
+                if occ and occ > 1:
+                    first_seen = finding.context.get("first_seen", "?")
+                    click.echo(f"\n  Recurring: seen {occ} times (first: {first_seen})")
     finally:
         conn.close()
 
@@ -238,6 +257,7 @@ def show(finding_id: int, repo: str, db: str | None) -> None:
 @click.option("--github-repo", default=None, help="GitHub repo name (or SENTINEL_GITHUB_REPO env)")
 @click.option("--token", default=None, help="GitHub token (prefer SENTINEL_GITHUB_TOKEN env to avoid shell history leaks)")
 @click.option("--dry-run", is_flag=True, help="Show what would be created without making API calls")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
 def create_issues_cmd(
     repo: str,
     db: str | None,
@@ -245,6 +265,7 @@ def create_issues_cmd(
     github_repo: str | None,
     token: str | None,
     dry_run: bool,
+    output_json: bool,
 ) -> None:
     """Create GitHub issues from approved findings.
 
@@ -272,33 +293,54 @@ def create_issues_cmd(
     try:
         approved = get_approved_findings(conn)
         if not approved:
-            click.echo("No approved findings to create issues for.")
+            if output_json:
+                click.echo(json.dumps({"results": [], "message": "No approved findings"}))
+            else:
+                click.echo("No approved findings to create issues for.")
             return
 
-        click.echo(f"Found {len(approved)} approved finding(s)")
+        if not output_json:
+            click.echo(f"Found {len(approved)} approved finding(s)")
 
         if dry_run and gh is None:
             # dry run without GitHub config — just show what would be created
-            for _db_id, finding in approved:
-                click.echo(f"  [DRY RUN] Would create: [Sentinel] {finding.title}")
+            if output_json:
+                click.echo(json.dumps({"results": [
+                    {"fingerprint": f.fingerprint, "title": f.title, "dry_run": True}
+                    for _db_id, f in approved
+                ]}))
+            else:
+                for _db_id, finding in approved:
+                    click.echo(f"  [DRY RUN] Would create: [Sentinel] {finding.title}")
             return
 
         assert gh is not None  # non-dry-run checked above; dry-run returned above
         results = create_issues(conn, gh, dry_run=dry_run)
 
-        for r in results:
-            if r.success:
-                if r.issue_url:
-                    click.echo(f"  ✓ {r.fingerprint} → {r.issue_url}")
-                elif r.error == "dry run":
-                    click.echo(f"  [DRY RUN] {r.fingerprint}")
+        if output_json:
+            click.echo(json.dumps({"results": [
+                {
+                    "fingerprint": r.fingerprint,
+                    "success": r.success,
+                    "issue_url": r.issue_url,
+                    "error": r.error,
+                }
+                for r in results
+            ]}, indent=2))
+        else:
+            for r in results:
+                if r.success:
+                    if r.issue_url:
+                        click.echo(f"  ✓ {r.fingerprint} → {r.issue_url}")
+                    elif r.error == "dry run":
+                        click.echo(f"  [DRY RUN] {r.fingerprint}")
+                    else:
+                        click.echo(f"  ✓ {r.fingerprint}")
                 else:
-                    click.echo(f"  ✓ {r.fingerprint}")
-            else:
-                click.echo(f"  ✗ {r.fingerprint}: {r.error}")
+                    click.echo(f"  ✗ {r.fingerprint}: {r.error}")
 
-        success_count = sum(1 for r in results if r.success)
-        click.echo(f"\n{success_count}/{len(results)} issues created successfully")
+            success_count = sum(1 for r in results if r.success)
+            click.echo(f"\n{success_count}/{len(results)} issues created successfully")
     finally:
         conn.close()
 
@@ -307,7 +349,8 @@ def create_issues_cmd(
 @click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
 @click.option("--db", default=None, help="Database path")
 @click.option("--limit", "-n", default=20, help="Number of runs to show")
-def history(repo: str, db: str | None, limit: int) -> None:
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def history(repo: str, db: str | None, limit: int, output_json: bool) -> None:
     """Show past scan runs."""
     from sentinel.config import load_config
     from sentinel.store.db import get_connection
@@ -321,16 +364,22 @@ def history(repo: str, db: str | None, limit: int) -> None:
     try:
         runs = get_run_history(conn, limit=limit)
         if not runs:
-            click.echo("No runs found.")
+            if output_json:
+                click.echo(json.dumps([]))
+            else:
+                click.echo("No runs found.")
             return
 
-        click.echo(f"{'ID':>4}  {'Scope':<12}  {'Findings':>8}  {'Started':>20}  {'Repo'}")
-        click.echo("-" * 80)
-        for r in runs:
-            started = r.started_at.strftime("%Y-%m-%d %H:%M") if r.started_at else "?"
-            click.echo(
-                f"{r.id:>4}  {r.scope.value:<12}  {r.finding_count:>8}  {started:>20}  {r.repo_path}"
-            )
+        if output_json:
+            click.echo(json.dumps([r.to_dict() for r in runs], indent=2))
+        else:
+            click.echo(f"{'ID':>4}  {'Scope':<12}  {'Findings':>8}  {'Started':>20}  {'Repo'}")
+            click.echo("-" * 80)
+            for r in runs:
+                started = r.started_at.strftime("%Y-%m-%d %H:%M") if r.started_at else "?"
+                click.echo(
+                    f"{r.id:>4}  {r.scope.value:<12}  {r.finding_count:>8}  {started:>20}  {r.repo_path}"
+                )
     finally:
         conn.close()
 
@@ -399,10 +448,12 @@ def index(
 @click.option("--ground-truth", "-g", default=None, type=click.Path(exists=True),
               help="Path to ground-truth.toml file (default: <repo>/ground-truth.toml)")
 @click.option("--db", default=None, help="Database path")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
 def eval(
     repo_path: str,
     ground_truth: str | None,
     db: str | None,
+    output_json: bool,
 ) -> None:
     """Evaluate detector precision/recall against annotated ground truth.
 
@@ -434,38 +485,45 @@ def eval(
         conn.close()
 
     result = evaluate(findings, gt)
+    passed = result.precision >= 0.70 and result.recall >= 0.90
 
-    # Print results
-    click.echo("")
-    click.echo("═══ Sentinel Evaluation ═══")
-    click.echo(f"Repo:     {repo}")
-    click.echo(f"Findings: {result.total_findings}")
-    click.echo(f"TP:       {result.true_positives}")
-    click.echo(f"Missing:  {len(result.missing)}")
-    click.echo(f"FP found: {result.false_positives_found}")
-    click.echo("")
-    click.echo(f"Precision: {result.precision:.0%}")
-    click.echo(f"Recall:    {result.recall:.0%}")
-
-    if result.missing:
-        click.echo("")
-        click.echo("Missing expected findings:")
-        for m in result.missing:
-            click.echo(f"  - [{m['detector']}] {m.get('file_path', '?')} / {m.get('title', '?')}")
-
-    if result.unexpected_fps:
-        click.echo("")
-        click.echo("Known false positives that appeared:")
-        for fp in result.unexpected_fps:
-            click.echo(f"  - {fp}")
-
-    # Exit code: 0 if precision >= 70% and recall >= 90%
-    if result.precision >= 0.70 and result.recall >= 0.90:
-        click.echo("")
-        click.echo("✓ PASS — meets ADR-008 targets (precision ≥70%, recall ≥90%)")
+    if output_json:
+        data = result.to_dict()
+        data["repo"] = str(repo)
+        data["passed"] = passed
+        click.echo(json.dumps(data, indent=2))
     else:
         click.echo("")
-        click.echo("✗ FAIL — below ADR-008 targets")
+        click.echo("═══ Sentinel Evaluation ═══")
+        click.echo(f"Repo:     {repo}")
+        click.echo(f"Findings: {result.total_findings}")
+        click.echo(f"TP:       {result.true_positives}")
+        click.echo(f"Missing:  {len(result.missing)}")
+        click.echo(f"FP found: {result.false_positives_found}")
+        click.echo("")
+        click.echo(f"Precision: {result.precision:.0%}")
+        click.echo(f"Recall:    {result.recall:.0%}")
+
+        if result.missing:
+            click.echo("")
+            click.echo("Missing expected findings:")
+            for m in result.missing:
+                click.echo(f"  - [{m['detector']}] {m.get('file_path', '?')} / {m.get('title', '?')}")
+
+        if result.unexpected_fps:
+            click.echo("")
+            click.echo("Known false positives that appeared:")
+            for fp in result.unexpected_fps:
+                click.echo(f"  - {fp}")
+
+        if passed:
+            click.echo("")
+            click.echo("✓ PASS — meets ADR-008 targets (precision ≥70%, recall ≥90%)")
+        else:
+            click.echo("")
+            click.echo("✗ FAIL — below ADR-008 targets")
+
+    if not passed:
         raise SystemExit(1)
 
 
