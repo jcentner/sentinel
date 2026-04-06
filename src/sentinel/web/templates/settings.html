@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Settings</h1>
+  <p class="subtitle">Current configuration{% if repo_path %} for <span class="text-mono">{{ repo_path }}</span>{% endif %}</p>
+</div>
+
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">Configuration Source</span>
+    {% if has_config_file %}
+    <span class="config-status"><span class="config-dot ready"></span> sentinel.toml found</span>
+    {% else %}
+    <span class="config-status"><span class="config-dot missing"></span> Using defaults</span>
+    {% endif %}
+  </div>
+  {% if not has_config_file %}
+  <p class="text-muted" style="font-size:0.85rem;">
+    No <code>sentinel.toml</code> found{% if repo_path %} in <code>{{ repo_path }}</code>{% endif %}. All settings use default values.
+  </p>
+  {% endif %}
+</div>
+
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">Active Settings</span>
+  </div>
+  <table class="settings-table">
+    <thead>
+      <tr>
+        <th>Setting</th>
+        <th>Value</th>
+        <th>Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in fields %}
+      <tr>
+        <td><code>{{ f.name }}</code></td>
+        <td class="text-mono">{{ f.value if f.value != '' else '(empty)' }}</td>
+        <td class="text-muted">{{ f.type }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">Environment Variables</span>
+  </div>
+  <table class="settings-table">
+    <thead>
+      <tr>
+        <th>Variable</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for var, is_set in env_vars.items() %}
+      <tr>
+        <td><code>{{ var }}</code></td>
+        <td>
+          <span class="config-dot {{ 'ready' if is_set else 'missing' }}"></span>
+          {{ 'Set' if is_set else 'Not set' }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

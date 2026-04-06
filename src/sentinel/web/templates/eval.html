@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Evaluation{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Evaluation</h1>
+  <p class="subtitle">Run detectors against a ground-truth file and measure precision/recall</p>
+</div>
+
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">Run Evaluation</span>
+  </div>
+  <form method="post" action="/eval">
+    <div class="form-group">
+      <label class="form-label" for="repo_path">Repository Path</label>
+      <input type="text" id="repo_path" name="repo_path" class="form-input"
+             value="{{ current_repo }}" placeholder="/path/to/repo">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ground_truth">Ground Truth File <span class="text-muted">(optional — defaults to repo/ground-truth.toml)</span></label>
+      <input type="text" id="ground_truth" name="ground_truth" class="form-input"
+             placeholder="ground-truth.toml">
+    </div>
+    <button type="submit" class="btn btn-accent">Run Evaluation</button>
+  </form>
+</div>
+
+{% if error %}
+<div class="card mb-2">
+  <div class="toast toast-error" style="position:static; animation:none;">{{ error }}</div>
+</div>
+{% endif %}
+
+{% if result %}
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Precision</div>
+    <div class="stat-value {{ 'high' if result.precision >= 0.7 else 'critical' }}">{{ '%.0f' % (result.precision * 100) }}%</div>
+    <div class="stat-threshold">Target: ≥ 70%</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Recall</div>
+    <div class="stat-value {{ 'high' if result.recall >= 0.9 else 'critical' }}">{{ '%.0f' % (result.recall * 100) }}%</div>
+    <div class="stat-threshold">Target: ≥ 90%</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">True Positives</div>
+    <div class="stat-value">{{ result.true_positives }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Findings</div>
+    <div class="stat-value">{{ total_raw }}</div>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">Result</span>
+    {% if passed %}
+    <span class="badge badge-approved">PASS</span>
+    {% else %}
+    <span class="badge badge-critical">FAIL</span>
+    {% endif %}
+  </div>
+
+  {% if result.missing %}
+  <h3 style="margin-top:0.5rem;">Missing Expected Findings ({{ result.missing|length }})</h3>
+  {% for m in result.missing %}
+  <div class="finding-row">
+    <span class="finding-meta">{{ m.detector }}</span>
+    <span class="finding-title">{{ m.title }}</span>
+    {% if m.file_path %}
+    <span class="finding-location">{{ m.file_path }}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if result.unexpected_fps %}
+  <h3 style="margin-top:0.5rem;">Unexpected False Positives ({{ result.unexpected_fps|length }})</h3>
+  {% for fp in result.unexpected_fps %}
+  <div class="finding-row">
+    <span class="badge badge-critical">FP</span>
+    <span class="finding-title">{{ fp }}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if not result.missing and not result.unexpected_fps %}
+  <p class="text-muted" style="padding:0.5rem 0;">All expected findings found. No unexpected false positives detected.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

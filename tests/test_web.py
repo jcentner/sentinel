@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
@@ -580,4 +581,124 @@ class TestThemeAndDesign:
         resp = app.get("/runs")
         assert 'href="/github"' in resp.text
         assert 'href="/scan"' in resp.text
+        assert 'href="/settings"' in resp.text
+        assert 'href="/eval"' in resp.text
         assert "Sentinel" in resp.text
+
+
+class TestSettingsPage:
+    def test_settings_no_repo(self, app: TestClient) -> None:
+        resp = app.get("/settings")
+        assert resp.status_code == 200
+        assert "Settings" in resp.text
+        assert "Using defaults" in resp.text
+
+    def test_settings_with_repo(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = TestClient(application)
+        resp = client.get("/settings")
+        assert resp.status_code == 200
+        assert "model" in resp.text
+        assert "qwen3.5:4b" in resp.text
+
+    def test_settings_with_config_file(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        (tmp_path / "sentinel.toml").write_text('[sentinel]\nmodel = "custom-model"\n')
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = TestClient(application)
+        resp = client.get("/settings")
+        assert resp.status_code == 200
+        assert "sentinel.toml found" in resp.text
+        assert "custom-model" in resp.text
+
+    def test_settings_shows_env_vars(self, app: TestClient) -> None:
+        resp = app.get("/settings")
+        assert "SENTINEL_GITHUB_OWNER" in resp.text
+        assert "SENTINEL_GITHUB_REPO" in resp.text
+        assert "SENTINEL_GITHUB_TOKEN" in resp.text
+
+    def test_settings_shows_all_fields(self, app: TestClient) -> None:
+        resp = app.get("/settings")
+        for field_name in ["model", "ollama_url", "db_path", "output_dir", "skip_judge",
+                           "embed_model", "embed_chunk_size", "embed_chunk_overlap", "detectors_dir"]:
+            assert field_name in resp.text
+
+
+class TestEvalPage:
+    def test_eval_form_get(self, app: TestClient) -> None:
+        resp = app.get("/eval")
+        assert resp.status_code == 200
+        assert "Evaluation" in resp.text
+        assert "Run Evaluation" in resp.text
+
+    def test_eval_no_repo(self, app: TestClient) -> None:
+        resp = app.post("/eval", data={})
+        assert resp.status_code == 500
+        assert "No repo configured" in resp.text
+
+    def test_eval_missing_ground_truth(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = TestClient(application)
+        resp = client.post("/eval", data={"repo_path": str(tmp_path)})
+        assert resp.status_code == 200
+        assert "not found" in resp.text
+
+    def test_eval_bad_repo_path(self, app: TestClient) -> None:
+        resp = app.post("/eval", data={"repo_path": "/nonexistent/path"})
+        assert resp.status_code == 400
+        assert "not found" in resp.text
+
+    def test_eval_success(
+        self, seeded_db: tuple[sqlite3.Connection, int, int],
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        from sentinel.core.eval import EvalResult
+
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = TestClient(application)
+
+        mock_result = EvalResult(
+            total_findings=10,
+            true_positives=8,
+            false_positives_found=1,
+            missing=[],
+            unexpected_fps=["some FP"],
+        )
+        monkeypatch.setattr(
+            "sentinel.core.runner.run_scan",
+            MagicMock(return_value=(MagicMock(), [], "/dev/null")),
+        )
+        monkeypatch.setattr(
+            "sentinel.core.eval.evaluate",
+            MagicMock(return_value=mock_result),
+        )
+        monkeypatch.setattr(
+            "sentinel.core.eval.load_ground_truth",
+            MagicMock(return_value={}),
+        )
+        monkeypatch.setattr(
+            "sentinel.config.load_config",
+            MagicMock(return_value=MagicMock(
+                model="test", ollama_url="http://localhost:11434", skip_judge=True
+            )),
+        )
+        # Create a fake ground truth file in the repo
+        gt_file = tmp_path / "ground-truth.toml"
+        gt_file.write_text("[sentinel]\n")
+
+        # POST without explicit repo_path — uses the app state's repo_path
+        resp = client.post("/eval", data={})
+        assert resp.status_code == 200
+        assert "80%" in resp.text  # precision = 8/10
+        assert "PASS" in resp.text or "FAIL" in resp.text

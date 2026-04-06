@@ -191,6 +191,111 @@ async def bulk_action(request: Request) -> Response:
     return RedirectResponse(url=f"/runs/{run_id}", status_code=303)
 
 
+async def settings_page(request: Request) -> Response:
+    """Display current configuration."""
+    import dataclasses
+    import os
+    from pathlib import Path as _Path
+
+    from sentinel.config import SentinelConfig, load_config
+
+    repo_path = getattr(request.app.state, "repo_path", None) or ""
+    if repo_path:
+        config = load_config(_Path(repo_path))
+        config_file = _Path(repo_path) / "sentinel.toml"
+        has_config_file = config_file.exists()
+    else:
+        config = SentinelConfig()
+        has_config_file = False
+
+    fields = [
+        {"name": f.name, "value": getattr(config, f.name), "type": f.type}
+        for f in dataclasses.fields(config)
+    ]
+
+    env_vars = {
+        v: bool(os.environ.get(v))
+        for v in ["SENTINEL_GITHUB_OWNER", "SENTINEL_GITHUB_REPO", "SENTINEL_GITHUB_TOKEN"]
+    }
+
+    return templates.TemplateResponse(request, "settings.html", {
+        "fields": fields,
+        "repo_path": repo_path,
+        "has_config_file": has_config_file,
+        "env_vars": env_vars,
+    })
+
+
+async def eval_page(request: Request) -> Response:
+    """Show eval form (GET) or run evaluation (POST)."""
+    if request.method == "GET":
+        current_repo = getattr(request.app.state, "repo_path", "") or ""
+        return templates.TemplateResponse(request, "eval.html", {
+            "current_repo": current_repo,
+            "result": None,
+        })
+
+    # POST — run evaluation
+    import anyio
+
+    from sentinel.config import load_config
+    from sentinel.core.eval import EvalResult, evaluate, load_ground_truth
+    from sentinel.core.runner import run_scan
+    from sentinel.store.db import get_connection as get_conn
+
+    form = await request.form()
+    form_repo = str(form.get("repo_path", "")).strip()
+    user_provided = bool(form_repo)
+    repo_path: str = form_repo or str(getattr(request.app.state, "repo_path", None) or "")
+    if not repo_path:
+        return Response("No repo configured", status_code=500)
+
+    repo = Path(repo_path)
+    if user_provided and not repo.is_dir():
+        return Response(f"Repository path not found: {repo_path}", status_code=400)
+
+    form_gt = str(form.get("ground_truth", "")).strip()
+    gt_path = Path(form_gt) if form_gt else repo / "ground-truth.toml"
+    if not gt_path.exists():
+        return templates.TemplateResponse(request, "eval.html", {
+            "current_repo": repo_path,
+            "result": None,
+            "error": f"Ground truth file not found: {gt_path}",
+        })
+
+    config = load_config(repo)
+
+    def _do_eval() -> tuple[EvalResult, int]:
+        gt = load_ground_truth(gt_path)
+        mem_conn = get_conn(":memory:")
+        _, findings, _ = run_scan(
+            str(repo),
+            mem_conn,
+            model=config.model,
+            ollama_url=config.ollama_url,
+            skip_judge=True,
+            output_path="/dev/null",
+        )
+        result = evaluate(findings, gt)
+        return result, len(findings)
+
+    try:
+        eval_result, total_raw = await anyio.to_thread.run_sync(_do_eval)
+    except Exception:
+        logger.exception("Evaluation failed")
+        return Response("Evaluation failed — check server logs", status_code=500)
+
+    passed = eval_result.precision >= 0.7 and eval_result.recall >= 0.9
+
+    return templates.TemplateResponse(request, "eval.html", {
+        "current_repo": repo_path,
+        "result": eval_result,
+        "total_raw": total_raw,
+        "passed": passed,
+        "error": None,
+    })
+
+
 async def scan_page(request: Request) -> Response:
     """Show scan form (GET) or trigger a scan (POST)."""
     if request.method == "GET":
@@ -344,6 +449,8 @@ def create_app(
         Route("/findings/{finding_id:int}", endpoint=finding_detail),
         Route("/findings/{finding_id:int}/action", endpoint=finding_action, methods=["POST"]),
         Route("/runs/{run_id:int}/bulk-action", endpoint=bulk_action, methods=["POST"]),
+        Route("/settings", endpoint=settings_page),
+        Route("/eval", endpoint=eval_page, methods=["GET", "POST"]),
         Route("/scan", endpoint=scan_page, methods=["GET", "POST"]),
         Route("/github", endpoint=github_page),
         Route("/github/create-issues", endpoint=github_create_issues, methods=["POST"]),
