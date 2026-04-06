@@ -1,11 +1,11 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 17 — 7 slices: quiet mode, CLI refactor, CI, samples, init, scan-all, reviewer fixes)
+> Last updated: 2026-04-06 (Session 17 — 11 slices)
 
 ## Session 17 Summary
 
 ### Current Objective
-Continue iterating: CLI polish, multi-repo support, packaging, CI, documentation.
+CLI polish, multi-repo support, packaging, CI, documentation, error handling normalization.
 
 ### What Was Accomplished
 
@@ -13,81 +13,87 @@ Continue iterating: CLI polish, multi-repo support, packaging, CI, documentation
 1. Added `-q`/`--quiet` flag to CLI main group
 2. Suppresses log output below ERROR level
 3. Mutually exclusive with `-v`/`--verbose` (raises UsageError)
-4. 3 tests (flag accepted, suppresses output, verbose conflict)
 
 **Slice 2 — Reviewer fixes (round 1):**
-5. Fixed open redirect via protocol-relative URL (`//evil.com`)
-6. Made `--verbose` and `--quiet` mutually exclusive
-7. Updated glossary, architecture overview, README for pattern clustering docs drift
-8. Updated clustering.py module docstring
-9. Added protocol-relative redirect test
+4. Fixed open redirect via protocol-relative URL (`//evil.com`)
+5. Updated glossary, architecture overview, README for pattern clustering docs drift
+6. Added protocol-relative redirect test
 
 **Slice 3 — GitHub Actions CI:**
-10. `.github/workflows/ci.yml`: Python 3.11/3.12/3.13 matrix
-11. Runs ruff, mypy strict, pytest
-12. 10-minute timeout, pip caching
+7. `.github/workflows/ci.yml`: Python 3.11/3.12/3.13 matrix
+8. Runs ruff, mypy strict, pytest with 10-minute timeout and pip cache
 
 **Slice 4 — Output samples:**
-13. `samples/` directory with README, sample-report.md, sample-json-output.json, sample-cli-session.txt
-14. Generated from real Sentinel self-scan (92 findings from 5 detectors)
+9. `samples/` directory with sample report, JSON output, CLI session examples
 
 **Slice 5 — sentinel init command:**
-15. `sentinel init /path/to/repo` creates sentinel.toml with documented defaults
-16. Creates `.sentinel/` directory, adds it to `.gitignore`
-17. `--force` flag to overwrite existing config
-18. Line-based `.gitignore` check (avoids substring false matches)
-19. 7 tests
+10. `sentinel init` creates sentinel.toml + .sentinel dir + .gitignore entry
+11. Line-based `.gitignore` check (avoids substring false matches), `--force` flag
 
 **Slice 6 — scan command refactor:**
-20. Extracted `_apply_cli_overrides()`, `_resolve_scope()`, `_execute_scan()` helpers
-21. Reduces `scan()` cyclomatic complexity from 23 to manageable level
-22. Dogfooding: Sentinel flagged its own `scan()` as too complex
+12. Extracted `_apply_cli_overrides()`, `_resolve_scope()`, `_execute_scan()` helpers
+13. Proper type annotations (SentinelConfig, sqlite3.Connection)
+14. `click.UsageError` for --incremental/--target conflict
 
-**Slice 7 — Multi-repo support (scan-all):**
-23. `sentinel scan-all REPO1 REPO2 ... --db shared.db` scans multiple repos into a shared database
-24. Shares `--model`, `--ollama-url`, `--embed-model`, `--skip-judge` overrides
-25. Per-repo error handling with partial-failure exit code (2)
-26. JSON output support
-27. Resolved OQ-005 (multi-repo support)
-28. 4 tests (multiple repos, JSON output, requires DB, partial failure)
+**Slice 7 — Multi-repo support:**
+15. `sentinel scan-all REPO1 REPO2 ... --db shared.db`
+16. All scan options (--model, --ollama-url, --embed-model, --skip-judge)
+17. Per-repo error handling with partial-failure exit code (2)
+18. Resolved OQ-005
 
 **Slice 8 — Reviewer fixes (round 2):**
-29. Type annotations on helper functions (SentinelConfig, sqlite3.Connection instead of Any)
-30. `click.UsageError` instead of `SystemExit` for --incremental/--target conflict
-31. Narrowed exception types in scan-all (OSError, RuntimeError, ValueError)
-32. `load_config` moved inside try/except in scan-all loop
-33. CI: added timeout-minutes and pip cache
+19. scan-all reuses _apply_cli_overrides + _execute_scan helpers
+20. Narrowed exception types (OSError, RuntimeError, ValueError)
+21. load_config inside try/except per-repo
+
+**Slice 9 — Pattern clustering web test + detector error normalization:**
+22. Integration test for pattern clustering in web UI
+23. Warning-level logs for missing tools (was debug) in eslint, go, rust detectors
+24. Added outer exception safety nets to all detectors
+
+**Slice 10 — PyPI packaging:**
+25. Added package-data for web templates and static files
+26. Verified wheel includes all 12 templates + 3 static files
+
+**Slice 11 — Doctor command + documentation:**
+27. `sentinel doctor` checks all external tools, Ollama, optional packages
+28. JSON output support
+29. CONTRIBUTING.md with project structure and conventions
+30. README updates for doctor, contributing, scan-all
 
 ### Test Results
 ```
-611 passed
+614 passed
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
 ### Repository State
 - **Implementation**: 30+ Python modules in `src/sentinel/`
-- **Tests**: 611 passing
+- **Tests**: 614 passing
 - **Detectors**: 9 (todo-scanner, lint-runner, eslint-runner, go-linter, rust-clippy, dep-audit, docs-drift, git-hotspots, complexity)
-- **CLI**: 13 commands (scan, scan-all, init, show, suppress, approve, create-issues, history, eval, eval-history, index, serve, --version)
+- **CLI**: 14 commands (scan, scan-all, init, doctor, show, suppress, approve, create-issues, history, eval, eval-history, index, serve, --version)
 - **Web UI**: 16+ routes, annotations, eval trend chart, run comparison, two-pass clustering, dark/light mode
 - **DB schema**: v7
 - **CI**: GitHub Actions (Python 3.11/3.12/3.13 matrix, ruff, mypy, pytest)
+- **Packaging**: PyPI-ready wheel with templates/static included
 - **Lint/Type**: Clean (ruff, mypy strict)
 
 ### What Remains / Next Priority
-1. Eval metrics dashboard in web UI (persistent tracking of quality trends)
-2. Model benchmarking (requires Ollama running)
-3. Packaging for PyPI (`pip install local-repo-sentinel`)
-4. Better error messages when external tools aren't installed
-5. TD-002: Async detector interface (low priority)
+1. Model benchmarking (requires Ollama running — could do in next session)
+2. Real-world validation on non-Python repos
+3. TD-002: Async detector interface (low priority)
+4. `pip install local-repo-sentinel` publish to PyPI (needs credentials)
+5. Test coverage reporting in CI
 
 ### Blocked Items
-None.
+- PyPI publishing: needs PyPI credentials / trusted publisher setup
+- Model benchmarking: needs Ollama with multiple models pulled
 
 ### Decisions Made
-- OQ-005 resolved: Multi-repo via `scan-all` command with shared DB. Architecture invariant #6 preserved (single repo per run), multi-repo is CLI orchestration.
-- Partial failure exit code: `scan-all` exits 2 when any repo fails, 0 when all succeed.
+- OQ-005 resolved: Multi-repo via `scan-all` command with shared DB
+- Partial failure exit code: `scan-all` exits 2 when any repo fails
+- Detector error handling: all detectors log at `warning` for missing tools, have outer exception safety nets
 
 ---
 

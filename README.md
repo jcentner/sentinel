@@ -155,6 +155,13 @@ The web UI runs on `http://127.0.0.1:8888` by default. It provides:
 - **Run comparison** — compare two runs to see new, resolved, and persistent findings
 - **Eval trend chart** — server-side SVG chart showing precision/recall trends over time
 
+**Check system dependencies:**
+
+```bash
+sentinel doctor
+sentinel doctor --json-output   # machine-readable
+```
+
 ### Options
 
 | Option | Description |
@@ -339,6 +346,10 @@ mypy src/sentinel/             # type check
 | Reference | [docs/reference/](docs/reference/) | Open questions, tech debt tracker, glossary |
 | Analysis | [docs/analysis/](docs/analysis/) | Competitive landscape, critical review of the design |
 | Roadmap | [roadmap/](roadmap/) | Phased development plan |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, project structure, and conventions.
 
 ## License
 
