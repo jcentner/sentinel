@@ -622,3 +622,8 @@ class TestQuietMode:
         # Quiet mode should have minimal output (no log lines)
         assert "[INFO]" not in result.output
         assert "[DEBUG]" not in result.output
+
+    def test_verbose_and_quiet_conflict(self, runner):
+        result = runner.invoke(main, ["-v", "-q", "history", "--help"])
+        assert result.exit_code != 0
+        assert "Cannot use --verbose and --quiet together" in result.output

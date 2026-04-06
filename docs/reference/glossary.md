@@ -25,7 +25,7 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **GitHub issue creation** | The optional Phase 5 feature that creates GitHub issues from human-approved findings. Requires explicit approval and a GitHub token. |
 | **Incremental scan** | A scan that only runs detectors on files with committed changes since the last completed run. Uses git commit SHA comparison (`git diff`). Falls back to a full scan if no prior run exists or the prior SHA is unreachable. |
 | **LLM log** | Structured SQLite table (`llm_log`) that records every LLM interaction — prompts, responses, token counts, timing, and verdicts — for statistical analysis and accuracy review. |
-| **Clustering** | Report-layer feature that groups 3+ findings sharing a parent directory into a collapsed `<details>` block. Reduces visual noise without hiding findings. Distinct from deduplication. |
+| **Clustering** | Report-layer feature that groups related findings to reduce visual noise. Two strategies: *pattern clustering* (same detector + normalized title, regardless of directory) and *directory clustering* (3+ findings sharing a parent directory collapsed into a `<details>` block). Pattern clusters are applied first, then directory clusters on remaining findings. Distinct from deduplication. |
 | **FindingCluster** | A dataclass representing a group of related findings that share a common directory path. Used only in report generation. |
 | **Targeted scan** | A scan limited to specific file paths provided by the user. Detectors only examine the named files. |
 | **Ground truth** | A TOML manifest (`ground-truth.toml`) defining expected true positives for a test repo, used by `sentinel eval` to measure detector precision and recall. |

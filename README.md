@@ -12,7 +12,7 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 - Fingerprints and deduplicates findings across runs via SQLite
 - Tracks finding persistence across runs (recurring findings get higher visibility)
 - Produces a scannable markdown morning report grouped by severity
-- Clusters related findings by directory to reduce noise (3+ findings in same dir collapse)
+- Clusters related findings by root-cause pattern and directory to reduce noise
 - Supports suppressing false positives and approving findings for GitHub issue creation
 - Creates GitHub issues from approved findings (with deduplication and dry-run mode)
 

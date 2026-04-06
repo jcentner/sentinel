@@ -195,7 +195,7 @@ async def finding_action(request: Request) -> Response:
 
     # Regular form POST — redirect back (validate referer is a relative path)
     referer = request.headers.get("referer", "/")
-    url = referer if referer.startswith("/") else "/"
+    url = referer if (referer.startswith("/") and not referer.startswith("//")) else "/"
     return RedirectResponse(url=url, status_code=303)
 
 

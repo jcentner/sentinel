@@ -1,8 +1,8 @@
 """Finding clustering — groups related findings to reduce report noise.
 
-Clusters findings that share the same detector + parent directory, or
-the same detector + title pattern.  A cluster of 3+ findings collapses
-into one summary line in the morning report, keeping it scannable.
+Clusters findings that share a parent directory, or the same detector +
+title pattern.  A cluster of 3+ findings collapses into one summary
+line in the morning report, keeping it scannable.
 """
 
 from __future__ import annotations

@@ -15,7 +15,7 @@ from sentinel import __version__
 @click.group()
 @click.version_option(version=__version__, prog_name="sentinel")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose logging")
-@click.option("-q", "--quiet", is_flag=True, help="Suppress all output except errors and JSON")
+@click.option("-q", "--quiet", is_flag=True, help="Suppress log output below ERROR level")
 @click.pass_context
 def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     """Local Repo Sentinel — overnight code health monitoring.
@@ -23,6 +23,8 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     Exit codes: 0 = success, 1 = error or eval below threshold.
     Use --json-output on any subcommand for machine-readable output.
     """
+    if verbose and quiet:
+        raise click.UsageError("Cannot use --verbose and --quiet together.")
     ctx.ensure_object(dict)
     ctx.obj["quiet"] = quiet
     if quiet:

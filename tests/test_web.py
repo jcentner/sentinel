@@ -576,6 +576,20 @@ class TestSecurityGuards:
         assert resp.status_code == 303
         assert resp.headers["location"] == "/"
 
+    def test_protocol_relative_redirect_blocked(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        """Protocol-relative referer (//evil.com) should redirect to /."""
+        client, _, finding_id = seeded_app
+        resp = client.post(
+            f"/findings/{finding_id}/action",
+            data={"action": "approve"},
+            headers={"referer": "//evil.example.com/steal"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/"
+
     def test_empty_fingerprint_suppress_blocked(
         self, db_conn: sqlite3.Connection
     ) -> None:

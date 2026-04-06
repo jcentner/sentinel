@@ -122,7 +122,7 @@ This is a Phase 1 design decision, not a later addition. Deduplication is a trus
 Primary output. Markdown formatted, designed to be scannable in under 2 minutes:
 - One line per finding with severity, confidence, category
 - Findings grouped by severity → category
-- Related findings clustered by directory (3+ findings collapse into `<details>` blocks)
+- Related findings clustered in two passes: first by root-cause pattern (same detector + normalized title), then by directory (3+ findings collapse into `<details>` blocks)
 - Expandable evidence sections
 - Judge summary and verdict badges (♻️ recurring, ⚠️ FP?)
 - Clear approve/suppress actions per finding with fingerprint IDs
