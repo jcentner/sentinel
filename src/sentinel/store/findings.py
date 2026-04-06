@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import UTC
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sentinel.models import (
     Evidence,
@@ -160,3 +161,60 @@ def _row_to_finding(row: sqlite3.Row) -> Finding:
         timestamp=timestamp,
         id=row["id"],
     )
+
+
+# -------------------------------------------------------------------
+# Annotations
+# -------------------------------------------------------------------
+
+
+@dataclass
+class Annotation:
+    """A user note attached to a finding."""
+
+    id: int
+    finding_id: int
+    content: str
+    created_at: datetime
+
+
+def add_annotation(
+    conn: sqlite3.Connection, finding_id: int, content: str
+) -> int:
+    """Add an annotation to a finding. Returns the annotation ID."""
+    now = datetime.now(UTC).isoformat()
+    cur = conn.execute(
+        "INSERT INTO annotations (finding_id, content, created_at) VALUES (?, ?, ?)",
+        (finding_id, content, now),
+    )
+    conn.commit()
+    return cur.lastrowid or 0
+
+
+def get_annotations(
+    conn: sqlite3.Connection, finding_id: int
+) -> list[Annotation]:
+    """Get all annotations for a finding, ordered by creation time."""
+    rows = conn.execute(
+        "SELECT id, finding_id, content, created_at FROM annotations "
+        "WHERE finding_id = ? ORDER BY created_at ASC",
+        (finding_id,),
+    ).fetchall()
+    return [
+        Annotation(
+            id=row["id"],
+            finding_id=row["finding_id"],
+            content=row["content"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+        )
+        for row in rows
+    ]
+
+
+def delete_annotation(
+    conn: sqlite3.Connection, annotation_id: int
+) -> bool:
+    """Delete an annotation by ID. Returns True if deleted."""
+    cur = conn.execute("DELETE FROM annotations WHERE id = ?", (annotation_id,))
+    conn.commit()
+    return cur.rowcount > 0

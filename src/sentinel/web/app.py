@@ -15,6 +15,9 @@ from starlette.templating import Jinja2Templates
 
 from sentinel.models import Finding, FindingStatus, RunSummary
 from sentinel.store.findings import (
+    add_annotation,
+    delete_annotation,
+    get_annotations,
     get_finding_by_id,
     get_findings_by_run,
     suppress_finding,
@@ -142,8 +145,10 @@ async def finding_detail(request: Request) -> Response:
     finding = get_finding_by_id(conn, finding_id)
     if finding is None:
         return Response("Finding not found", status_code=404)
+    annotations = get_annotations(conn, finding_id)
     return templates.TemplateResponse(request, "finding_detail.html", {
         "finding": finding,
+        "annotations": annotations,
     })
 
 
@@ -180,6 +185,83 @@ async def finding_action(request: Request) -> Response:
     referer = request.headers.get("referer", "/")
     url = referer if referer.startswith("/") else "/"
     return RedirectResponse(url=url, status_code=303)
+
+
+async def annotation_add(request: Request) -> Response:
+    """Add a note/annotation to a finding (htmx-friendly)."""
+    conn = _get_conn(request.app)
+    finding_id = int(request.path_params["finding_id"])
+    finding = get_finding_by_id(conn, finding_id)
+    if finding is None:
+        return Response("Finding not found", status_code=404)
+
+    form = await request.form()
+    content = str(form.get("content", "")).strip()
+    if not content:
+        return Response("Annotation content is required", status_code=400)
+
+    add_annotation(conn, finding_id, content)
+
+    if request.headers.get("hx-request"):
+        annotations = get_annotations(conn, finding_id)
+        html_parts = []
+        for a in annotations:
+            html_parts.append(
+                f'<div class="annotation" id="annotation-{a.id}">'
+                f'<p class="annotation-content">{_escape(a.content)}</p>'
+                f'<div class="annotation-meta">'
+                f'<time>{a.created_at.strftime("%Y-%m-%d %H:%M")}</time>'
+                f'<form method="post" '
+                f'action="/findings/{finding_id}/annotations/{a.id}/delete" '
+                f'hx-post="/findings/{finding_id}/annotations/{a.id}/delete" '
+                f'hx-target="#annotations-list" hx-swap="innerHTML" '
+                f'style="display:inline">'
+                f'<button type="submit" class="btn btn-sm btn-danger">'
+                f'Delete</button></form></div></div>'
+            )
+        return Response("".join(html_parts), media_type="text/html")
+
+    return RedirectResponse(url=f"/findings/{finding_id}", status_code=303)
+
+
+async def annotation_delete(request: Request) -> Response:
+    """Delete an annotation (htmx-friendly)."""
+    conn = _get_conn(request.app)
+    finding_id = int(request.path_params["finding_id"])
+    annotation_id = int(request.path_params["annotation_id"])
+
+    delete_annotation(conn, annotation_id)
+
+    if request.headers.get("hx-request"):
+        annotations = get_annotations(conn, finding_id)
+        html_parts = []
+        for a in annotations:
+            html_parts.append(
+                f'<div class="annotation" id="annotation-{a.id}">'
+                f'<p class="annotation-content">{_escape(a.content)}</p>'
+                f'<div class="annotation-meta">'
+                f'<time>{a.created_at.strftime("%Y-%m-%d %H:%M")}</time>'
+                f'<form method="post" '
+                f'action="/findings/{finding_id}/annotations/{a.id}/delete" '
+                f'hx-post="/findings/{finding_id}/annotations/{a.id}/delete" '
+                f'hx-target="#annotations-list" hx-swap="innerHTML" '
+                f'style="display:inline">'
+                f'<button type="submit" class="btn btn-sm btn-danger">'
+                f'Delete</button></form></div></div>'
+            )
+        return Response("".join(html_parts), media_type="text/html")
+
+    return RedirectResponse(url=f"/findings/{finding_id}", status_code=303)
+
+
+def _escape(text: str) -> str:
+    """HTML-escape a string."""
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
 
 
 async def bulk_action(request: Request) -> Response:
@@ -533,6 +615,8 @@ def create_app(
         Route("/runs/{run_id:int}/compare/{base_run_id:int}", endpoint=run_compare),
         Route("/findings/{finding_id:int}", endpoint=finding_detail),
         Route("/findings/{finding_id:int}/action", endpoint=finding_action, methods=["POST"]),
+        Route("/findings/{finding_id:int}/annotations", endpoint=annotation_add, methods=["POST"]),
+        Route("/findings/{finding_id:int}/annotations/{annotation_id:int}/delete", endpoint=annotation_delete, methods=["POST"]),
         Route("/runs/{run_id:int}/bulk-action", endpoint=bulk_action, methods=["POST"]),
         Route("/settings", endpoint=settings_page),
         Route("/eval", endpoint=eval_page, methods=["GET", "POST"]),

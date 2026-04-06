@@ -854,3 +854,97 @@ class TestEvalHistoryPage:
         resp = client.get("/eval/history")
         assert resp.status_code == 200
         assert "eval-chart-svg" not in resp.text
+
+
+# ── Annotation tests ─────────────────────────────────────────────────
+
+
+class TestAnnotations:
+    def test_finding_detail_shows_notes_section(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, _, finding_id = seeded_app
+        resp = client.get(f"/findings/{finding_id}")
+        assert resp.status_code == 200
+        assert "Notes" in resp.text
+        assert "Add a note" in resp.text
+
+    def test_add_annotation(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, _, finding_id = seeded_app
+        resp = client.post(
+            f"/findings/{finding_id}/annotations",
+            data={"content": "This is a test note"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+
+        # Check the note appears on the finding detail page
+        detail = client.get(f"/findings/{finding_id}")
+        assert "This is a test note" in detail.text
+
+    def test_add_annotation_htmx(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, _, finding_id = seeded_app
+        resp = client.post(
+            f"/findings/{finding_id}/annotations",
+            data={"content": "An htmx note"},
+            headers={"hx-request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "An htmx note" in resp.text
+
+    def test_add_annotation_empty_content(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, _, finding_id = seeded_app
+        resp = client.post(
+            f"/findings/{finding_id}/annotations",
+            data={"content": "   "},
+        )
+        assert resp.status_code == 400
+
+    def test_add_annotation_not_found(self, app: TestClient) -> None:
+        resp = app.post(
+            "/findings/9999/annotations",
+            data={"content": "note"},
+        )
+        assert resp.status_code == 404
+
+    def test_delete_annotation(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        from sentinel.store.findings import add_annotation
+
+        conn, _, finding_id = seeded_db
+        aid = add_annotation(conn, finding_id, "Delete me")
+        client = TestClient(create_app(conn))
+
+        resp = client.post(
+            f"/findings/{finding_id}/annotations/{aid}/delete",
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+
+        detail = client.get(f"/findings/{finding_id}")
+        assert "Delete me" not in detail.text
+
+    def test_delete_annotation_htmx(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        from sentinel.store.findings import add_annotation
+
+        conn, _, finding_id = seeded_db
+        add_annotation(conn, finding_id, "Keep this")
+        aid2 = add_annotation(conn, finding_id, "Delete this")
+        client = TestClient(create_app(conn))
+
+        resp = client.post(
+            f"/findings/{finding_id}/annotations/{aid2}/delete",
+            headers={"hx-request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "Keep this" in resp.text
+        assert "Delete this" not in resp.text

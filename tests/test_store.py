@@ -457,3 +457,51 @@ class TestEvalStore:
         assert d["precision"] == 1.0
         assert d["recall"] == 1.0
         assert "evaluated_at" in d
+
+
+# ── Annotation store tests ──────────────────────────────────────────
+
+
+class TestAnnotations:
+    def test_add_and_get(self, db_conn):
+        from sentinel.store.findings import add_annotation, get_annotations
+        run = create_run(db_conn, "/tmp/test")
+        fid = insert_finding(db_conn, run.id, _sample_finding())
+        aid = add_annotation(db_conn, fid, "This is a test note")
+        assert aid > 0
+
+        annotations = get_annotations(db_conn, fid)
+        assert len(annotations) == 1
+        assert annotations[0].content == "This is a test note"
+        assert annotations[0].finding_id == fid
+
+    def test_multiple_annotations_ordered(self, db_conn):
+        from sentinel.store.findings import add_annotation, get_annotations
+        run = create_run(db_conn, "/tmp/test")
+        fid = insert_finding(db_conn, run.id, _sample_finding())
+        add_annotation(db_conn, fid, "First note")
+        add_annotation(db_conn, fid, "Second note")
+        add_annotation(db_conn, fid, "Third note")
+
+        annotations = get_annotations(db_conn, fid)
+        assert len(annotations) == 3
+        assert annotations[0].content == "First note"
+        assert annotations[2].content == "Third note"
+
+    def test_get_empty(self, db_conn):
+        from sentinel.store.findings import get_annotations
+        run = create_run(db_conn, "/tmp/test")
+        fid = insert_finding(db_conn, run.id, _sample_finding())
+        assert get_annotations(db_conn, fid) == []
+
+    def test_delete_annotation(self, db_conn):
+        from sentinel.store.findings import add_annotation, delete_annotation, get_annotations
+        run = create_run(db_conn, "/tmp/test")
+        fid = insert_finding(db_conn, run.id, _sample_finding())
+        aid = add_annotation(db_conn, fid, "Delete me")
+        assert delete_annotation(db_conn, aid) is True
+        assert get_annotations(db_conn, fid) == []
+
+    def test_delete_nonexistent(self, db_conn):
+        from sentinel.store.findings import delete_annotation
+        assert delete_annotation(db_conn, 9999) is False

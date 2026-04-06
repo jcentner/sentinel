@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -156,6 +156,20 @@ CREATE TABLE IF NOT EXISTS eval_results (
 
 CREATE INDEX IF NOT EXISTS idx_eval_results_repo ON eval_results(repo_path);
 CREATE INDEX IF NOT EXISTS idx_eval_results_date ON eval_results(evaluated_at);
+""",
+    ),
+    (
+        7,
+        "add annotations table for user notes on findings",
+        """\
+CREATE TABLE IF NOT EXISTS annotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    finding_id INTEGER NOT NULL REFERENCES findings(id),
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_annotations_finding_id ON annotations(finding_id);
 """,
     ),
 ]
