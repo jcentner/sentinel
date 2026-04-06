@@ -284,6 +284,26 @@ async def eval_page(request: Request) -> Response:
             output_path="/dev/null",
         )
         result = evaluate(findings, gt)
+
+        # Persist eval result to the app's DB
+        from sentinel.store.eval_store import save_eval_result
+        app_conn = _get_conn(request.app)
+        save_eval_result(
+            app_conn,
+            repo_path=str(repo),
+            total_findings=result.total_findings,
+            true_positives=result.true_positives,
+            false_positives_found=result.false_positives_found,
+            missing_count=len(result.missing),
+            precision=result.precision,
+            recall=result.recall,
+            ground_truth_path=str(gt_path),
+            details={
+                "missing": result.missing,
+                "unexpected_fps": result.unexpected_fps,
+            },
+        )
+
         return result, len(findings)
 
     try:
@@ -300,6 +320,17 @@ async def eval_page(request: Request) -> Response:
         "total_raw": total_raw,
         "passed": passed,
         "error": None,
+    })
+
+
+async def eval_history_page(request: Request) -> Response:
+    """Show eval results history with precision/recall trends."""
+    from sentinel.store.eval_store import get_eval_history
+
+    conn = _get_conn(request.app)
+    results = get_eval_history(conn, limit=50)
+    return templates.TemplateResponse(request, "eval_history.html", {
+        "results": results,
     })
 
 
@@ -458,6 +489,7 @@ def create_app(
         Route("/runs/{run_id:int}/bulk-action", endpoint=bulk_action, methods=["POST"]),
         Route("/settings", endpoint=settings_page),
         Route("/eval", endpoint=eval_page, methods=["GET", "POST"]),
+        Route("/eval/history", endpoint=eval_history_page),
         Route("/scan", endpoint=scan_page, methods=["GET", "POST"]),
         Route("/github", endpoint=github_page),
         Route("/github/create-issues", endpoint=github_create_issues, methods=["POST"]),

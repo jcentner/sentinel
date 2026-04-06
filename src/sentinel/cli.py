@@ -463,6 +463,7 @@ def eval(
     from sentinel.core.eval import evaluate, load_ground_truth
     from sentinel.core.runner import run_scan
     from sentinel.store.db import get_connection
+    from sentinel.store.eval_store import save_eval_result
 
     repo = Path(repo_path).resolve()
 
@@ -475,17 +476,42 @@ def eval(
 
     gt = load_ground_truth(gt_path)
 
-    # Run scan (skip LLM judge for deterministic evaluation)
-    conn = get_connection(db or ":memory:")
+    # Use the real DB if specified, otherwise default to the repo's configured DB
+    # so eval results persist across runs
+    if db:
+        db_actual = db
+    else:
+        from sentinel.config import load_config
+        config = load_config(repo)
+        db_actual = str(repo / config.db_path)
+
+    conn = get_connection(db_actual)
     try:
         _, findings, _ = run_scan(
             str(repo), conn, skip_judge=True, output_path="/dev/null",
         )
+
+        result = evaluate(findings, gt)
+        passed = result.precision >= 0.70 and result.recall >= 0.90
+
+        # Persist eval result
+        save_eval_result(
+            conn,
+            repo_path=str(repo),
+            total_findings=result.total_findings,
+            true_positives=result.true_positives,
+            false_positives_found=result.false_positives_found,
+            missing_count=len(result.missing),
+            precision=result.precision,
+            recall=result.recall,
+            ground_truth_path=str(gt_path),
+            details={
+                "missing": result.missing,
+                "unexpected_fps": result.unexpected_fps,
+            },
+        )
     finally:
         conn.close()
-
-    result = evaluate(findings, gt)
-    passed = result.precision >= 0.70 and result.recall >= 0.90
 
     if output_json:
         data = result.to_dict()
@@ -525,6 +551,47 @@ def eval(
 
     if not passed:
         raise SystemExit(1)
+
+
+@main.command("eval-history")
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--limit", "-n", default=20, help="Number of results to show")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def eval_history(repo: str, db: str | None, limit: int, output_json: bool) -> None:
+    """Show past evaluation results with precision/recall trends."""
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.store.eval_store import get_eval_history
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        results = get_eval_history(conn, repo_path=str(repo_path), limit=limit)
+        if not results:
+            if output_json:
+                click.echo(json.dumps([]))
+            else:
+                click.echo("No evaluation results found.")
+            return
+
+        if output_json:
+            click.echo(json.dumps([r.to_dict() for r in results], indent=2))
+        else:
+            click.echo(f"{'#':>4}  {'Date':>20}  {'Findings':>8}  {'TP':>4}  {'FP':>4}  {'Prec':>6}  {'Recall':>6}")
+            click.echo("-" * 70)
+            for r in results:
+                date_str = r.evaluated_at.strftime("%Y-%m-%d %H:%M") if r.evaluated_at else "?"
+                click.echo(
+                    f"{r.id or 0:>4}  {date_str:>20}  {r.total_findings:>8}  "
+                    f"{r.true_positives:>4}  {r.false_positives_found:>4}  "
+                    f"{r.precision:>5.0%}  {r.recall:>5.0%}"
+                )
+    finally:
+        conn.close()
 
 
 @main.command()

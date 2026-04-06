@@ -8,7 +8,7 @@ import pytest
 
 from sentinel.core.indexer import _collect_files, _should_skip_dir, build_index, chunk_file
 from sentinel.models import EvidenceType, Finding, Severity
-from sentinel.store.db import get_connection
+from sentinel.store.db import SCHEMA_VERSION, get_connection
 from sentinel.store.embeddings import (
     _pack_embedding,
     _unpack_embedding,
@@ -455,10 +455,10 @@ class TestSchemaMigrationV5:
         assert row is not None
         conn.close()
 
-    def test_schema_version_is_5(self, tmp_path):
+    def test_schema_version_is_current(self, tmp_path):
         conn = get_connection(tmp_path / "test.db")
         row = conn.execute(
             "SELECT MAX(version) as v FROM schema_version"
         ).fetchone()
-        assert row["v"] == 5
+        assert row["v"] == SCHEMA_VERSION
         conn.close()

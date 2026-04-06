@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Eval History{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Evaluation History</h1>
+  <p class="subtitle">Precision and recall trends over time</p>
+</div>
+
+{% if not results %}
+<div class="empty-state">
+  <h2>No evaluation results yet</h2>
+  <p>Run <code>sentinel eval</code> or use the <a href="/eval">Eval page</a> to generate your first evaluation.</p>
+</div>
+{% else %}
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Total Evals</div>
+    <div class="stat-value">{{ results|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Latest Precision</div>
+    <div class="stat-value {% if results[0].precision >= 0.7 %}pass{% else %}fail{% endif %}">{{ "%.0f"|format(results[0].precision * 100) }}%</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Latest Recall</div>
+    <div class="stat-value {% if results[0].recall >= 0.9 %}pass{% else %}fail{% endif %}">{{ "%.0f"|format(results[0].recall * 100) }}%</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Latest TP / Total</div>
+    <div class="stat-value">{{ results[0].true_positives }} / {{ results[0].total_findings }}</div>
+  </div>
+</div>
+
+<div class="card">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Date</th>
+      <th>Repo</th>
+      <th>Findings</th>
+      <th>TP</th>
+      <th>FP</th>
+      <th>Missing</th>
+      <th>Precision</th>
+      <th>Recall</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in results %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td class="text-mono">{{ r.evaluated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td class="text-mono" title="{{ r.repo_path }}">{{ r.repo_path.split('/')[-1] }}</td>
+      <td>{{ r.total_findings }}</td>
+      <td>{{ r.true_positives }}</td>
+      <td>{{ r.false_positives_found }}</td>
+      <td>{{ r.missing_count }}</td>
+      <td class="{% if r.precision >= 0.7 %}pass{% else %}fail{% endif %}">{{ "%.0f"|format(r.precision * 100) }}%</td>
+      <td class="{% if r.recall >= 0.9 %}pass{% else %}fail{% endif %}">{{ "%.0f"|format(r.recall * 100) }}%</td>
+      <td>
+        {% if r.precision >= 0.7 and r.recall >= 0.9 %}
+        <span class="badge badge-approved">PASS</span>
+        {% else %}
+        <span class="badge badge-critical">FAIL</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% endif %}
+{% endblock %}

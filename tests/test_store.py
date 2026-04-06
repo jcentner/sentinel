@@ -343,3 +343,59 @@ class TestPersistence:
         # first_seen should not change, last_seen should be >= first
         assert result2["fp-T"].first_seen == first_seen
         assert result2["fp-T"].last_seen >= result2["fp-T"].first_seen
+
+
+class TestEvalStore:
+    def test_save_and_retrieve(self, db_conn):
+        from sentinel.store.eval_store import get_eval_history, save_eval_result
+        eid = save_eval_result(
+            db_conn,
+            repo_path="/tmp/repo",
+            total_findings=15,
+            true_positives=14,
+            false_positives_found=0,
+            missing_count=1,
+            precision=0.933,
+            recall=0.933,
+            ground_truth_path="/tmp/repo/gt.toml",
+            details={"missing": [{"title": "x"}]},
+        )
+        assert eid > 0
+
+        results = get_eval_history(db_conn, repo_path="/tmp/repo")
+        assert len(results) == 1
+        r = results[0]
+        assert r.total_findings == 15
+        assert r.true_positives == 14
+        assert abs(r.precision - 0.933) < 0.001
+        assert r.details is not None
+        assert r.details["missing"] == [{"title": "x"}]
+
+    def test_multiple_results_ordering(self, db_conn):
+        from sentinel.store.eval_store import get_eval_history, save_eval_result
+        save_eval_result(db_conn, "/tmp/a", 10, 8, 2, 0, 0.8, 1.0)
+        save_eval_result(db_conn, "/tmp/a", 12, 12, 0, 0, 1.0, 1.0)
+
+        results = get_eval_history(db_conn, repo_path="/tmp/a")
+        assert len(results) == 2
+        # Most recent first
+        assert results[0].total_findings == 12
+        assert results[1].total_findings == 10
+
+    def test_filter_by_repo(self, db_conn):
+        from sentinel.store.eval_store import get_eval_history, save_eval_result
+        save_eval_result(db_conn, "/tmp/a", 10, 8, 2, 0, 0.8, 1.0)
+        save_eval_result(db_conn, "/tmp/b", 5, 5, 0, 0, 1.0, 1.0)
+
+        a_results = get_eval_history(db_conn, repo_path="/tmp/a")
+        assert len(a_results) == 1
+        assert a_results[0].repo_path == "/tmp/a"
+
+    def test_to_dict(self, db_conn):
+        from sentinel.store.eval_store import get_eval_history, save_eval_result
+        save_eval_result(db_conn, "/tmp/r", 10, 10, 0, 0, 1.0, 1.0)
+        r = get_eval_history(db_conn)[0]
+        d = r.to_dict()
+        assert d["precision"] == 1.0
+        assert d["recall"] == 1.0
+        assert "evaluated_at" in d

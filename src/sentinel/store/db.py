@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -134,6 +134,28 @@ CREATE TABLE IF NOT EXISTS embed_meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+""",
+    ),
+    (
+        6,
+        "add eval_results table for persistent evaluation metrics",
+        """\
+CREATE TABLE IF NOT EXISTS eval_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    repo_path TEXT NOT NULL,
+    evaluated_at TEXT NOT NULL,
+    total_findings INTEGER NOT NULL,
+    true_positives INTEGER NOT NULL,
+    false_positives_found INTEGER NOT NULL,
+    missing_count INTEGER NOT NULL,
+    precision REAL NOT NULL,
+    recall REAL NOT NULL,
+    ground_truth_path TEXT,
+    details_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_results_repo ON eval_results(repo_path);
+CREATE INDEX IF NOT EXISTS idx_eval_results_date ON eval_results(evaluated_at);
 """,
     ),
 ]

@@ -740,3 +740,22 @@ class TestEvalPage:
         assert resp.status_code == 200
         assert "80%" in resp.text  # precision = 8/10
         assert "PASS" in resp.text or "FAIL" in resp.text
+
+
+class TestEvalHistoryPage:
+    def test_eval_history_empty(self, app: TestClient) -> None:
+        resp = app.get("/eval/history")
+        assert resp.status_code == 200
+        assert "No evaluation results" in resp.text
+
+    def test_eval_history_with_data(self, db_conn: sqlite3.Connection) -> None:
+        from sentinel.store.eval_store import save_eval_result
+        save_eval_result(db_conn, "/tmp/repo", 15, 15, 0, 0, 1.0, 1.0)
+        save_eval_result(db_conn, "/tmp/repo", 12, 10, 1, 2, 0.833, 0.833)
+        client = TestClient(create_app(db_conn))
+        resp = client.get("/eval/history")
+        assert resp.status_code == 200
+        assert "Evaluation History" in resp.text
+        assert "100%" in resp.text
+        assert "83%" in resp.text
+        assert "PASS" in resp.text
