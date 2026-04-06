@@ -948,3 +948,25 @@ class TestAnnotations:
         assert resp.status_code == 200
         assert "Keep this" in resp.text
         assert "Delete this" not in resp.text
+
+    def test_annotation_xss_escaped(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        """HTML in annotation content is escaped in both template and htmx paths."""
+        client, _, finding_id = seeded_app
+        xss_payload = '<script>alert("xss")</script>'
+
+        # htmx path
+        resp = client.post(
+            f"/findings/{finding_id}/annotations",
+            data={"content": xss_payload},
+            headers={"hx-request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "<script>" not in resp.text
+        assert "&lt;script&gt;" in resp.text
+
+        # Template path (finding detail page)
+        detail = client.get(f"/findings/{finding_id}")
+        assert "<script>alert" not in detail.text
+        assert "&lt;script&gt;" in detail.text

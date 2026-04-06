@@ -45,7 +45,7 @@ def _has_go_files(repo_root: Path) -> bool:
     if (repo_root / "go.mod").is_file():
         return True
     for p in repo_root.rglob("*"):
-        if _SKIP_DIRS & set(p.parts):
+        if _SKIP_DIRS & set(p.relative_to(repo_root).parts):
             continue
         if p.is_file() and p.suffix in _GO_EXTENSIONS:
             return True

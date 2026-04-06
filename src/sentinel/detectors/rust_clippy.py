@@ -52,7 +52,7 @@ def _has_rust_files(repo_root: Path) -> bool:
     if (repo_root / "Cargo.toml").is_file():
         return True
     for p in repo_root.rglob("*"):
-        if _SKIP_DIRS & set(p.parts):
+        if _SKIP_DIRS & set(p.relative_to(repo_root).parts):
             continue
         if p.is_file() and p.suffix in _RS_EXTENSIONS:
             return True
@@ -231,6 +231,7 @@ class RustClippy(Detector):
                 confidence=1.0,
                 file_path=filename,
                 line_start=line_start if line_start else None,
+                line_end=line_end if line_end else None,
                 evidence=[evidence],
                 context={"lint": lint_name, "tool": "cargo-clippy"},
             ))

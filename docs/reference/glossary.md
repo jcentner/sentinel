@@ -13,7 +13,7 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Suppression** | A user decision to mark a finding as a false positive, preventing it from appearing in future reports. |
 | **LLM Judge** | The local model (via Ollama) that evaluates candidate findings in context and decides severity, confidence, and issue-worthiness. |
 | **Context Gatherer** | The retrieval component that pulls relevant code, docs, and history for each finding before LLM judgment. |
-| **Tier 1 detector** | Deterministic detector: lint, test, grep, dependency audit. Cheap and reliable. Includes lint-runner (ruff/Python), eslint-runner (ESLint/Biome for JS/TS), go-linter (golangci-lint for Go), todo-scanner, and dep-audit. |
+| **Tier 1 detector** | Deterministic detector: lint, test, grep, dependency audit. Cheap and reliable. Includes lint-runner (ruff/Python), eslint-runner (ESLint/Biome for JS/TS), go-linter (golangci-lint for Go), rust-clippy (cargo clippy for Rust), todo-scanner, and dep-audit. |
 | **Tier 2 detector** | Heuristic detector: git hotspots, churn, complexity. Model-free, statistical. |
 | **Tier 3 detector** | LLM-assisted detector: model reads code + context and judges. Higher value but higher false positive rate. |
 | **Run** | A single execution of Sentinel against a repo scope (full, incremental, or targeted). |
@@ -30,7 +30,7 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Targeted scan** | A scan limited to specific file paths provided by the user. Detectors only examine the named files. |
 | **Ground truth** | A TOML manifest (`ground-truth.toml`) defining expected true positives for a test repo, used by `sentinel eval` to measure detector precision and recall. |
 | **Evaluation (eval)** | The precision/recall measurement framework that compares scan findings against a ground-truth manifest. Accessible via `sentinel eval <repo>`. |
-| **Migration framework** | The ordered schema migration system in `store/db.py` that upgrades the SQLite database from v1 to v6 with versioned DDL scripts applied on database open. |
+| **Migration framework** | The ordered schema migration system in `store/db.py` that upgrades the SQLite database from v1 to v7 with versioned DDL scripts applied on database open. |
 | **Embedding index** | A pre-computed set of vector embeddings for repo file chunks, stored in the SQLite `chunks` table. Used by the context gatherer to find semantically relevant code for each finding. |
 | **Chunk** | A contiguous segment of a source file (default: 50 lines with 10-line overlap) stored with its embedding vector for semantic search. |
 | **Cosine similarity** | The similarity metric used to compare embedding vectors (dot product / product of magnitudes). Values range from -1 (opposite) to 1 (identical). |
@@ -38,3 +38,4 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Night Watch** | The design system used by the Sentinel web UI. A dark-first theme with warm amber accent on deep navy-black, Bricolage Grotesque display font, JetBrains Mono code font, and a light mode toggle. |
 | **Theme toggle** | A dark/light mode switch in the web UI header. Preference is stored in `localStorage` and applied via inline script before render to prevent flash-of-wrong-theme. |
 | **htmx** | A JavaScript library used for progressive enhancement in the web UI. Enables inline actions (approve/suppress update the status badge without a full page reload). Loaded from a vendored static file, no build step required. |
+| **Annotation** | A user note attached to a finding for triage context. Stored in the `annotations` table; displayed on the finding detail page with add/delete via htmx. |

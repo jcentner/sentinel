@@ -212,9 +212,15 @@ def get_annotations(
 
 
 def delete_annotation(
-    conn: sqlite3.Connection, annotation_id: int
+    conn: sqlite3.Connection, annotation_id: int, finding_id: int | None = None
 ) -> bool:
-    """Delete an annotation by ID. Returns True if deleted."""
-    cur = conn.execute("DELETE FROM annotations WHERE id = ?", (annotation_id,))
+    """Delete an annotation by ID. If finding_id is given, also verifies ownership."""
+    if finding_id is not None:
+        cur = conn.execute(
+            "DELETE FROM annotations WHERE id = ? AND finding_id = ?",
+            (annotation_id, finding_id),
+        )
+    else:
+        cur = conn.execute("DELETE FROM annotations WHERE id = ?", (annotation_id,))
     conn.commit()
     return cur.rowcount > 0

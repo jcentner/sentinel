@@ -15,6 +15,7 @@ from starlette.templating import Jinja2Templates
 
 from sentinel.models import Finding, FindingStatus, RunSummary
 from sentinel.store.findings import (
+    Annotation,
     add_annotation,
     delete_annotation,
     get_annotations,
@@ -204,22 +205,10 @@ async def annotation_add(request: Request) -> Response:
 
     if request.headers.get("hx-request"):
         annotations = get_annotations(conn, finding_id)
-        html_parts = []
-        for a in annotations:
-            html_parts.append(
-                f'<div class="annotation" id="annotation-{a.id}">'
-                f'<p class="annotation-content">{_escape(a.content)}</p>'
-                f'<div class="annotation-meta">'
-                f'<time>{a.created_at.strftime("%Y-%m-%d %H:%M")}</time>'
-                f'<form method="post" '
-                f'action="/findings/{finding_id}/annotations/{a.id}/delete" '
-                f'hx-post="/findings/{finding_id}/annotations/{a.id}/delete" '
-                f'hx-target="#annotations-list" hx-swap="innerHTML" '
-                f'style="display:inline">'
-                f'<button type="submit" class="btn btn-sm btn-danger">'
-                f'Delete</button></form></div></div>'
-            )
-        return Response("".join(html_parts), media_type="text/html")
+        return Response(
+            _render_annotations_html(annotations, finding_id),
+            media_type="text/html",
+        )
 
     return RedirectResponse(url=f"/findings/{finding_id}", status_code=303)
 
@@ -230,38 +219,40 @@ async def annotation_delete(request: Request) -> Response:
     finding_id = int(request.path_params["finding_id"])
     annotation_id = int(request.path_params["annotation_id"])
 
-    delete_annotation(conn, annotation_id)
+    delete_annotation(conn, annotation_id, finding_id)
 
     if request.headers.get("hx-request"):
         annotations = get_annotations(conn, finding_id)
-        html_parts = []
-        for a in annotations:
-            html_parts.append(
-                f'<div class="annotation" id="annotation-{a.id}">'
-                f'<p class="annotation-content">{_escape(a.content)}</p>'
-                f'<div class="annotation-meta">'
-                f'<time>{a.created_at.strftime("%Y-%m-%d %H:%M")}</time>'
-                f'<form method="post" '
-                f'action="/findings/{finding_id}/annotations/{a.id}/delete" '
-                f'hx-post="/findings/{finding_id}/annotations/{a.id}/delete" '
-                f'hx-target="#annotations-list" hx-swap="innerHTML" '
-                f'style="display:inline">'
-                f'<button type="submit" class="btn btn-sm btn-danger">'
-                f'Delete</button></form></div></div>'
-            )
-        return Response("".join(html_parts), media_type="text/html")
+        return Response(
+            _render_annotations_html(annotations, finding_id),
+            media_type="text/html",
+        )
 
     return RedirectResponse(url=f"/findings/{finding_id}", status_code=303)
 
 
-def _escape(text: str) -> str:
-    """HTML-escape a string."""
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+def _render_annotations_html(
+    annotations: list[Annotation], finding_id: int
+) -> str:
+    """Render the annotations list as HTML for htmx responses."""
+    from html import escape
+
+    parts: list[str] = []
+    for a in annotations:
+        parts.append(
+            f'<div class="annotation" id="annotation-{a.id}">'
+            f'<p class="annotation-content">{escape(a.content)}</p>'
+            f'<div class="annotation-meta">'
+            f'<time>{a.created_at.strftime("%Y-%m-%d %H:%M")}</time>'
+            f'<form method="post" '
+            f'action="/findings/{finding_id}/annotations/{a.id}/delete" '
+            f'hx-post="/findings/{finding_id}/annotations/{a.id}/delete" '
+            f'hx-target="#annotations-list" hx-swap="innerHTML" '
+            f'style="display:inline">'
+            f'<button type="submit" class="btn btn-sm btn-danger">'
+            f'Delete</button></form></div></div>'
+        )
+    return "".join(parts)
 
 
 async def bulk_action(request: Request) -> Response:
