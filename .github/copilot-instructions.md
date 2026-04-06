@@ -23,7 +23,8 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 
 ## Documentation
 
-- Vision: [docs/vision/strategy.md](docs/vision/strategy.md)
+- Vision lock: [docs/vision/VISION-LOCK.md](docs/vision/VISION-LOCK.md)
+- Strategy: [docs/vision/strategy.md](docs/vision/strategy.md)
 - Architecture: [docs/architecture/overview.md](docs/architecture/overview.md)
 - Detector design: [docs/architecture/detector-interface.md](docs/architecture/detector-interface.md)
 - Open questions: [docs/reference/open-questions.md](docs/reference/open-questions.md)

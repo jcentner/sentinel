@@ -60,6 +60,13 @@ These prompts codify the Sentinel development workflow. Run them in order for ea
 | `/security-audit` | Security audit: dependency check, input validation, secrets, API surface | After major changes or periodically |
 | `/phase-complete` | Update docs, record ADRs, record lessons, mark phase complete | After code review + security audit pass |
 
+### Strategy & Vision
+
+| Prompt | What It Does | When to Run |
+|--------|--------------|-------------|
+| `/vision-update` | Review and update the vision lock to reflect shipped reality and forward direction | After completing a phase, shipping significant features, or shifting project direction |
+| `/phase-complete` | Update docs, record ADRs, record lessons, mark phase complete | After code review + security audit pass |
+
 ## How These Work
 
 - **Prompt files** (`.prompt.md`) are invoked manually via `/` commands in Chat. They're task-specific.

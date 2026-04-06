@@ -174,7 +174,7 @@ This file must be derived from existing repository evidence, not wishful inventi
 
 ### Vision lock validation constraint
 
-The vision lock **must not introduce claims, scope, constraints, or features that are not already present in the existing repo docs.** It is a synthesis, not an expansion. Every claim in the vision lock must have a corresponding citation in the Source Basis section. If you cannot cite a source for a claim, it does not belong in the vision lock.
+The vision lock **must not introduce claims, scope, constraints, or features that are not already present in the existing repo docs.** It is a synthesis, not an expansion. Every claim in the vision lock must have a corresponding citation or verifiable implementation.
 
 ### Required sections
 
@@ -184,29 +184,25 @@ The vision lock **must not introduce claims, scope, constraints, or features tha
 - explicit non-goals
 - product constraints
 - technical constraints
-- success criteria
+- pipeline
+- what exists today (grounded in shipped reality)
+- success criteria (with current status)
 - evaluation criteria
-- MVP scope
 - architecture invariants
-- required workflows
+- where we're going (priority-ordered future directions)
 - out-of-scope items
 - risks
-- unresolved assumptions
-- a "Source Basis" section mapping each major claim to the repo doc + section it came from
+- changelog
 
 ### Rules for the vision lock
 
-- Write it once as a baseline.
-- Do not edit it in place after creation except for obvious typo fixes.
-- Any substantive change requires a new append-only file:
-  - `docs/vision/VISION-REVISION-001.md`
-  - `docs/vision/VISION-REVISION-002.md`
-  - etc.
-- Every revision must state:
-  - what changed,
-  - why,
-  - what evidence justified it,
-  - what downstream docs/code must be updated.
+- The vision lock is a **single living document** (`docs/vision/VISION-LOCK.md`), updated in place.
+- Every substantive change gets a changelog entry at the bottom with the version number.
+- The version increments: minor (v2.1) for updates within existing scope, major (v3.0) for scope changes.
+- Historical versions are preserved in git history. No separate revision files.
+- The vision is a **strategic document**, not a release log. It describes capabilities at a product level, not implementation details (no route inventories, CSS details, or schema versions).
+- Do not rewrite the vision to fit implementation shortcuts or silently shrink scope.
+- Items in "Where We're Going" must connect to a real user need or documented gap.
 
 If the existing docs conflict and the repo does not contain enough information to resolve the conflict confidently:
 - record the conflict explicitly,

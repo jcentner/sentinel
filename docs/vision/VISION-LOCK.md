@@ -1,25 +1,21 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Created**: 2026-04-04
-> **Status**: Baseline — append-only after creation. Substantive changes require a VISION-REVISION-NNN.md.
+> **Version**: 2.0
+> **Updated**: 2026-04-06
+> **Supersedes**: [archive/VISION-LOCK-v1.md](archive/VISION-LOCK-v1.md) + VISION-REVISION-001 through 005
+> **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
 
 Developer-facing AI tools focus on helping in the moment — autocomplete, chat, inline edits. There is no tool that works in the background, revisits a repository with fresh context overnight, and surfaces overlooked issues for human review in the morning. Existing adjacent tools are either PR-scoped reviewers (triggered per diff, not persistent), autonomous agents (implement fixes and open PRs), or static analyzers (powerful but not cross-artifact, not persistent, not summarized).
 
-**Source**: [strategy.md](strategy.md) §"Why this exists"; [positioning.md](positioning.md) §"Positioning gap"; [competitive-landscape.md](../analysis/competitive-landscape.md)
-
 ## Target User
 
-A developer on Windows 11 + WSL 2 Ubuntu with 8 GB VRAM GPUs (RTX 3070 Ti / RTX 5070 class), comfortable running local models via Ollama, working across multiple projects including a primary role and consulting/client engagements. Privacy matters — client code must never leave the machine.
-
-**Source**: [strategy.md](strategy.md) §"Target user"; [brainstorm.md](../archive/brainstorm.md) §target user profile
+A developer on Windows 11 + WSL 2 Ubuntu with 8 GB VRAM GPUs, comfortable running local models via Ollama, working across multiple projects including a primary role and consulting/client engagements. Privacy matters — client code must never leave the machine.
 
 ## Core Concept
 
-Local Repo Sentinel is a local, evidence-backed repository issue triage system for overnight code health monitoring. It runs deterministic and heuristic detectors to produce candidate findings, gathers contextual evidence via embeddings, and uses a small local LLM as a judgment and summarization layer. It produces a concise morning report of findings worth human attention. After explicit approval, it can create GitHub issues from selected findings.
-
-**Source**: [strategy.md](strategy.md) §"Core concept"; [positioning.md](positioning.md) §"Core framing"; [overview.md](../architecture/overview.md) §"High-level data flow"
+Local Repo Sentinel is a local, evidence-backed repository issue triage system for overnight code health monitoring. It runs deterministic and heuristic detectors to produce candidate findings, gathers contextual evidence via embeddings, and uses a small local LLM as a judgment and summarization layer. It produces a concise morning report of findings worth human attention. After explicit approval, it can create GitHub issues from selected findings. A browser-based web UI provides the full triage workflow alongside the CLI.
 
 ## Explicit Non-Goals
 
@@ -29,165 +25,169 @@ Local Repo Sentinel is a local, evidence-backed repository issue triage system f
 4. **Not a PR reviewer**: Not triggered per-PR or per-diff (though it may run incrementally on changed files).
 5. **Not a Copilot replacement**: Complements interactive coding tools; does not compete with them.
 6. **Not a cloud service**: All processing is local except the optional GitHub issue creation API call.
-
-**Source**: [strategy.md](strategy.md) §"What it should not pretend to do"; [positioning.md](positioning.md) §"Explicitly not"; [ADR-001](../architecture/decisions/001-local-first-execution.md)
+7. **Not a CI/CD gate**: It is a background advisor, not a blocker.
 
 ## Product Constraints
 
-| Constraint | Description | Source |
-|-----------|-------------|--------|
-| Human approval gate | No external action (GitHub issue creation) without explicit human approval | [strategy.md](strategy.md) §"Primary output"; [overview.md](../architecture/overview.md) §"GitHub Issue Creator" |
-| Morning report scannability | Report must be scannable in under 2 minutes | [strategy.md](strategy.md) §"Primary output"; [OQ-002](../reference/open-questions.md) |
-| Evidence-backed findings | Every finding must cite concrete evidence — code, docs, lint output, git history | [strategy.md](strategy.md) §"What it should be good at"; [detector-interface.md](../architecture/detector-interface.md) §Evidence schema |
-| Precision over breadth | 3 real issues beats 20 noisy ones. False positive rate is the hardest problem. | [positioning.md](positioning.md) §"Key warning"; [critical-review.md](../analysis/critical-review.md) §"Honest concerns" |
-| Deduplication from day one | State store tracks fingerprinted findings to avoid repeat noise. Dedup is a trust feature. | [ADR-004](../architecture/decisions/004-sqlite-state-from-day-one.md); [overview.md](../architecture/overview.md) §"State Store" |
+| Constraint | Description |
+|-----------|-------------|
+| Human approval gate | No external action (GitHub issue creation) without explicit human approval |
+| Morning report scannability | Report must be scannable in under 2 minutes |
+| Evidence-backed findings | Every finding must cite concrete evidence — code, docs, lint output, git history |
+| Precision over breadth | 3 real issues beats 20 noisy ones. False positive rate is the hardest problem. |
+| Deduplication | State store tracks fingerprinted findings to avoid repeat noise across runs |
+| Dual interface | CLI for scripting and AI agent integration; web UI for human triage. Feature parity between them. |
+| Modular by default | Users install only the dependencies their projects need. Developers and agents can add detectors, language support, or integrations independently without touching core code. |
 
 ## Technical Constraints
 
-| Constraint | Description | Source |
-|-----------|-------------|--------|
-| Local-first execution | All inference, embedding, reranking, state storage, and report generation on the user's machine | [ADR-001](../architecture/decisions/001-local-first-execution.md) |
-| 8 GB VRAM budget | Models must fit ~4B parameters at Q4_K_M quantization | [ADR-001](../architecture/decisions/001-local-first-execution.md); [overview.md](../architecture/overview.md) §"What runs where" |
-| Ollama as model interface | All model interaction through Ollama API; model names are config, not code | [ADR-003](../architecture/decisions/003-model-agnostic-via-ollama.md) |
-| Model-agnostic prompts | Prompts target general instruction-following, not model-specific features | [ADR-003](../architecture/decisions/003-model-agnostic-via-ollama.md) |
-| SQLite state store | Persistent state from Phase 1; embedded, zero-deployment, single-file | [ADR-004](../architecture/decisions/004-sqlite-state-from-day-one.md) |
-| Python implementation | Chosen for ML/NLP ecosystem, tree-sitter bindings, native sqlite3 | [ADR-007](../architecture/decisions/007-python-implementation-language.md) |
-| Deterministic-first signals | Tiers 1+2 (linters, heuristics) are primary; LLM is judgment layer | [ADR-002](../architecture/decisions/002-deterministic-detectors-first.md) |
+| Constraint | Description |
+|-----------|-------------|
+| Local-first execution | All inference, embedding, state storage, and report generation on the user's machine |
+| 8 GB VRAM budget | Models must fit ~4B parameters at Q4_K_M quantization |
+| Ollama as model interface | All model interaction through Ollama API; model names are config, not code |
+| Model-agnostic prompts | Prompts target general instruction-following, not model-specific features |
+| SQLite state store | Persistent state; embedded, zero-deployment, single-file |
+| Python implementation | Chosen for ML/NLP ecosystem, tree-sitter bindings, native sqlite3 |
+| Deterministic-first signals | Linters and heuristics are primary; LLM is judgment layer, not signal source |
+| No JS build step | Web UI uses server-rendered templates with progressive enhancement (htmx). No Node/npm. |
+| Modular dependencies | Optional dependency groups (`[web]`, `[detectors]`, language-specific linters). Core pipeline has minimal required deps. |
+
+## Pipeline
+
+```
+detect → fingerprint → deduplicate → gather context → judge → store → report
+```
+
+Deduplication happens before the expensive steps (context gathering, LLM judgment) so only novel, non-suppressed findings consume compute.
+
+## What Exists Today (v1.0 ship state)
+
+### Core Pipeline
+- **6 detectors**: todo-scanner, lint-runner, dep-audit, docs-drift, git-hotspots, complexity
+- **Embedding-based context gathering**: opt-in via Ollama `/api/embed`, stored in SQLite, falls back to file-proximity heuristics
+- **LLM judge**: structured judgment via Ollama (severity, confidence, evidence summary). System degrades gracefully (raw findings only) when no model is running
+- **Finding fingerprinting**: SHA256 content-hash deduplication, suppression persistence
+- **Finding persistence**: occurrence counts, first-seen tracking, recurrence badges
+- **Morning report**: markdown output, severity-grouped, LOW cap, directory clustering
+
+### CLI (10 commands)
+`scan`, `eval`, `suppress`, `approve`, `show`, `history`, `create-issues`, `index`, `serve`
+
+### Web UI (`sentinel serve`)
+- "Night Watch" dark-first theme with light mode toggle
+- Run dashboard with severity stat cards, filters, bulk approve/suppress
+- Finding detail with evidence, inline actions, recurrence info
+- GitHub Issues dashboard with batch issue creation and dry-run
+- Configurable scan form, evaluation page, settings viewer
+
+### GitHub Integration
+- Issue creation from approved findings with fingerprint-based dedup
+- Environment variable config (no secrets in config files)
+
+### Quality
+- 456 tests, ruff clean, mypy strict clean
+- 100% precision + 100% recall on ground-truth eval (15 TPs, 0 FPs)
+- Eval framework with ground-truth TOML, `sentinel eval` CLI + web UI
 
 ## Success Criteria
 
-1. A developer can install Sentinel, point it at a local repo, and run a scan that produces a useful morning report.
-2. The morning report is scannable in under 2 minutes — one line per finding, expandable evidence, severity tags.
-3. False positive rate is subjectively acceptable: the majority of surfaced findings are real or worth reviewing.
-4. Findings are deduplicated across runs — the same issue does not appear in consecutive reports.
-5. The system works fully offline except for the optional GitHub issue creation step.
-6. Swapping the LLM model requires changing configuration, not code.
-7. A user can suppress a false positive and it stays suppressed.
-
-**Source**: [strategy.md](strategy.md) §"Primary output", §"Why it is worth building"; [ADR-002](../architecture/decisions/002-deterministic-detectors-first.md); [ADR-003](../architecture/decisions/003-model-agnostic-via-ollama.md); [ADR-004](../architecture/decisions/004-sqlite-state-from-day-one.md); [OQ-007](../reference/open-questions.md)
+| # | Criterion | Status |
+|---|-----------|--------|
+| 1 | Install, point at repo, get useful morning report | **Met** |
+| 2 | Report scannable in < 2 minutes | **Met** |
+| 3 | Majority of findings are real or worth reviewing | **Met** |
+| 4 | Findings deduplicated across runs | **Met** |
+| 5 | Works fully offline except optional GitHub | **Met** |
+| 6 | Swap LLM model via config, not code | **Met** |
+| 7 | Suppress a FP and it stays suppressed | **Met** |
+| 8 | Full triage cycle from the browser without CLI | **Met** |
 
 ## Evaluation Criteria
 
-| Metric | Description | Target | Source |
-|--------|-------------|--------|--------|
-| Precision@k | Of the top-k findings, how many are real? | ≥ 70% for MVP | [OQ-007](../reference/open-questions.md); [critical-review.md](../analysis/critical-review.md) |
-| False positive rate | Findings per run that are not real issues | < 30% for MVP | [OQ-007](../reference/open-questions.md) |
-| Review time | Time to scan the morning report | < 2 minutes | [strategy.md](strategy.md) §"Primary output" |
-| Findings → issues rate | Findings that become legitimate GitHub issues | Track, no target yet | [OQ-007](../reference/open-questions.md) |
-| Detector coverage | Categories covered by shipped detectors | ≥ 3 categories for MVP | [detector-interface.md](../architecture/detector-interface.md) §"Planned detectors (MVP)" |
-| Repeatability | Same repo state → same findings across runs | 100% for deterministic detectors | [ADR-002](../architecture/decisions/002-deterministic-detectors-first.md) |
-
-## MVP Scope (Phase 1)
-
-The MVP delivers a runnable end-to-end pipeline: trigger → detect → gather context → judge → deduplicate → report.
-
-### In scope
-
-| Component | Description | Source |
-|-----------|-------------|--------|
-| CLI entry point | `sentinel scan <repo-path>` to trigger a run | [overview.md](../architecture/overview.md) §"Trigger modes"; [OQ-002](../reference/open-questions.md) |
-| Detectors: `todo-scanner` | Grep for TODO/FIXME/HACK with age from git blame | [detector-interface.md](../architecture/detector-interface.md) §"Planned detectors (MVP)" |
-| Detectors: `lint-runner` | Wrap ruff and normalize output | [detector-interface.md](../architecture/detector-interface.md) §"Planned detectors (MVP)" |
-| Detectors: `dep-audit` | Wrap pip-audit | [detector-interface.md](../architecture/detector-interface.md) §"Planned detectors (MVP)" |
-| Finding schema | Standardized Finding + Evidence objects | [detector-interface.md](../architecture/detector-interface.md) §"Finding schema" |
-| Detector interface | Pluggable detector contract with DetectorContext | [detector-interface.md](../architecture/detector-interface.md) §"Detector contract" |
-| Context Gatherer | Retrieve relevant code/docs/history per finding (embeddings optional — may start with simple file-proximity) | [overview.md](../architecture/overview.md) §"Context Gatherer" |
-| LLM Judge | Structured judgment via Ollama: is this real, how severe, what evidence? | [overview.md](../architecture/overview.md) §"LLM Judge" |
-| SQLite state store | Findings, suppressions, run history, finding lifecycle | [ADR-004](../architecture/decisions/004-sqlite-state-from-day-one.md) |
-| Finding fingerprinting | Content-based hash for deduplication | [OQ-003](../reference/open-questions.md) |
-| Deduplication | Skip previously seen/suppressed findings | [overview.md](../architecture/overview.md) §"Deduper / Clusterer" |
-| Morning report | Markdown file output, one finding per line with expandable evidence | [overview.md](../architecture/overview.md) §"Morning Report" |
-| CLI approve/suppress | Basic CLI commands to approve or suppress findings | [OQ-002](../reference/open-questions.md) |
-
-### Not in MVP scope
-
-| Item | Phase | Source |
-|------|-------|--------|
-| Docs-drift detector | Phase 2 | [roadmap](../../roadmap/README.md) |
-| GitHub issue creation | Phase 5 | [roadmap](../../roadmap/README.md) |
-| Web UI | Phase 2+ | [OQ-002](../reference/open-questions.md) |
-| Multi-repo support | Phase 3+ | [OQ-005](../reference/open-questions.md) |
-| SQL anti-pattern detector | Phase 2+ | [OQ-006](../reference/open-questions.md) |
-| Watch mode | Future | [overview.md](../architecture/overview.md) §"Trigger modes" |
-| Embeddings-based context | Phase 1 stretch or Phase 2 | [OQ-004](../reference/open-questions.md) |
-| Cron/git-hook triggers | Phase 1 stretch — manual CLI is sufficient for MVP | [overview.md](../architecture/overview.md) §"Trigger modes" |
+| Metric | Target | Current |
+|--------|--------|---------|
+| Precision@k | ≥ 70% | 100% on ground truth |
+| False positive rate | < 30% per run | 0% on self-scan |
+| Review time | < 2 minutes | Achieved (web UI bulk triage) |
+| Findings → issues rate | Track only | Workflow exists, no persistent metric |
+| Detector coverage | ≥ 3 categories | 6 detectors, 4+ categories |
+| Repeatability | 100% for deterministic | Tested |
 
 ## Architecture Invariants
 
-These hold across all phases and must not be violated:
+These hold across all versions and must not be violated:
 
-1. **Detectors are pluggable**: Every detector produces `Finding` objects through the same interface. Adding a detector never requires changing the pipeline.
-2. **LLM is replaceable**: Changing the model is a config change. The pipeline works (degraded: no judgment, raw findings only) without any model running.
-3. **State is persistent**: Every run reads from and writes to the SQLite state store. There is no stateless mode in production.
-4. **Evidence is mandatory**: A finding without evidence is invalid. The system does not surface hunches.
-5. **Human approval gates external actions**: No GitHub API calls, no external side effects without explicit user confirmation.
-6. **Single repo per run**: Each run targets one repository. Multi-repo is a future concern (OQ-005).
+1. **Detectors are pluggable**: every detector produces `Finding` objects through the same interface. Adding a detector never requires changing the pipeline. Custom detectors can be loaded from an external directory.
+2. **LLM is replaceable**: changing the model is a config change. The pipeline works without any model running.
+3. **State is persistent**: every run reads from and writes to the SQLite state store.
+4. **Evidence is mandatory**: a finding without evidence is invalid.
+5. **Human approval gates external actions**: no GitHub API calls without explicit user confirmation.
+6. **Single repo per run**: each run targets one repository.
+7. **Parallel extensibility**: new detectors and language integrations are isolated modules. Multiple developers or agents can work on different language support packages simultaneously without merge conflicts in core code.
 
-**Source**: [overview.md](../architecture/overview.md); [detector-interface.md](../architecture/detector-interface.md); [ADR-001](../architecture/decisions/001-local-first-execution.md) through [ADR-004](../architecture/decisions/004-sqlite-state-from-day-one.md)
+## Where We're Going
 
-## Required Workflows
+These are the next areas of investment, roughly priority-ordered. Each will be planned and validated before implementation.
 
-1. **Scan**: `sentinel scan <repo-path>` → detectors run → findings gathered + judged → deduped → morning report written.
-2. **Review**: User reads morning report markdown. Each finding has severity, confidence, category, one-line summary, expandable evidence.
-3. **Suppress**: `sentinel suppress <finding-id>` → finding marked as false positive, excluded from future reports.
-4. **Approve**: `sentinel approve <finding-id>` → finding marked for action (GitHub issue creation deferred to Phase 5).
-5. **History**: `sentinel history` → view past runs and finding trends.
+### Multi-language repo support
+Currently detector coverage is strongest for Python (ruff, pip-audit, AST-based complexity). Real-world use requires scanning TypeScript/JavaScript, Go, and mixed-language repos. This means:
+- Language-aware detector dispatch (run the right linters per file type)
+- eslint/biome integration for JS/TS, golangci-lint for Go
+- Language-neutral detectors (todo-scanner, docs-drift, git-hotspots) already work cross-language
+- Each language pack is an isolated module — multiple devs or agents can build support for different languages in parallel without conflicting
+- Users install only the language packs they need (e.g., `pip install sentinel[js]` for JS/TS linting deps)
 
-**Source**: [overview.md](../architecture/overview.md); [OQ-002](../reference/open-questions.md); [roadmap](../../roadmap/README.md)
+### Multi-repo support
+Run Sentinel across multiple repos and surface a unified morning report. Schema already uses repo-scoped state; the gap is CLI/UI workflow for managing a repo portfolio and cross-repo comparison.
 
-## Out-of-Scope Items
+### Root-cause finding grouping
+Findings from a shared root cause (renamed directory → N stale links) should be grouped in the web UI, not just in the markdown report. This is a noise reduction feature that directly impacts perceived precision.
 
-These are explicitly excluded from the project's vision, not just deferred:
+### CLI as an AI-agent interface
+The CLI should be equally usable by human developers and by AI coding agents. This means: structured JSON output mode, predictable exit codes, good `--help`, machine-readable IDs. A sophisticated coding agent should be able to run `sentinel scan`, parse results, approve findings, and create issues programmatically.
+
+### Eval metrics dashboard
+Persistent tracking of precision, recall, and FP rate over time — not just one-shot eval runs. A chart showing quality trends across versions and config changes.
+
+### Model benchmarking
+Compare model sizes and quantization levels (qwen3.5 4B vs 9B, Q4 vs Q6) to find the quality/VRAM sweet spot. Document context length requirements empirically.
+
+### Packaging and distribution
+CI/CD pipeline, test coverage reports, output samples in the repo, `pip install sentinel` from PyPI, clear onboarding docs.
+
+## Out of Scope (permanent)
+
+These are explicitly excluded from the project's vision, not deferred:
 
 - Implementing code fixes or generating patches
 - Making architecture recommendations
 - Opening pull requests
-- Acting as a CI/CD gate (it's a background advisor, not a blocker)
-- Cloud-hosted execution (local-first is a core identity)
-- Real-time / in-editor integration (it runs between sessions, not during)
-
-**Source**: [strategy.md](strategy.md) §"What it should not pretend to do"; [positioning.md](positioning.md) §"Explicitly not"
+- Cloud-hosted execution
+- Real-time / in-editor integration
+- Built-in scheduling (use system cron/systemd timers)
 
 ## Risks
 
-| Risk | Likelihood | Impact | Mitigation | Source |
-|------|-----------|--------|------------|--------|
-| False positive rate too high with 4B model | Medium | High — users stop reading the report | Deterministic-first architecture; LLM is judgment layer, not signal source; suppression mechanism | [ADR-002](../architecture/decisions/002-deterministic-detectors-first.md); [critical-review.md](../analysis/critical-review.md) |
-| Morning report too noisy or poorly formatted | Medium | Medium — reduces daily usefulness | Design report format early; < 2 minute scannability constraint | [strategy.md](strategy.md); [OQ-002](../reference/open-questions.md) |
-| Embedddings/context quality insufficient | Low-Medium | Medium — LLM judge makes poor decisions on thin context | Start simple (file-proximity), add embeddings incrementally | [OQ-004](../reference/open-questions.md) |
-| Fingerprinting breaks on file renames | Medium | Low — temporary dedup failures | Accept and add "similar finding" heuristic later | [OQ-003](../reference/open-questions.md) |
-| Ollama dependency creates friction | Low | Low — Ollama is well-established | Document setup clearly; degrade gracefully without model | [ADR-003](../architecture/decisions/003-model-agnostic-via-ollama.md) |
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| FP rate too high with 4B model | Medium | High | Deterministic-first architecture; LLM is judgment layer; suppression mechanism |
+| Single-language limitation reduces real-world value | Medium | Medium | Prioritize multi-language detector support |
+| Fingerprinting breaks on file renames | Medium | Low | Accept; add similar-finding heuristic later |
+| Ollama dependency creates friction | Low | Low | Degrade gracefully; document setup clearly |
 
-## Unresolved Assumptions
+## Changelog
 
-These assumptions are present in the docs but not yet validated:
+### v2.0 (2026-04-06)
+Consolidated from VISION-LOCK v1.0 + VISION-REVISION-001 through 005. Key changes from v1.0:
+- Pipeline order updated (dedup before context/judge — VR-001)
+- Web UI added as a core delivery surface, not just a future item (VR-002, VR-004, VR-005)
+- Embedding-based context gathering moved from "not in MVP" to shipped (VR-003)
+- Built-in scheduling explicitly moved to "out of scope" (VR-004/TD-009)
+- "What Exists Today" section added to ground the vision in shipped reality
+- "Where We're Going" section added for forward direction
+- Route inventories, CSS details, and other implementation-level content removed (belongs in architecture docs, not vision)
+- Stale unresolved assumptions removed (validated by implementation experience)
 
-| Assumption | Status | Reference |
-|-----------|--------|-----------|
-| Report delivery as markdown file + CLI is sufficient for MVP | Unvalidated — will learn from usage | [OQ-002](../reference/open-questions.md) |
-| Content-hash fingerprinting is stable enough for dedup | Unvalidated — needs implementation experience | [OQ-003](../reference/open-questions.md) |
-| SQLite-vec is sufficient for vector storage if embeddings are added | Unvalidated | [OQ-004](../reference/open-questions.md) |
-| Single-repo design can naturally extend to multi-repo | Unvalidated — schema must be reviewed | [OQ-005](../reference/open-questions.md) |
-| Precision@k ≥ 70% is achievable with deterministic detectors + 4B judge | Aspirational — requires eval | [OQ-007](../reference/open-questions.md) |
-
-## Source Basis
-
-Every major claim above is traceable to existing repository documentation:
-
-| Claim | Primary Source | Supporting Sources |
-|-------|---------------|-------------------|
-| Problem: gap between interactive AI tools and background review | [strategy.md](strategy.md) §"Why this exists" | [brainstorm.md](../archive/brainstorm.md); [positioning.md](positioning.md) |
-| Target user: WSL 2 developer with 8 GB VRAM | [strategy.md](strategy.md) §"Target user" | [ADR-001](../architecture/decisions/001-local-first-execution.md); [brainstorm.md](../archive/brainstorm.md) |
-| Core concept: local evidence-backed issue triage | [strategy.md](strategy.md) §"Core concept" | [positioning.md](positioning.md); [overview.md](../architecture/overview.md) |
-| Non-goals: no fixes, no autonomy, no cloud | [strategy.md](strategy.md) §"What it should not pretend to do" | [positioning.md](positioning.md) |
-| Local-first execution | [ADR-001](../architecture/decisions/001-local-first-execution.md) | [strategy.md](strategy.md) §"Why local execution matters" |
-| Deterministic detectors as primary signal | [ADR-002](../architecture/decisions/002-deterministic-detectors-first.md) | [overview.md](../architecture/overview.md); [critical-review.md](../analysis/critical-review.md) |
-| Model-agnostic via Ollama | [ADR-003](../architecture/decisions/003-model-agnostic-via-ollama.md) | [overview.md](../architecture/overview.md) |
-| SQLite state from day one | [ADR-004](../architecture/decisions/004-sqlite-state-from-day-one.md) | [overview.md](../architecture/overview.md) |
-| Docs-drift as first-class detector | [ADR-005](../architecture/decisions/005-docs-drift-first-class-detector.md) | [detector-interface.md](../architecture/detector-interface.md) |
-| Python implementation | [ADR-007](../architecture/decisions/007-python-implementation-language.md) | — |
-| MVP: 3 detectors + judge + state + report | [roadmap](../../roadmap/README.md) §Phase 1 | [detector-interface.md](../architecture/detector-interface.md); [critical-review.md](../analysis/critical-review.md) |
-| Pipeline: detect → gather → judge → dedup → report | [overview.md](../architecture/overview.md) §"High-level data flow" | [detector-interface.md](../architecture/detector-interface.md) |
-| Precision over breadth | [positioning.md](positioning.md) §"Key warning" | [critical-review.md](../analysis/critical-review.md) |
-| < 2 minute review time | [strategy.md](strategy.md) §"Primary output" | [OQ-002](../reference/open-questions.md) |
-| Eval metrics: precision@k, FP rate, review time | [OQ-007](../reference/open-questions.md) | [critical-review.md](../analysis/critical-review.md) |
+### v1.0 (2026-04-04)
+Initial baseline synthesized from repository docs. See [archive/VISION-LOCK-v1.md](archive/VISION-LOCK-v1.md).
