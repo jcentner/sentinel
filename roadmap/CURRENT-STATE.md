@@ -1,11 +1,11 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 10 — docs alignment, mypy, targeted scan, self-validation)
+> Last updated: 2026-04-05 (Session 10 — docs alignment, mypy, FP reduction, test coverage expansion)
 
 ## Session 10 Summary
 
 ### Current Objective
-Docs-code alignment, mypy type safety, expose targeted scan, validate via self-scan.
+Docs-code alignment, mypy type safety, expose targeted scan, false positive reduction, test coverage for untested modules.
 
 ### What Was Accomplished
 
@@ -41,11 +41,19 @@ Docs-code alignment, mypy type safety, expose targeted scan, validate via self-s
 21. Fixed `no-any-return` in judge.py, embeddings.py, docs_drift.py, ollama.py
 22. Added `ignore_missing_imports` to pyproject.toml mypy config
 
+**False positive reduction:**
+23. Docs-drift: suffix matching for inline paths — `store/db.py` resolved correctly when `src/sentinel/store/db.py` exists (12 FPs eliminated)
+24. TODO scanner: `(?!-)` negative lookahead rejects compound words like `todo-scanner` (precision 88% → 100%)
+
 **Self-scan validation:**
-23. Ran `sentinel scan /home/jakce/sentinel --skip-judge` successfully
-24. 45 findings: 22 docs-drift, 5 git-hotspots, 2 lint, 17 TODOs
-25. HIGH findings are real (sample-repo test fixtures with intentional issues)
-26. Some LOW docs-drift FPs on inline path references in prose — acceptable, known pattern
+25. Ran `sentinel scan` against own codebase — 33 findings, 0 FPs on own docs
+26. Eval: 100% precision, 100% recall on ground truth (15 TPs)
+
+**Test coverage expansion (50 new tests):**
+27. `tests/test_cli.py`: 18 CLI integration tests via CliRunner — all 8 commands tested
+28. `tests/test_indexer.py`: 23 indexer unit tests — skip logic, file collection, chunk_file, build_index
+29. `tests/test_ollama.py`: 11 Ollama utility tests — check_ollama, embed_texts, failure paths
+30. Reviewer findings addressed: incremental scan precondition assert, os.devnull portability, dead code removal, empty embeddings edge case, non-UTF8 file test
 
 ### Decisions Made This Session
 1. No built-in scheduler — cron/systemd timer documented in README
@@ -53,18 +61,21 @@ Docs-code alignment, mypy type safety, expose targeted scan, validate via self-s
 3. Targeted scan paths not validated as click.Path — detectors handle gracefully
 4. dep-audit and git-hotspots are inherently repo-scoped, don't filter by target_paths
 5. mypy strict mode with ignore_missing_imports — zero errors is the baseline going forward
+6. `(?!-)` negative lookahead is sufficient for compound word rejection in TODO scanner
+7. Docs-drift suffix matching resolves module-relative paths against all repo files
 
 ### Test Results
 ```
-317 passed in 18.02s
+370 passed in 26.02s
 ruff check: All checks passed
 mypy: Success: no issues found in 29 source files
+eval: 100% precision, 100% recall (15 TPs, 0 FPs)
 ```
 
 ### Repository State
 - **Phases**: 0–3 and 5 complete, Phase 4 in progress (git-hotspots done)
 - **Implementation**: 21 Python modules in `src/sentinel/`
-- **Tests**: 19 test files, 317 tests
+- **Tests**: 22 test files, 370 tests
 - **Detectors**: todo-scanner (with markdown HTML comments), lint-runner, dep-audit, docs-drift (with Poetry), git-hotspots
 - **CLI**: scan (with --incremental, --embed-model, --target), eval, suppress, approve, history, create-issues, index
 - **DB schema**: v5 (migration framework, finding persistence, llm_log, commit_sha, chunks + embed_meta)
@@ -74,7 +85,8 @@ mypy: Success: no issues found in 29 source files
 - **Lint**: Clean (ruff)
 - **Type check**: Clean (mypy strict)
 - **Ground truth**: 15 expected TPs in eval fixture
-- **Self-scan**: Validated — 45 findings, report well-structured
+- **Self-scan**: Validated — 33 findings, 0 FPs on own docs
+- **Eval**: 100% precision, 100% recall
 - **Docs**: All aligned with actual implementation
 
 ### What Remains / Next Priority
@@ -84,7 +96,6 @@ mypy: Success: no issues found in 29 source files
 4. Custom detector plugin system
 5. Finding grouping by root cause (deeper than directory clustering)
 6. Web UI for report review (future)
-7. Docs-drift FP reduction: inline path references in prose trigger false stale-path findings
 
 ### Blocked Items
 None.
@@ -93,7 +104,7 @@ None.
 All 7 MVP success criteria are met:
 1. ✅ Developer can install, scan, and get a useful morning report
 2. ✅ Report scannable in <2 minutes (one line per finding, expandable evidence, severity tags)
-3. ✅ FP rate subjectively acceptable (93% precision on ground truth)
+3. ✅ FP rate subjectively acceptable (100% precision on ground truth)
 4. ✅ Findings deduplicated across runs
 5. ✅ Works fully offline (except optional GitHub issue creation)
 6. ✅ Swapping the LLM model requires changing configuration, not code
