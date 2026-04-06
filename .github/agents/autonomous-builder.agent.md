@@ -374,6 +374,19 @@ Update only what needs updating:
 - prompt guide
 - project instructions/prompts/agents
 
+#### Doc-sync checklist (mandatory for user-facing features)
+
+If the slice added or changed any user-visible capability (new pages, new CLI commands, changed behavior, new design patterns), run through this checklist BEFORE committing:
+
+1. **Vision revision needed?** Does the shipped scope exceed the last vision revision's spec? If yes, create `VISION-REVISION-NNN.md`.
+2. **Architecture overview accurate?** Does the component description in `docs/architecture/overview.md` match reality?
+3. **README accurate?** Does the feature list / usage section reflect what actually shipped?
+4. **Open questions stale?** Are any resolved OQs still marked "deferred" or "open" for capabilities that now exist?
+5. **Tech debt stale?** Are any TDs resolved by this slice? Are new compromises untracked?
+6. **Glossary complete?** Did this slice introduce terms that users or future sessions need defined?
+
+This checklist exists because Session 12 shipped a 12-file UI redesign without updating any of these docs. The human had to prompt for the doc pass. See `docs/reference/agent-improvement-log.md`.
+
 **Commit your changes.** Then continue to the next loop iteration.
 
 Since Autopilot cannot pause for human input, you continue autonomously unless blocked by:
