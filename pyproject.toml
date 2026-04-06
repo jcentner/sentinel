@@ -36,6 +36,7 @@ Issues = "https://github.com/jakce/sentinel/issues"
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=5.0",
     "pytest-tmp-files",
     "ruff>=0.4",
     "mypy>=1.10",
