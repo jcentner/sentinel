@@ -1,11 +1,11 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 10 — docs alignment, mypy, FP reduction, test coverage expansion)
+> Last updated: 2026-04-05 (Session 10 — docs alignment, mypy, FP reduction, test coverage, custom detectors)
 
 ## Session 10 Summary
 
 ### Current Objective
-Docs-code alignment, mypy type safety, expose targeted scan, false positive reduction, test coverage for untested modules.
+Docs-code alignment, mypy type safety, expose targeted scan, false positive reduction, test coverage for untested modules, custom detector plugin system.
 
 ### What Was Accomplished
 
@@ -49,11 +49,19 @@ Docs-code alignment, mypy type safety, expose targeted scan, false positive redu
 25. Ran `sentinel scan` against own codebase — 33 findings, 0 FPs on own docs
 26. Eval: 100% precision, 100% recall on ground truth (15 TPs)
 
-**Test coverage expansion (50 new tests):**
-27. `tests/test_cli.py`: 18 CLI integration tests via CliRunner — all 8 commands tested
+**Test coverage expansion (58 new tests):**
+27. `tests/test_cli.py`: 19 CLI integration tests via CliRunner — all 8 commands + custom detectors E2E
 28. `tests/test_indexer.py`: 23 indexer unit tests — skip logic, file collection, chunk_file, build_index
 29. `tests/test_ollama.py`: 11 Ollama utility tests — check_ollama, embed_texts, failure paths
-30. Reviewer findings addressed: incremental scan precondition assert, os.devnull portability, dead code removal, empty embeddings edge case, non-UTF8 file test
+30. `tests/test_detectors_base.py`: 5 new tests for custom detector plugin loading
+31. Reviewer findings addressed: incremental scan precondition assert, os.devnull portability, dead code removal, empty embeddings edge case, non-UTF8 file test
+
+**Custom detector plugin system:**
+32. `detectors_dir` config option — path to directory with custom detector .py files
+33. `load_custom_detectors()` in base.py — dynamic import via importlib, auto-registration
+34. Runner integration — loads custom detectors at scan time when configured
+35. CLI passes detectors_dir through config to scan
+36. Documentation: README example (LicenseDetector), detector-interface.md updated
 
 ### Decisions Made This Session
 1. No built-in scheduler — cron/systemd timer documented in README
@@ -63,10 +71,11 @@ Docs-code alignment, mypy type safety, expose targeted scan, false positive redu
 5. mypy strict mode with ignore_missing_imports — zero errors is the baseline going forward
 6. `(?!-)` negative lookahead is sufficient for compound word rejection in TODO scanner
 7. Docs-drift suffix matching resolves module-relative paths against all repo files
+8. Custom detector plugin uses importlib.util (standard library, no extra deps)
 
 ### Test Results
 ```
-370 passed in 26.02s
+376 passed in 25.74s
 ruff check: All checks passed
 mypy: Success: no issues found in 29 source files
 eval: 100% precision, 100% recall (15 TPs, 0 FPs)
@@ -75,8 +84,8 @@ eval: 100% precision, 100% recall (15 TPs, 0 FPs)
 ### Repository State
 - **Phases**: 0–3 and 5 complete, Phase 4 in progress (git-hotspots done)
 - **Implementation**: 21 Python modules in `src/sentinel/`
-- **Tests**: 22 test files, 370 tests
-- **Detectors**: todo-scanner (with markdown HTML comments), lint-runner, dep-audit, docs-drift (with Poetry), git-hotspots
+- **Tests**: 22 test files, 376 tests
+- **Detectors**: todo-scanner (with markdown HTML comments), lint-runner, dep-audit, docs-drift (with Poetry), git-hotspots + custom detector plugin system
 - **CLI**: scan (with --incremental, --embed-model, --target), eval, suppress, approve, history, create-issues, index
 - **DB schema**: v5 (migration framework, finding persistence, llm_log, commit_sha, chunks + embed_meta)
 - **Open questions**: 2 open (OQ-005, OQ-006), 5 resolved
@@ -88,14 +97,14 @@ eval: 100% precision, 100% recall (15 TPs, 0 FPs)
 - **Self-scan**: Validated — 33 findings, 0 FPs on own docs
 - **Eval**: 100% precision, 100% recall
 - **Docs**: All aligned with actual implementation
+- **Custom detectors**: Plugin system via `detectors_dir` config
 
 ### What Remains / Next Priority
 1. TD-002: Async detector interface (low priority)
 2. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, complexity/dead-code, test-runner (deferred)
 3. Multi-repo support (OQ-005)
-4. Custom detector plugin system
-5. Finding grouping by root cause (deeper than directory clustering)
-6. Web UI for report review (future)
+4. Finding grouping by root cause (deeper than directory clustering)
+5. Web UI for report review (future)
 
 ### Blocked Items
 None.
