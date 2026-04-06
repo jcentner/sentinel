@@ -16,10 +16,11 @@ Tracked questions that need resolution before or during implementation. Each que
 ## Open
 
 ### OQ-005: Should Sentinel support multi-repo in MVP?
-**Status**: Open
+**Status**: Resolved
 **Priority**: Low
 **Context**: The brainstorm mentions multi-repo as Phase 3. But the architecture choices made now (state store schema, config format) should not make multi-repo painful later.
 **Current thinking**: Design for single repo in MVP but use repo-scoped state (database per repo or repo ID in tables) so multi-repo is a natural extension.
+**Resolution**: `sentinel scan-all REPO1 REPO2 ... --db shared.db` command scans multiple repos into a shared database. The DB stores repo_path per run, so runs from different repos coexist naturally. Web UI and history command display all repos. Single-repo `sentinel scan` remains the primary interface for per-repo use.
 
 ### OQ-006: How should the SQL/performance anti-pattern detector work?
 **Status**: Open

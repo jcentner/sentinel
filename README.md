@@ -29,7 +29,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 9 detectors (Python, JS/TS, Go, Rust, deps, docs, git) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, finding annotations, and `--json-output` on all commands for machine-readable CLI output. 584 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 9 detectors (Python, JS/TS, Go, Rust, deps, docs, git) + custom detector plugin system, LLM judge, docs-drift detection, finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, finding annotations, multi-repo scanning, and `--json-output` on all commands for machine-readable CLI output. 610 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
@@ -51,6 +51,14 @@ pip install -e ".[detectors]"
 The `[detectors]` extra installs ruff and pip-audit for full detector coverage.
 
 ### Usage
+
+**Initialize a new repo for Sentinel:**
+
+```bash
+sentinel init /path/to/repo
+```
+
+This creates a `sentinel.toml` with documented defaults, a `.sentinel/` directory, and adds it to `.gitignore`.
 
 **Scan a repository:**
 
@@ -83,6 +91,14 @@ sentinel scan /path/to/repo --embed-model nomic-embed-text
 ```bash
 sentinel scan /path/to/repo --target src/auth --target src/api/routes.py
 ```
+
+**Scan multiple repos into a shared database:**
+
+```bash
+sentinel scan-all ~/project-a ~/project-b ~/project-c --db ~/.sentinel/all.db --skip-judge
+```
+
+All repos go into one database. Use `sentinel serve` with `--db` to view them together, or `sentinel history --db` to list all runs across repos.
 
 **Build the embedding index separately** (optional — scan auto-builds when `--embed-model` is used):
 
