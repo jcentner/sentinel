@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
 
 from sentinel import __version__
+
+if TYPE_CHECKING:
+    from sentinel.config import SentinelConfig
 
 
 @click.group()
@@ -102,7 +106,7 @@ def scan(
 
 
 def _apply_cli_overrides(
-    config: Any,
+    config: SentinelConfig,
     model: str | None,
     ollama_url: str | None,
     skip_judge: bool,
@@ -121,7 +125,7 @@ def _apply_cli_overrides(
 
 def _resolve_scope(
     repo: str,
-    conn: Any,
+    conn: sqlite3.Connection,
     incremental: bool,
     target_paths: list[str] | None,
 ) -> dict[str, Any] | None:
@@ -130,8 +134,7 @@ def _resolve_scope(
     from sentinel.models import ScopeType
 
     if incremental and target_paths:
-        click.echo("Cannot use --incremental and --target together.", err=True)
-        raise SystemExit(1)
+        raise click.UsageError("Cannot use --incremental and --target together.")
 
     result: dict[str, Any] = {}
     if target_paths:
@@ -149,8 +152,8 @@ def _resolve_scope(
 
 def _execute_scan(
     repo: str,
-    conn: Any,
-    config: Any,
+    conn: sqlite3.Connection,
+    config: SentinelConfig,
     scope_result: dict[str, Any],
     output_path: str | None,
 ) -> Any:
@@ -713,11 +716,17 @@ def serve(
 @click.argument("repo_paths", nargs=-1, required=True, type=click.Path(exists=True, file_okay=False))
 @click.option("--db", required=True, help="Shared database path for all repos")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
+@click.option("--model", default=None, help="Ollama model name (overrides per-repo config)")
+@click.option("--ollama-url", default=None, help="Ollama API URL (overrides per-repo config)")
+@click.option("--embed-model", default=None, help="Ollama embedding model (overrides per-repo config)")
 @click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
 def scan_all(
     repo_paths: tuple[str, ...],
     db: str,
     skip_judge: bool,
+    model: str | None,
+    ollama_url: str | None,
+    embed_model: str | None,
     output_json: bool,
 ) -> None:
     """Scan multiple repositories into a shared database.
@@ -730,30 +739,19 @@ def scan_all(
         sentinel scan-all ~/project-a ~/project-b --db ~/.sentinel/all.db
     """
     from sentinel.config import load_config
-    from sentinel.core.runner import run_scan
     from sentinel.store.db import get_connection
 
     conn = get_connection(db)
     results: list[dict[str, Any]] = []
+    had_errors = False
 
     try:
         for repo_path in repo_paths:
             repo = Path(repo_path).resolve()
-            config = load_config(repo)
-            if skip_judge:
-                config.skip_judge = True
-
             try:
-                run, findings, _report = run_scan(
-                    str(repo), conn,
-                    model=config.model,
-                    ollama_url=config.ollama_url,
-                    skip_judge=config.skip_judge,
-                    embed_model=config.embed_model,
-                    embed_chunk_size=config.embed_chunk_size,
-                    embed_chunk_overlap=config.embed_chunk_overlap,
-                    detectors_dir=config.detectors_dir,
-                )
+                config = load_config(repo)
+                _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model)
+                run, findings, _report = _execute_scan(str(repo), conn, config, {}, None)
                 results.append({
                     "repo": str(repo),
                     "run_id": run.id,
@@ -762,7 +760,8 @@ def scan_all(
                 })
                 if not output_json:
                     click.echo(f"  {repo}: {len(findings)} findings (run #{run.id})")
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
+                had_errors = True
                 results.append({
                     "repo": str(repo),
                     "error": str(e),
@@ -780,6 +779,9 @@ def scan_all(
             click.echo(f"Database: {db}")
     finally:
         conn.close()
+
+    if had_errors:
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
@@ -836,9 +838,9 @@ def init(repo_path: str, force: bool) -> None:
     gitignore = repo / ".gitignore"
     if gitignore.exists():
         content = gitignore.read_text()
-        if ".sentinel" not in content:
-            with open(gitignore, "a") as f:
-                f.write("\n# Sentinel data directory\n.sentinel/\n")
+        lines = [line.strip() for line in content.splitlines()]
+        if ".sentinel/" not in lines and ".sentinel" not in lines:
+            gitignore.write_text(content + "\n# Sentinel data directory\n.sentinel/\n")
             click.echo("Added .sentinel/ to .gitignore")
     else:
         gitignore.write_text("# Sentinel data directory\n.sentinel/\n")

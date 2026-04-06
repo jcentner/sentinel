@@ -730,3 +730,34 @@ class TestScanAllCommand:
     def test_scan_all_requires_db(self, runner, test_repo):
         result = runner.invoke(main, ["scan-all", str(test_repo)])
         assert result.exit_code != 0
+
+    def test_scan_all_partial_failure(self, runner, test_repo, tmp_path):
+        """One bad repo config should not prevent other repos from scanning."""
+        bad_repo = tmp_path / "bad"
+        bad_repo.mkdir()
+        subprocess.run(["git", "init"], cwd=str(bad_repo), capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=str(bad_repo), capture_output=True, check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=str(bad_repo), capture_output=True, check=True,
+        )
+        (bad_repo / "file.py").write_text("x = 1\n")
+        subprocess.run(["git", "add", "-A"], cwd=str(bad_repo), capture_output=True, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            cwd=str(bad_repo), capture_output=True, check=True,
+        )
+        # Create a bad sentinel.toml that will cause a config error
+        (bad_repo / "sentinel.toml").write_text('[sentinel]\nmodel = 42\n')
+
+        db_path = str(tmp_path / "shared.db")
+        result = runner.invoke(main, [
+            "scan-all", str(test_repo), str(bad_repo),
+            "--db", db_path, "--skip-judge",
+        ])
+        # Should exit 2 (partial failure)
+        assert result.exit_code == 2
+        assert "Scanned 1/2 repos" in result.output
