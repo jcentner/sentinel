@@ -1,50 +1,66 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 15 — Reviewer fixes, doc-sync, test coverage)
+> Last updated: 2026-04-06 (Session 15 — Reviewer fixes + 3 new slices)
 
 ## Session 15 Summary
 
 ### Current Objective
-Fix all reviewer findings from Session 14's 4 slices: doc-drift, resource leak, performance, test coverage.
+Fix reviewer findings from Session 14, then continue with highest-leverage improvements.
 
 ### What Was Accomplished
 
-1. **Docs drift — schema version**: Updated overview.md "SQLite v5" → "SQLite v6" (diagram + prose), glossary "v1 to v5" → "v1 to v6"
-2. **Docs drift — routes table**: Added `/settings`, `/eval`, `/eval/history` to overview.md routes table
-3. **Docs drift — detector-interface.md**: Added `eslint-runner` and `complexity` detector rows, clarified `lint-runner` as ruff/Python-focused
-4. **Resource leak**: Added try/finally to close `mem_conn` in web eval POST handler
-5. **Performance**: `_has_js_files()` now skips `node_modules`, `.git`, `dist`, `build`, `.venv`, `__pycache__` and checks `p.is_file()`
-6. **Test coverage**: Added 4 tests for `eval-history` CLI command (empty, JSON empty, after eval, JSON after eval)
+**Slice 0 — Reviewer findings fix:**
+1. Docs drift: schema v5→v6 (overview, glossary), routes table, detector-interface rows
+2. Resource leak: mem_conn try/finally in web eval POST
+3. Performance: eslint_runner `_has_js_files()` skips vendored dirs
+4. Test coverage: 4 eval-history CLI tests
+
+**Slice 1 — Complete JSON output + `__main__.py`:**
+5. Added `--json-output` to `suppress` and `approve` CLI commands
+6. Fixed `show` command not-found to respect `--json-output`
+7. Updated CLI group docstring ("any subcommand")
+8. Added `src/sentinel/__main__.py` for `python -m sentinel`
+9. Updated README machine-readable output examples
+10. 4 new tests (suppress/approve JSON + error cases)
+
+**Slice 2 — Eval trend SVG chart:**
+11. Server-side SVG chart on eval history page (precision/recall polylines)
+12. Y-axis gridlines, dashed threshold lines (70%/90%), X-axis date labels
+13. Theme-aware colors using existing CSS tokens
+14. Only renders with 2+ eval results
+15. 2 new tests with coordinate validation
+
+**Slice 3 — Go linter detector (golangci-lint):**
+16. New `go-linter` detector wrapping golangci-lint
+17. Auto-skips non-Go repos (checks go.mod or .go files)
+18. Maps JSON output to findings; elevates security linters (gosec, govet, etc.) to HIGH
+19. Supports incremental and targeted scopes with Go package conventions
+20. 29 new tests
+21. Updated README (8 detectors), overview, detector-interface, glossary
 
 ### Test Results
 ```
-492 passed in 48.32s
+527 passed
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
-### Files Changed
-- `docs/architecture/overview.md` — schema v5→v6, routes table
-- `docs/reference/glossary.md` — migration framework version
-- `docs/architecture/detector-interface.md` — eslint-runner + complexity rows
-- `src/sentinel/detectors/eslint_runner.py` — perf fix in `_has_js_files()`
-- `src/sentinel/web/app.py` — mem_conn leak fix
-- `tests/test_cli.py` — 4 new eval-history tests
-
 ### Repository State
-- **Tests**: 492 passing
-- **Detectors**: 7 (all documented in detector-interface.md)
-- **DB schema**: v6 (documented consistently)
-- **Lint/Type**: Clean
+- **Implementation**: 28+ Python modules in `src/sentinel/`
+- **Tests**: 527 passing
+- **Detectors**: 8 (todo-scanner, lint-runner, eslint-runner, go-linter, dep-audit, docs-drift, git-hotspots, complexity)
+- **CLI**: 11 commands, all with `--json-output`, plus `python -m sentinel`
+- **Web UI**: 12 routes, eval trend chart, clustering, dark/light mode
+- **DB schema**: v6
+- **Lint/Type**: Clean (ruff, mypy strict)
 - **Vision**: v2.1
 
 ### What Remains / Next Priority
-1. Go linter integration (golangci-lint)
-2. JSON output for `suppress`/`approve` commands
-3. Eval metrics chart visualization (sparklines or SVG in web UI)
-4. TD-002: Async detector interface (low priority)
-5. Multi-repo support (OQ-005)
-6. Packaging & distribution (PyPI)
+1. TD-002: Async detector interface (low priority)
+2. Multi-repo support (OQ-005)
+3. Packaging & distribution (PyPI)
+4. Web UI: finding diff view (compare runs)
+5. Detector: Rust linter (clippy)
 
 ### Blocked Items
 None.
