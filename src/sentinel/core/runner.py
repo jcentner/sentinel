@@ -194,6 +194,7 @@ def _ensure_detectors_loaded() -> None:
     import sentinel.detectors.git_hotspots
     import sentinel.detectors.go_linter
     import sentinel.detectors.lint_runner
+    import sentinel.detectors.rust_clippy
     import sentinel.detectors.todo_scanner  # noqa: F401
 
 

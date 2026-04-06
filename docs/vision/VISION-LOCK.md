@@ -1,6 +1,6 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 2.1
+> **Version**: 2.0
 > **Updated**: 2026-04-06
 > **Supersedes**: [archive/VISION-LOCK-v1.md](archive/VISION-LOCK-v1.md) + VISION-REVISION-001 through 005
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
