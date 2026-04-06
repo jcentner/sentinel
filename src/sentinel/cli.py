@@ -176,6 +176,61 @@ def approve(finding_id: int, repo: str, db: str | None) -> None:
         conn.close()
 
 
+@main.command()
+@click.argument("finding_id", type=int)
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+def show(finding_id: int, repo: str, db: str | None) -> None:
+    """Show full details of a finding by its ID."""
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.store.findings import get_finding_by_id
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        finding = get_finding_by_id(conn, finding_id)
+        if finding is None:
+            click.echo(f"Finding #{finding_id} not found.", err=True)
+            raise SystemExit(1)
+
+        click.echo(f"Finding #{finding_id}")
+        click.echo(f"  Title:       {finding.title}")
+        click.echo(f"  Detector:    {finding.detector}")
+        click.echo(f"  Category:    {finding.category}")
+        click.echo(f"  Severity:    {finding.severity.value}")
+        click.echo(f"  Confidence:  {finding.confidence:.0%}")
+        click.echo(f"  Status:      {finding.status.value}")
+        click.echo(f"  Fingerprint: {finding.fingerprint}")
+        if finding.file_path:
+            loc = finding.file_path
+            if finding.line_start:
+                loc += f":{finding.line_start}"
+                if finding.line_end and finding.line_end != finding.line_start:
+                    loc += f"-{finding.line_end}"
+            click.echo(f"  Location:    {loc}")
+        click.echo(f"  Description: {finding.description}")
+
+        if finding.evidence:
+            click.echo("")
+            click.echo("  Evidence:")
+            for i, ev in enumerate(finding.evidence, 1):
+                click.echo(f"    [{i}] {ev.type.value}: {ev.source}")
+                for line in ev.content.splitlines():
+                    click.echo(f"        {line}")
+
+        if finding.context:
+            occ = finding.context.get("occurrence_count")
+            if occ and occ > 1:
+                first_seen = finding.context.get("first_seen", "?")
+                click.echo(f"\n  Recurring: seen {occ} times (first: {first_seen})")
+    finally:
+        conn.close()
+
+
 @main.command("create-issues")
 @click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
 @click.option("--db", default=None, help="Database path")

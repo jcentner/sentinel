@@ -218,6 +218,39 @@ class TestApproveCommand:
         assert "create-issues" in result.output
 
 
+# ── show command ─────────────────────────────────────────────────────
+
+
+class TestShowCommand:
+    def test_show_nonexistent_finding(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "show", "99999",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+        assert "not found" in result.output
+
+    def test_show_existing_finding(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "show", "1",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Finding #1" in result.output
+        assert "Title:" in result.output
+        assert "Detector:" in result.output
+        assert "Severity:" in result.output
+        assert "Description:" in result.output
+
+
 # ── history command ──────────────────────────────────────────────────
 
 
