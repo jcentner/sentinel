@@ -97,6 +97,7 @@ def scan(
             embed_model=config.embed_model,
             embed_chunk_size=config.embed_chunk_size,
             embed_chunk_overlap=config.embed_chunk_overlap,
+            detectors_dir=config.detectors_dir,
         )
         if scope_type is not None:
             kwargs["scope"] = scope_type

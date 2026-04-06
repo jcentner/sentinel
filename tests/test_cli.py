@@ -91,6 +91,44 @@ class TestScanCommand:
         assert result.exit_code == 0
         assert "Scan complete:" in result.output
 
+    def test_custom_detectors_dir_via_config(self, runner, test_repo, db_path, tmp_path):
+        """Custom detectors loaded from detectors_dir config."""
+        custom_dir = tmp_path / "custom"
+        custom_dir.mkdir()
+        (custom_dir / "hello.py").write_text(
+            "from sentinel.detectors.base import Detector\n"
+            "from sentinel.models import DetectorContext, DetectorTier, Finding, Severity\n"
+            "\n"
+            "class HelloDetector(Detector):\n"
+            "    @property\n"
+            "    def name(self): return 'hello-detector'\n"
+            "    @property\n"
+            "    def description(self): return 'Says hello'\n"
+            "    @property\n"
+            "    def tier(self): return DetectorTier.DETERMINISTIC\n"
+            "    @property\n"
+            "    def categories(self): return ['custom']\n"
+            "    def detect(self, context):\n"
+            "        return [Finding(\n"
+            "            detector='hello-detector', category='custom',\n"
+            "            title='Hello from custom', severity=Severity.LOW,\n"
+            "            confidence=1.0, description='Custom finding',\n"
+            "            evidence=[],\n"
+            "        )]\n"
+        )
+        (test_repo / "sentinel.toml").write_text(
+            f'[sentinel]\ndetectors_dir = "{custom_dir}"\n'
+        )
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+        ])
+        assert result.exit_code == 0
+        # Custom detector should produce at least its one finding
+        report = Path(out).read_text()
+        assert "Hello from custom" in report
+
     def test_verbose_flag(self, runner, test_repo, db_path, tmp_path):
         out = str(tmp_path / "report.md")
         result = runner.invoke(main, [

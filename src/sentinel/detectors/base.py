@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import abc
+import importlib.util
+import logging
+from pathlib import Path
 
 from sentinel.models import DetectorContext, DetectorTier, Finding
+
+logger = logging.getLogger(__name__)
 
 # Module-level registry of detector classes
 _REGISTRY: dict[str, type[Detector]] = {}
@@ -80,3 +85,39 @@ def get_detector(name: str) -> Detector | None:
     if cls is None:
         return None
     return cls()
+
+
+def load_custom_detectors(detectors_dir: str | Path) -> list[str]:
+    """Load custom detector classes from Python files in a directory.
+
+    Each .py file is imported as a module. Any class extending Detector
+    is auto-registered via __init_subclass__. Returns names of loaded detectors.
+    """
+    path = Path(detectors_dir)
+    if not path.is_dir():
+        logger.warning("Custom detectors directory not found: %s", path)
+        return []
+
+    loaded: list[str] = []
+    before = set(_REGISTRY.keys())
+
+    for py_file in sorted(path.glob("*.py")):
+        if py_file.name.startswith("_"):
+            continue
+        module_name = f"sentinel_custom_{py_file.stem}"
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, py_file)
+            if spec is None or spec.loader is None:
+                logger.warning("Could not load spec for %s", py_file)
+                continue
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+        except Exception:
+            logger.warning("Failed to load custom detector %s", py_file, exc_info=True)
+            continue
+
+    new_names = set(_REGISTRY.keys()) - before
+    loaded.extend(sorted(new_names))
+    if loaded:
+        logger.info("Loaded custom detectors: %s", ", ".join(loaded))
+    return loaded

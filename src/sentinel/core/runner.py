@@ -68,6 +68,7 @@ def run_scan(
     embed_model: str = "",
     embed_chunk_size: int = 50,
     embed_chunk_overlap: int = 10,
+    detectors_dir: str = "",
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -99,6 +100,9 @@ def run_scan(
     if detectors is None:
         # Import detector modules so they register
         _ensure_detectors_loaded()
+        if detectors_dir:
+            from sentinel.detectors.base import load_custom_detectors
+            load_custom_detectors(detectors_dir)
         detectors = get_all_detectors()
 
     all_findings: list[Finding] = []
