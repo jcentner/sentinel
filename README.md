@@ -129,9 +129,12 @@ sentinel serve /path/to/repo --port 9000
 The web UI runs on `http://127.0.0.1:8888` by default. It provides:
 - **Dark/light mode** — "Night Watch" dark-first theme with toggle (persists across sessions)
 - **Run dashboard** — severity stat cards, findings grouped by severity, filter by severity/status/detector
+- **Bulk triage** — checkboxes on findings with per-severity "select all" toggle; batch approve or suppress from a sticky action bar
 - **Finding detail** — full metadata, evidence, inline approve/suppress with optional reason
 - **GitHub Issues page** — view approved findings, create GitHub issues or dry-run, config status indicator
 - **Configurable scan** — form-based scan with repo path, model override, embedding model, skip-judge, incremental
+- **Evaluation page** — run detectors against a ground-truth file to measure precision/recall
+- **Settings page** — view active configuration, sentinel.toml status, and GitHub env var status
 - **Run history** — all past scan runs with finding counts and scope badges
 
 ### Options

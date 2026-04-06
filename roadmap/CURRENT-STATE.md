@@ -1,63 +1,66 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 13 — bulk approve/suppress from run detail)
+> Last updated: 2026-04-06 (Session 13 — bulk approve/suppress, settings page, eval page)
 
 ## Session 13 Summary
 
 ### Current Objective
-Bulk approve/suppress from the run detail page — batch triage actions for the morning review workflow.
+Web UI feature expansion: bulk triage actions, settings dashboard, evaluation page.
 
 ### What Was Accomplished
 
-**Bulk action endpoint:**
+**Slice 1 — Bulk approve/suppress:**
 1. `POST /runs/{run_id}/bulk-action` — accepts `action` (approve/suppress), `finding_ids` list, optional `reason`
-2. Validates action type, finding IDs (rejects non-numeric), and presence of selected findings
-3. Iterates over findings, applies approve or suppress per finding (skips nonexistent IDs gracefully)
-4. htmx response: toast notification with count + `HX-Trigger: bulkActionComplete` for page reload
-5. Regular POST: 303 redirect back to run detail
+2. Checkboxes on every finding row, per-severity-group "select all" toggle
+3. Sticky bulk action bar: shows count, Approve Selected, Suppress Selected buttons
+4. htmx toast + page reload on completion
+5. 10 new tests (TestBulkActions class)
 
-**Run detail UI enhancements:**
-6. Checkboxes on every finding row for selection (`bulk-checkbox` class)
-7. Per-severity-group "select all" toggle checkbox in severity headers
-8. Sticky bulk action bar (appears when ≥1 checkbox selected): shows count, Approve Selected, Suppress Selected buttons
-9. Form wraps all severity groups with htmx POST to bulk-action endpoint
+**Slice 2 — Settings page (`/settings`):**
+6. Displays all SentinelConfig fields with current values and types
+7. Shows sentinel.toml detection status (found vs using defaults)
+8. GitHub env var status (SENTINEL_GITHUB_OWNER/REPO/TOKEN: set/not set)
+9. 5 new tests (TestSettingsPage class)
 
-**JavaScript additions:**
-10. `updateBulkCount()` — counts checked boxes, shows/hides bulk bar, updates count text
-11. `toggleGroup(toggle, severity)` — select/deselect all checkboxes in a severity group
-12. `submitBulk(action)` — sets hidden action input and triggers htmx form submission
-13. `bulkActionComplete` event listener — reloads page after 600ms to show updated statuses
+**Slice 2 — Eval page (`/eval`):**
+10. Form: repo path + optional ground-truth file path
+11. Runs detectors with skip_judge=True, compares to ground truth TOML
+12. Displays precision/recall as color-coded stat cards with pass/fail thresholds
+13. Lists missing expected findings and unexpected false positives
+14. 5 new tests (TestEvalPage class), including mocked eval success
 
-**CSS additions:**
-14. `.bulk-bar` — sticky positioned bar with amber border accent, flexbox layout
-15. `.bulk-checkbox` / `.bulk-group-toggle` — amber accent color, consistent sizing
-16. `.bulk-select-group` — inline-flex label for severity group toggle checkboxes
+**Navigation:**
+15. Added Eval and Settings links to header nav bar
 
 ### Decisions Made This Session
-1. Bulk action processes each finding individually (no batch SQL) — simpler, leverages existing store functions, correct suppression-by-fingerprint behavior
-2. Page reloads after bulk action to reflect updated statuses rather than complex htmx partial updates — keeps the implementation simple
-3. Nonexistent finding IDs are silently skipped (count only incremented for successful actions) — prevents errors when concurrent triage happens
+1. Bulk action processes each finding individually — simpler, leverages existing store functions, correct suppression-by-fingerprint behavior
+2. Page reloads after bulk action — simpler than complex htmx partial updates
+3. Settings page is read-only — editing config belongs in sentinel.toml, not the web UI
+4. Eval page runs with skip_judge=True in an in-memory DB — same behavior as `sentinel eval` CLI
 
 ### Test Results
 ```
-446 passed in 27.42s
+456 passed in 28.14s
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
 ### Files Changed
-- `src/sentinel/web/app.py` — new `bulk_action` route handler + route registration
-- `src/sentinel/web/templates/run_detail.html` — checkboxes, bulk form, bulk bar
+- `src/sentinel/web/app.py` — 3 new route handlers (bulk_action, settings_page, eval_page) + route registration
+- `src/sentinel/web/templates/run_detail.html` — checkboxes, bulk form, bulk action bar
+- `src/sentinel/web/templates/settings.html` — new template
+- `src/sentinel/web/templates/eval.html` — new template
+- `src/sentinel/web/templates/base.html` — 2 new nav links (Eval, Settings)
 - `src/sentinel/web/static/app.js` — bulk selection/submit JS
-- `src/sentinel/web/static/style.css` — bulk bar and checkbox styles
-- `tests/test_web.py` — 10 new tests (TestBulkActions class)
+- `src/sentinel/web/static/style.css` — bulk bar, checkbox, settings table, threshold styles
+- `tests/test_web.py` — 20 new tests
 
 ### Repository State
 - **Implementation**: 25+ Python modules in `src/sentinel/`
-- **Tests**: 24+ test files, 446 tests (48 web tests, up from 38)
-- **Web UI**: Dark/light mode, 10 routes (9 + new bulk-action), bulk triage workflow
+- **Tests**: 24+ test files, 456 tests (58 web tests, up from 38)
+- **Web UI**: Dark/light mode, 11 routes, bulk triage, settings, eval
 - **CLI**: 10 commands (scan, eval, suppress, approve, show, history, create-issues, index, serve)
-- **Web pages**: / (dashboard), /runs, /runs/{id}, /findings/{id}, /scan, /github + actions + bulk-action
+- **Web pages**: /, /runs, /runs/{id}, /findings/{id}, /scan, /github, /settings, /eval + actions
 - **Detectors**: 6 (todo-scanner, lint-runner, dep-audit, docs-drift, git-hotspots, complexity)
 - **DB schema**: v5
 - **Open questions**: 2 open (OQ-005, OQ-006), 5 resolved
@@ -67,17 +70,16 @@ mypy strict: All checks passed
 - **Type check**: Clean (mypy strict)
 
 ### What Remains / Next Priority
-1. Settings page (view config, potentially edit)
-2. Eval page in web UI (run evaluation from browser)
-3. TD-002: Async detector interface (low priority)
-4. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, test-runner (deferred)
-5. Multi-repo support (OQ-005)
+1. TD-002: Async detector interface (low priority)
+2. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, test-runner (deferred)
+3. Multi-repo support (OQ-005)
+4. VISION-REVISION-005 to document Settings + Eval pages as shipped
 
 ### Blocked Items
 None.
 
 ### Vision Completion Status
-All 7 MVP success criteria met. VISION-REVISION-002 and VISION-REVISION-004 web UI features delivered. Bulk triage workflow now operational.
+All 7 MVP success criteria met. Web UI significantly exceeds VR-004 scope.
 
 ---
 
