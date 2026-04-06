@@ -1,6 +1,80 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-05 (Session 11 — web UI, complexity detector, show command, report naming)
+> Last updated: 2026-04-06 (Session 12 — web UI redesign, dark mode, GitHub issues, scan form)
+
+## Session 12 Summary
+
+### Current Objective
+Web UI overhaul: dark mode design system, CLI feature parity (GitHub issue creation, configurable scan, suppress with reason), repo selection.
+
+### What Was Accomplished
+
+**Complete CSS redesign ("Night Watch" theme):**
+1. Dark-first design system with warm amber accent on deep navy-black backgrounds
+2. Light mode with warm stone tones, toggled via button with localStorage persistence
+3. Typography: Bricolage Grotesque (distinctive variable font) + JetBrains Mono (code)
+4. CSS custom properties for full theming: severity colors, status colors, surfaces, borders
+5. Responsive layout with 1200px max-width, mobile-friendly breakpoints
+6. No-flash theme loading via inline script before render
+
+**New pages:**
+7. `/scan` (GET) — Configurable scan form: custom repo path, model override, embedding model, skip-judge, incremental checkboxes
+8. `/github` — GitHub Issues dashboard: config status indicator, list of approved findings with severity badges, Create Issues + Dry Run buttons
+9. `/github/create-issues` (POST) — Issue creation endpoint with htmx result rendering; handles both configured and unconfigured GitHub states
+
+**Enhanced existing pages:**
+10. Run detail: severity stat cards (critical/high/medium/low counts), back link to runs list, improved filter bar
+11. Finding detail: suppress with inline reason text input, status-aware actions (shows different messages for approved/suppressed/resolved), recurrence info display
+12. Runs list: card wrapper for table, scope badges styled as amber, page headers with subtitles
+13. Empty states: sentinel shield SVG, link to /scan page
+
+**Infrastructure:**
+14. `app.js` — Theme toggle function + toast auto-dismiss observer (MutationObserver)
+15. Toast notification system via htmx (CSS animations for slide-in/out)
+16. Active nav link highlighting based on current URL path
+17. Repo indicator in header showing current repo basename
+18. Path validation for user-supplied scan targets (not for app-configured paths)
+
+### Decisions Made This Session
+1. Dark mode as default — matches the "Night Watch" sentinel theme and reduces eye strain for morning report review
+2. Bricolage Grotesque font — distinctive, optical sizing, avoids common AI-slop fonts (Inter, Roboto, Arial)
+3. GitHub token from env vars only (not web form) — security: don't accept sensitive credentials via HTTP forms
+4. Scan form validates user-supplied paths but trusts already-configured app state paths
+5. htmx fragments for GitHub issue results (no full page reload)
+
+### Test Results
+```
+436 passed in 26.46s
+ruff check: All checks passed
+mypy strict: All checks passed
+```
+
+### Repository State
+- **Implementation**: 25+ Python modules in `src/sentinel/`
+- **Tests**: 24+ test files, 436 tests (38 web tests, up from 28)
+- **Web UI**: Dark/light mode, 9 routes, GitHub issue workflow, configurable scan
+- **CLI**: 10 commands (scan, eval, suppress, approve, show, history, create-issues, index, serve)
+- **Web pages**: / (dashboard), /runs, /runs/{id}, /findings/{id}, /scan, /github + actions
+- **Detectors**: 6 (todo-scanner, lint-runner, dep-audit, docs-drift, git-hotspots, complexity)
+- **DB schema**: v5
+- **Open questions**: 2 open (OQ-005, OQ-006), 5 resolved
+- **ADRs**: 9 accepted
+- **Tech debt**: 1 active (TD-002 async), 7 resolved
+- **Lint**: Clean (ruff)
+- **Type check**: Clean (mypy strict)
+
+### What Remains / Next Priority
+1. Bulk approve/suppress from run detail page (checkboxes + batch action)
+2. User avatar/profile placeholder for future personalization
+3. Settings page (view config, potentially edit)
+4. TD-002: Async detector interface (low priority)
+5. Phase 4 remaining detectors: SQL anti-patterns, Semgrep, test-runner (deferred)
+6. Eval page in web UI (run evaluation from browser)
+
+### Blocked Items
+None.
+
+---
 
 ## Session 11 Summary
 
