@@ -1,6 +1,6 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 2.0
+> **Version**: 2.1
 > **Updated**: 2026-04-06
 > **Supersedes**: [archive/VISION-LOCK-v1.md](archive/VISION-LOCK-v1.md) + VISION-REVISION-001 through 005
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
@@ -64,7 +64,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 ## What Exists Today (v1.0 ship state)
 
 ### Core Pipeline
-- **6 detectors**: todo-scanner, lint-runner, dep-audit, docs-drift, git-hotspots, complexity
+- **7 detectors**: todo-scanner, lint-runner, eslint-runner (JS/TS via ESLint/Biome), dep-audit, docs-drift, git-hotspots, complexity
 - **Embedding-based context gathering**: opt-in via Ollama `/api/embed`, stored in SQLite, falls back to file-proximity heuristics
 - **LLM judge**: structured judgment via Ollama (severity, confidence, evidence summary). System degrades gracefully (raw findings only) when no model is running
 - **Finding fingerprinting**: SHA256 content-hash deduplication, suppression persistence
@@ -73,6 +73,8 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 
 ### CLI (10 commands)
 `scan`, `eval`, `suppress`, `approve`, `show`, `history`, `create-issues`, `index`, `serve`
+
+All key commands support `--json-output` for machine-readable structured output, enabling AI agent integration.
 
 ### Web UI (`sentinel serve`)
 - "Night Watch" dark-first theme with light mode toggle
@@ -86,7 +88,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 - Environment variable config (no secrets in config files)
 
 ### Quality
-- 456 tests, ruff clean, mypy strict clean
+- 481 tests, ruff clean, mypy strict clean
 - 100% precision + 100% recall on ground-truth eval (15 TPs, 0 FPs)
 - Eval framework with ground-truth TOML, `sentinel eval` CLI + web UI
 
@@ -102,6 +104,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 | 6 | Swap LLM model via config, not code | **Met** |
 | 7 | Suppress a FP and it stays suppressed | **Met** |
 | 8 | Full triage cycle from the browser without CLI | **Met** |
+| 9 | CLI usable by AI agents (JSON output, exit codes) | **Met** |
 
 ## Evaluation Criteria
 
@@ -111,7 +114,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 | False positive rate | < 30% per run | 0% on self-scan |
 | Review time | < 2 minutes | Achieved (web UI bulk triage) |
 | Findings → issues rate | Track only | Workflow exists, no persistent metric |
-| Detector coverage | ≥ 3 categories | 6 detectors, 4+ categories |
+| Detector coverage | ≥ 3 categories | 7 detectors, 5 categories (Python, JS/TS, deps, docs, git) |
 | Repeatability | 100% for deterministic | Tested |
 
 ## Architecture Invariants
@@ -131,10 +134,11 @@ These hold across all versions and must not be violated:
 These are the next areas of investment, roughly priority-ordered. Each will be planned and validated before implementation.
 
 ### Multi-language repo support
-Currently detector coverage is strongest for Python (ruff, pip-audit, AST-based complexity). Real-world use requires scanning TypeScript/JavaScript, Go, and mixed-language repos. This means:
+Currently detector coverage is strongest for Python (ruff, pip-audit, AST-based complexity) with initial JS/TS support (eslint-runner wrapping ESLint and Biome). Broader real-world use requires scanning Go and mixed-language repos. This means:
 - Language-aware detector dispatch (run the right linters per file type)
-- eslint/biome integration for JS/TS, golangci-lint for Go
+- golangci-lint for Go
 - Language-neutral detectors (todo-scanner, docs-drift, git-hotspots) already work cross-language
+- eslint-runner already handles JS/TS; needs real-world validation
 - Each language pack is an isolated module — multiple devs or agents can build support for different languages in parallel without conflicting
 - Users install only the language packs they need (e.g., `pip install sentinel[js]` for JS/TS linting deps)
 
@@ -145,7 +149,7 @@ Run Sentinel across multiple repos and surface a unified morning report. Schema 
 Findings from a shared root cause (renamed directory → N stale links) should be grouped in the web UI, not just in the markdown report. This is a noise reduction feature that directly impacts perceived precision.
 
 ### CLI as an AI-agent interface
-The CLI should be equally usable by human developers and by AI coding agents. This means: structured JSON output mode, predictable exit codes, good `--help`, machine-readable IDs. A sophisticated coding agent should be able to run `sentinel scan`, parse results, approve findings, and create issues programmatically.
+The CLI is now equally usable by human developers and by AI coding agents via `--json-output`. The foundation is in place: structured JSON output mode, predictable exit codes (0=success, 1=error), `--help` on every command, machine-readable IDs. Future enhancements: JSON output for suppress/approve, structured error responses, `--quiet` mode for script use.
 
 ### Eval metrics dashboard
 Persistent tracking of precision, recall, and FP rate over time — not just one-shot eval runs. A chart showing quality trends across versions and config changes.
@@ -177,6 +181,13 @@ These are explicitly excluded from the project's vision, not deferred:
 | Ollama dependency creates friction | Low | Low | Degrade gracefully; document setup clearly |
 
 ## Changelog
+
+### v2.1 (2026-04-06)
+- Added eslint-runner detector for JS/TS linting via ESLint or Biome (multi-language support foundation)
+- Added `--json-output` flag to scan, show, history, eval, create-issues for machine-readable CLI output
+- Success criterion #9 added: CLI usable by AI agents
+- Detector coverage updated from 6 to 7, categories from 4 to 5
+- Test count updated from 456 to 481
 
 ### v2.0 (2026-04-06)
 Consolidated from VISION-LOCK v1.0 + VISION-REVISION-001 through 005. Key changes from v1.0:

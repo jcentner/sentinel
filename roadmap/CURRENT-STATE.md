@@ -1,6 +1,96 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 13 — bulk approve/suppress, settings page, eval page)
+> Last updated: 2026-04-06 (Session 14 — JSON CLI output, eslint-runner detector)
+
+## Session 14 Summary
+
+### Current Objective
+CLI as AI-agent interface (JSON output) and multi-language detector support (JS/TS).
+
+### What Was Accomplished
+
+**Slice 1 — CLI JSON output (`--json-output` flag):**
+1. Added `--json-output` flag to `scan`, `show`, `history`, `eval`, `create-issues` commands
+2. `scan --json-output`: outputs `{run, findings[], report_path}` as structured JSON
+3. `show --json-output`: outputs full finding dict including evidence and metadata
+4. `history --json-output`: outputs array of run summaries
+5. `eval --json-output`: outputs `{precision, recall, passed, total_findings, ...}`
+6. `create-issues --json-output`: outputs `{results[]}` with per-finding success/error
+7. Added `RunSummary.to_dict()` and `EvalResult.to_dict()` serialization methods
+8. Updated CLI help text to document JSON output and exit codes
+9. 7 new tests for JSON output across all commands
+
+**Slice 2 — eslint-runner detector (multi-language foundation):**
+10. New `eslint-runner` detector wrapping ESLint and Biome for JS/TS linting
+11. Tries Biome first (faster, zero-config), falls back to ESLint
+12. Auto-skips repos without JS/TS files (checks for `package.json` or `*.js/*.ts`)
+13. Supports incremental and targeted scan scopes (filters to JS/TS extensions)
+14. Maps ESLint severity levels and Biome diagnostic categories to Sentinel severities
+15. Security-sensitive rules (`no-eval`, `suspicious/*`) elevated to HIGH
+16. 19 new tests (properties, parsing, detection, fallback, timeout, scope filtering)
+17. Registered in `runner.py` alongside existing detectors
+
+**Doc updates:**
+18. README updated: 7 detectors, JSON output section, `--json-output` in options table
+19. Architecture overview: updated detector list and tier descriptions
+20. VISION-LOCK v2.1: new success criterion #9 (CLI agent interface), 7 detectors, 481 tests
+
+### Decisions Made This Session
+1. `--json-output` flag name (not `--format json`) — explicit, boolean, no ambiguity
+2. Biome preferred over ESLint — faster, zero-config, auto-fallback to ESLint
+3. eslint-runner uses detector name "eslint-runner" regardless of which tool runs — consistent fingerprints
+4. Biome byte offsets not converted to line numbers — imprecise mapping, null is better than wrong
+
+### Test Results
+```
+481 passed in 33.94s
+ruff check: All checks passed
+mypy strict: All checks passed (33 source files)
+eval: 100% precision, 100% recall (15 TPs, 0 FPs)
+```
+
+### Files Changed
+- `src/sentinel/cli.py` — `--json-output` flag on 5 commands, JSON output paths
+- `src/sentinel/models.py` — `RunSummary.to_dict()` method
+- `src/sentinel/core/eval.py` — `EvalResult.to_dict()` method
+- `src/sentinel/core/runner.py` — eslint-runner import
+- `src/sentinel/detectors/eslint_runner.py` — new detector (ESLint/Biome wrapper)
+- `tests/test_cli.py` — 7 new JSON output tests
+- `tests/detectors/test_eslint_runner.py` — 19 new detector tests
+- `README.md` — updated detector count, JSON output docs
+- `docs/architecture/overview.md` — updated detector list/tiers
+- `docs/vision/VISION-LOCK.md` — v2.1 with new features
+
+### Repository State
+- **Implementation**: 26+ Python modules in `src/sentinel/`
+- **Tests**: 25+ test files, 481 tests (27 CLI tests, 19 eslint-runner tests)
+- **Web UI**: Dark/light mode, 11 routes, bulk triage, settings, eval
+- **CLI**: 10 commands, `--json-output` on 5 key commands
+- **Web pages**: /, /runs, /runs/{id}, /findings/{id}, /scan, /github, /settings, /eval + actions
+- **Detectors**: 7 (todo-scanner, lint-runner, eslint-runner, dep-audit, docs-drift, git-hotspots, complexity)
+- **DB schema**: v5
+- **Open questions**: 2 open (OQ-005, OQ-006), 5 resolved
+- **ADRs**: 9 accepted
+- **Tech debt**: 2 active (TD-002 async, TD-009 scheduling), 7 resolved
+- **Lint**: Clean (ruff)
+- **Type check**: Clean (mypy strict, 33 files)
+- **Vision**: v2.1
+
+### What Remains / Next Priority
+1. Root-cause finding grouping in web UI
+2. Eval metrics dashboard (persistent tracking over time)
+3. Go linter integration (golangci-lint)
+4. JSON output for `suppress`/`approve` commands
+5. TD-002: Async detector interface (low priority)
+6. Multi-repo support (OQ-005)
+
+### Blocked Items
+None.
+
+### Vision Completion Status
+All 9 success criteria met. Multi-language support started with JS/TS.
+
+---
 
 ## Session 13 Summary
 

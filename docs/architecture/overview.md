@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-> **Status**: Active — reflects implementation as of 2026-04-05 (Phase 4 in progress).
+> **Status**: Active — reflects implementation as of 2026-04-06.
 
 ## High-level data flow
 
@@ -48,9 +48,9 @@
 
 Detectors produce raw candidate findings. They come in three tiers:
 
-**Tier 1 — Deterministic**: Lint output (ruff), TODO/FIXME scanning, dependency audit (pip-audit). Cheap, reliable, no model needed.
+**Tier 1 — Deterministic**: Lint output (ruff for Python, ESLint/Biome for JS/TS), TODO/FIXME scanning, dependency audit (pip-audit). Cheap, reliable, no model needed.
 
-**Tier 2 — Heuristic**: Git-history hotspots (commit frequency analysis). Also model-free.
+**Tier 2 — Heuristic**: Git-history hotspots (commit frequency analysis), cyclomatic complexity / function length analysis. Also model-free.
 
 **Tier 3 — LLM-assisted**: Docs-drift doc-code comparison via Ollama. The model evaluates whether documentation accurately describes the code, not the primary signal source.
 
@@ -58,7 +58,7 @@ The architecture is **mostly Tier 1 + 2, with the LLM as the judgment/summarizat
 
 Every detector produces a `Finding` conforming to the [Detector Interface](detector-interface.md).
 
-**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
+**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
 
 ### 2. Fingerprint Assignment
 
