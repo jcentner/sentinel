@@ -127,6 +127,33 @@ class TestRunDetail:
         assert "high" in resp.text.lower()
         assert "medium" in resp.text.lower()
 
+    def test_filter_by_severity(self, seeded_app: tuple[TestClient, int, int]) -> None:
+        client, run_id, _ = seeded_app
+        resp = client.get(f"/runs/{run_id}?severity=high")
+        assert resp.status_code == 200
+        assert "Unused import os" in resp.text
+        assert "TODO found in main.py" not in resp.text
+
+    def test_filter_by_detector(self, seeded_app: tuple[TestClient, int, int]) -> None:
+        client, run_id, _ = seeded_app
+        resp = client.get(f"/runs/{run_id}?detector=todo-scanner")
+        assert resp.status_code == 200
+        assert "TODO found in main.py" in resp.text
+        assert "Unused import os" not in resp.text
+
+    def test_filter_by_status(self, seeded_app: tuple[TestClient, int, int]) -> None:
+        client, run_id, _ = seeded_app
+        # All findings are 'new' by default
+        resp = client.get(f"/runs/{run_id}?status=new")
+        assert resp.status_code == 200
+        assert "TODO found in main.py" in resp.text
+
+    def test_filter_no_match(self, seeded_app: tuple[TestClient, int, int]) -> None:
+        client, run_id, _ = seeded_app
+        resp = client.get(f"/runs/{run_id}?severity=critical")
+        assert resp.status_code == 200
+        assert "No findings match" in resp.text
+
 
 class TestFindingDetail:
     def test_not_found(self, app: TestClient) -> None:
@@ -223,3 +250,10 @@ class TestStaticFiles:
         resp = app.get("/static/style.css")
         assert resp.status_code == 200
         assert "text/css" in resp.headers["content-type"]
+
+
+class TestScanTrigger:
+    def test_no_repo_configured(self, app: TestClient) -> None:
+        resp = app.post("/scan", follow_redirects=False)
+        assert resp.status_code == 500
+        assert "No repo configured" in resp.text

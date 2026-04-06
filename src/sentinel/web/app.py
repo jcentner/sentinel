@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from sentinel.store.findings import (
     update_finding_status,
 )
 from sentinel.store.runs import get_run_by_id, get_run_history
+
+logger = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -52,7 +55,7 @@ async def runs_list(request: Request) -> Response:
 
 
 async def run_detail(request: Request) -> Response:
-    """Show findings for a specific run."""
+    """Show findings for a specific run, with optional filters."""
     conn = _get_conn(request.app)
     run_id = int(request.path_params["run_id"])
     run = get_run_by_id(conn, run_id)
@@ -60,6 +63,23 @@ async def run_detail(request: Request) -> Response:
         return Response("Run not found", status_code=404)
 
     findings = get_findings_by_run(conn, run_id)
+
+    # Read filter query params
+    filter_severity = request.query_params.get("severity", "")
+    filter_status = request.query_params.get("status", "")
+    filter_detector = request.query_params.get("detector", "")
+
+    # Collect unique values for filter dropdowns
+    all_detectors = sorted({f.detector for f in findings})
+    all_statuses = sorted({f.status.value for f in findings})
+
+    # Apply filters
+    if filter_severity:
+        findings = [f for f in findings if f.severity.value == filter_severity]
+    if filter_status:
+        findings = [f for f in findings if f.status.value == filter_status]
+    if filter_detector:
+        findings = [f for f in findings if f.detector == filter_detector]
 
     # Group by severity for display
     grouped: dict[str, list[Finding]] = {"critical": [], "high": [], "medium": [], "low": []}
@@ -70,6 +90,11 @@ async def run_detail(request: Request) -> Response:
         "run": run,
         "findings": findings,
         "grouped": grouped,
+        "filter_severity": filter_severity,
+        "filter_status": filter_status,
+        "filter_detector": filter_detector,
+        "all_detectors": all_detectors,
+        "all_statuses": all_statuses,
     })
 
 
@@ -117,10 +142,36 @@ async def finding_action(request: Request) -> Response:
     return RedirectResponse(url=referer, status_code=303)
 
 
+async def scan_trigger(request: Request) -> Response:
+    """Trigger a new scan via POST."""
+    from sentinel.core.runner import run_scan
+
+    conn = _get_conn(request.app)
+    repo_path: str | None = getattr(request.app.state, "repo_path", None)
+    if not repo_path:
+        return Response("No repo configured", status_code=500)
+
+    try:
+        run_summary, _findings, _report_path = run_scan(repo_path, conn)
+    except Exception:
+        logger.exception("Scan failed")
+        return Response("Scan failed — check server logs", status_code=500)
+
+    # Redirect to the new run
+    if request.headers.get("hx-request"):
+        return Response(
+            f'<a href="/runs/{run_summary.id}">Scan complete — view run #{run_summary.id}</a>',
+            media_type="text/html",
+        )
+    return RedirectResponse(url=f"/runs/{run_summary.id}", status_code=303)
+
+
 # ── App factory ──────────────────────────────────────────────────────
 
 
-def create_app(db_conn: sqlite3.Connection) -> Starlette:
+def create_app(
+    db_conn: sqlite3.Connection, repo_path: str | None = None
+) -> Starlette:
     """Create the Starlette application with the given DB connection."""
     routes = [
         Route("/", endpoint=index),
@@ -128,9 +179,11 @@ def create_app(db_conn: sqlite3.Connection) -> Starlette:
         Route("/runs/{run_id:int}", endpoint=run_detail),
         Route("/findings/{finding_id:int}", endpoint=finding_detail),
         Route("/findings/{finding_id:int}/action", endpoint=finding_action, methods=["POST"]),
+        Route("/scan", endpoint=scan_trigger, methods=["POST"]),
         Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),
     ]
 
     app = Starlette(routes=routes)
     app.state.db_conn = db_conn
+    app.state.repo_path = repo_path
     return app

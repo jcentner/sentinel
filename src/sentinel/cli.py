@@ -504,7 +504,7 @@ def serve(
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path, check_same_thread=False)
 
-    app = create_app(conn)
+    app = create_app(conn, repo_path=str(repo))
     click.echo(f"Sentinel web UI: http://{host}:{port}")
     try:
         uvicorn.run(app, host=host, port=port, log_level="warning")

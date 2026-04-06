@@ -10,10 +10,43 @@
   {% if run.commit_sha %} &middot; <span class="text-mono">{{ run.commit_sha[:8] }}</span>{% endif %}
 </p>
 
+<div class="card mb-2">
+  <form method="get" action="/runs/{{ run.id }}" class="filter-bar">
+    <label>Severity
+      <select name="severity">
+        <option value="">All</option>
+        {% for s in ['critical', 'high', 'medium', 'low'] %}
+        <option value="{{ s }}" {{ 'selected' if filter_severity == s else '' }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="">All</option>
+        {% for s in all_statuses %}
+        <option value="{{ s }}" {{ 'selected' if filter_status == s else '' }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Detector
+      <select name="detector">
+        <option value="">All</option>
+        {% for d in all_detectors %}
+        <option value="{{ d }}" {{ 'selected' if filter_detector == d else '' }}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn btn-sm">Filter</button>
+    {% if filter_severity or filter_status or filter_detector %}
+    <a href="/runs/{{ run.id }}" class="btn btn-sm">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
 {% if not findings %}
 <div class="empty-state">
   <h2>No findings</h2>
-  <p>This run produced no findings. The codebase looks clean!</p>
+  <p>{% if filter_severity or filter_status or filter_detector %}No findings match the current filters.{% else %}This run produced no findings. The codebase looks clean!{% endif %}</p>
 </div>
 {% else %}
 
