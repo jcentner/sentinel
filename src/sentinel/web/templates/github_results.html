@@ -1,0 +1,29 @@
+<div class="card mt-2">
+  <div class="card-header">
+    <span class="card-title">
+      {% if dry_run %}Dry Run Results{% else %}Issue Creation Results{% endif %}
+    </span>
+  </div>
+  {% for r in results %}
+  <div class="result-item">
+    {% if r.success %}
+    <span style="color:var(--st-approved);">&#10003;</span>
+    {% else %}
+    <span style="color:var(--sev-critical);">&#10007;</span>
+    {% endif %}
+    <span class="text-mono" style="font-size:0.8rem;">{{ r.fingerprint[:12] }}</span>
+    {% if r.issue_url %}
+    <a href="{{ r.issue_url }}" target="_blank" rel="noopener">{{ r.issue_url }}</a>
+    {% elif r.error == "dry run" %}
+    <span class="text-muted">Would create issue</span>
+    {% elif r.error == "Issue already exists" %}
+    <span class="text-muted">Already exists</span>
+    {% elif r.error %}
+    <span style="color:var(--sev-critical); font-size:0.85rem;">{{ r.error }}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if not results %}
+  <p class="text-muted">No results.</p>
+  {% endif %}
+</div>

@@ -2,7 +2,11 @@
 {% block title %}Sentinel — No Runs Yet{% endblock %}
 {% block content %}
 <div class="empty-state">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin:0 auto 1rem;display:block;opacity:0.3;">
+    <path d="M12 2L4 6.5v5.5c0 5 3.3 9.7 8 11 4.7-1.3 8-6 8-11V6.5L12 2z" stroke="currentColor" stroke-width="1.5"/>
+    <circle cx="12" cy="11.5" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+  </svg>
   <h2>No scan runs yet</h2>
-  <p>Run <code>sentinel scan &lt;repo-path&gt;</code> to generate your first report.</p>
+  <p>Run <code>sentinel scan &lt;repo-path&gt;</code> to generate your first report, or use the <a href="/scan">New Scan</a> page.</p>
 </div>
 {% endblock %}

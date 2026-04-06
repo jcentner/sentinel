@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — GitHub Issues{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>GitHub Issues</h1>
+  <p class="subtitle">Review approved findings and create GitHub issues</p>
+</div>
+
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">GitHub Configuration</span>
+    {% if gh_configured %}
+    <span class="config-status"><span class="config-dot ready"></span> Connected</span>
+    {% else %}
+    <span class="config-status"><span class="config-dot missing"></span> Not configured</span>
+    {% endif %}
+  </div>
+  {% if gh_configured %}
+  <p class="text-muted" style="font-size:0.85rem;">
+    <span class="text-mono">{{ gh_owner }}/{{ gh_repo }}</span> — Token configured via environment
+  </p>
+  {% else %}
+  <p class="text-muted" style="font-size:0.85rem;">
+    Set <code>SENTINEL_GITHUB_OWNER</code>, <code>SENTINEL_GITHUB_REPO</code>, and
+    <code>SENTINEL_GITHUB_TOKEN</code> environment variables, then restart the server.
+  </p>
+  {% endif %}
+</div>
+
+{% if approved %}
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">Approved Findings ({{ approved|length }})</span>
+  </div>
+
+  {% for db_id, finding in approved %}
+  <div class="finding-row">
+    <span class="badge badge-{{ finding.severity.value }}">{{ finding.severity.value }}</span>
+    <span class="finding-title">
+      <a href="/findings/{{ db_id }}">#{{ db_id }} — {{ finding.title }}</a>
+    </span>
+    <span class="finding-meta">{{ finding.detector }}</span>
+    {% if finding.file_path %}
+    <span class="finding-location">{{ finding.file_path }}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="actions-bar mt-2">
+    {% if gh_configured %}
+    <form method="post" action="/github/create-issues"
+          hx-post="/github/create-issues" hx-target="#issue-results" hx-swap="innerHTML">
+      <input type="hidden" name="dry_run" value="false">
+      <button type="submit" class="btn btn-success btn-sm">Create Issues</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/github/create-issues"
+          hx-post="/github/create-issues" hx-target="#issue-results" hx-swap="innerHTML">
+      <input type="hidden" name="dry_run" value="true">
+      <button type="submit" class="btn btn-sm">Dry Run</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <h2>No approved findings</h2>
+    <p>Approve findings from the run detail page to queue them for GitHub issue creation.</p>
+  </div>
+</div>
+{% endif %}
+
+<div id="issue-results"></div>
+{% endblock %}

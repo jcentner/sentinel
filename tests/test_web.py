@@ -15,7 +15,7 @@ from sentinel.models import (
     Severity,
 )
 from sentinel.store.db import get_connection
-from sentinel.store.findings import get_finding_by_id, insert_finding
+from sentinel.store.findings import get_finding_by_id, insert_finding, update_finding_status
 from sentinel.store.runs import complete_run, create_run
 from sentinel.web.app import create_app
 
@@ -376,3 +376,90 @@ class TestSecurityGuards:
         )
         assert resp.status_code == 400
         assert "no fingerprint" in resp.text.lower()
+
+
+class TestScanForm:
+    def test_scan_form_get(self, app: TestClient) -> None:
+        resp = app.get("/scan")
+        assert resp.status_code == 200
+        assert "Repository Path" in resp.text
+
+    def test_scan_form_with_repo(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path="/tmp/test-repo")
+        client = TestClient(application)
+        resp = client.get("/scan")
+        assert resp.status_code == 200
+        assert "/tmp/test-repo" in resp.text
+
+
+class TestGitHubPage:
+    def test_github_page_empty(self, app: TestClient) -> None:
+        resp = app.get("/github")
+        assert resp.status_code == 200
+        assert "No approved findings" in resp.text
+
+    def test_github_page_with_approved(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, _, finding_id = seeded_db
+        update_finding_status(conn, finding_id, FindingStatus.APPROVED)
+
+        application = create_app(conn)
+        client = TestClient(application)
+        resp = client.get("/github")
+        assert resp.status_code == 200
+        assert "Approved Findings" in resp.text
+        assert "TODO found in main.py" in resp.text
+
+    def test_github_dry_run(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, _, finding_id = seeded_db
+        update_finding_status(conn, finding_id, FindingStatus.APPROVED)
+
+        application = create_app(conn)
+        client = TestClient(application)
+        resp = client.post(
+            "/github/create-issues",
+            data={"dry_run": "true"},
+        )
+        assert resp.status_code == 200
+        assert "dry run" in resp.text.lower()
+
+    def test_github_create_no_config(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, _, finding_id = seeded_db
+        update_finding_status(conn, finding_id, FindingStatus.APPROVED)
+
+        application = create_app(conn)
+        client = TestClient(application)
+        resp = client.post(
+            "/github/create-issues",
+            data={"dry_run": "false"},
+        )
+        assert resp.status_code == 200
+        assert "not configured" in resp.text.lower()
+
+
+class TestThemeAndDesign:
+    def test_dark_mode_default(self, app: TestClient) -> None:
+        resp = app.get("/runs")
+        assert 'data-theme="dark"' in resp.text
+
+    def test_google_fonts_loaded(self, app: TestClient) -> None:
+        resp = app.get("/runs")
+        assert "Bricolage+Grotesque" in resp.text
+
+    def test_app_js_served(self, app: TestClient) -> None:
+        resp = app.get("/static/app.js")
+        assert resp.status_code == 200
+
+    def test_nav_links(self, app: TestClient) -> None:
+        resp = app.get("/runs")
+        assert 'href="/github"' in resp.text
+        assert 'href="/scan"' in resp.text
+        assert "Sentinel" in resp.text

@@ -1,35 +1,40 @@
 {% extends "base.html" %}
 {% block title %}Sentinel — Runs{% endblock %}
 {% block content %}
-<h1 class="mb-2">Scan Runs</h1>
+<div class="page-header">
+  <h1>Scan Runs</h1>
+  <p class="subtitle">History of all scan executions</p>
+</div>
 
 {% if runs %}
-<table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Repository</th>
-      <th>Started</th>
-      <th>Findings</th>
-      <th>Scope</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for run in runs %}
-    <tr>
-      <td><a href="/runs/{{ run.id }}">{{ run.id }}</a></td>
-      <td class="text-mono">{{ run.repo_path }}</td>
-      <td>{{ run.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
-      <td>{{ run.finding_count }}</td>
-      <td><span class="badge badge-new">{{ run.scope.value }}</span></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Run</th>
+        <th>Repository</th>
+        <th>Started</th>
+        <th>Findings</th>
+        <th>Scope</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><a href="/runs/{{ run.id }}">#{{ run.id }}</a></td>
+        <td class="text-mono">{{ run.repo_path }}</td>
+        <td>{{ run.started_at.strftime('%Y-%m-%d %H:%M') if run.started_at else '—' }}</td>
+        <td>{{ run.finding_count }}</td>
+        <td><span class="badge badge-scope">{{ run.scope.value }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% else %}
 <div class="empty-state">
   <h2>No scan runs yet</h2>
-  <p>Run <code>sentinel scan &lt;repo-path&gt;</code> to generate your first report.</p>
+  <p>Run <code>sentinel scan &lt;repo-path&gt;</code> to generate your first report, or use the <a href="/scan">New Scan</a> page.</p>
 </div>
 {% endif %}
 {% endblock %}

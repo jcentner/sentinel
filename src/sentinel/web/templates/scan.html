@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — New Scan{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>New Scan</h1>
+  <p class="subtitle">Run detectors against a repository</p>
+</div>
+
+<div class="card">
+  <form method="post" action="/scan" id="scan-form">
+    <div class="form-group">
+      <label class="form-label" for="repo_path">Repository Path</label>
+      <input class="form-input" type="text" name="repo_path" id="repo_path"
+             value="{{ current_repo }}" placeholder="/path/to/repository" required>
+      <p class="form-hint">Absolute path to the Git repository to scan</p>
+    </div>
+
+    <div class="form-row mb-2">
+      <div class="form-group">
+        <label class="form-label" for="model">LLM Model</label>
+        <input class="form-input" type="text" name="model" id="model"
+               placeholder="Default from config" value="">
+        <p class="form-hint">Ollama model for LLM judge (leave blank for default)</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="embed_model">Embedding Model</label>
+        <input class="form-input" type="text" name="embed_model" id="embed_model"
+               placeholder="Optional" value="">
+        <p class="form-hint">For semantic context enrichment</p>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:2rem; margin-bottom:1.5rem;">
+      <label class="form-check">
+        <input type="checkbox" name="skip_judge" value="1">
+        Skip LLM Judge
+      </label>
+      <label class="form-check">
+        <input type="checkbox" name="incremental" value="1">
+        Incremental (changed files only)
+      </label>
+    </div>
+
+    <div class="actions-bar">
+      <button type="submit" class="btn btn-accent">Start Scan</button>
+      <span id="scan-status" class="text-muted" style="font-size:0.85rem;"></span>
+    </div>
+  </form>
+</div>
+
+<script>
+document.getElementById('scan-form').addEventListener('submit', function() {
+  var btn = this.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = 'Scanning…';
+  document.getElementById('scan-status').textContent = 'This may take a minute…';
+});
+</script>
+{% endblock %}

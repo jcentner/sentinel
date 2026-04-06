@@ -1,14 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Sentinel — Run #{{ run.id }}{% endblock %}
 {% block content %}
-<h1 class="mb-1">Run #{{ run.id }}</h1>
-<p class="text-muted mb-2">
-  {{ run.repo_path }} &middot;
-  {{ run.started_at.strftime('%Y-%m-%d %H:%M') }} &middot;
-  {{ run.finding_count }} finding{{ 's' if run.finding_count != 1 else '' }} &middot;
-  {{ run.scope.value }}
-  {% if run.commit_sha %} &middot; <span class="text-mono">{{ run.commit_sha[:8] }}</span>{% endif %}
-</p>
+<a href="/runs" class="back-link">&larr; All Runs</a>
+
+<div class="page-header">
+  <h1>Run #{{ run.id }}</h1>
+  <p class="subtitle">
+    <span class="text-mono">{{ run.repo_path }}</span> &middot;
+    {{ run.started_at.strftime('%Y-%m-%d %H:%M') if run.started_at else '—' }} &middot;
+    {{ run.finding_count }} finding{{ 's' if run.finding_count != 1 else '' }}
+    &middot; <span class="badge badge-scope">{{ run.scope.value }}</span>
+    {% if run.commit_sha %} &middot; <span class="text-mono">{{ run.commit_sha[:8] }}</span>{% endif %}
+  </p>
+</div>
+
+{% set counts = {'critical': grouped['critical']|length, 'high': grouped['high']|length, 'medium': grouped['medium']|length, 'low': grouped['low']|length} %}
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Critical</div>
+    <div class="stat-value critical">{{ counts.critical }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">High</div>
+    <div class="stat-value high">{{ counts.high }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Medium</div>
+    <div class="stat-value amber">{{ counts.medium }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Low</div>
+    <div class="stat-value">{{ counts.low }}</div>
+  </div>
+</div>
 
 <div class="card mb-2">
   <form method="get" action="/runs/{{ run.id }}" class="filter-bar">
@@ -60,7 +84,7 @@
   {% for f in grouped[severity] %}
   <div class="finding-row">
     <span class="badge badge-{{ f.status.value }}">{{ f.status.value }}</span>
-    <a href="/findings/{{ f.id }}" class="finding-title">{{ f.title }}</a>
+    <span class="finding-title"><a href="/findings/{{ f.id }}">{{ f.title }}</a></span>
     <span class="finding-meta">{{ f.detector }}</span>
     {% if f.file_path %}
     <span class="finding-location">{{ f.file_path }}{% if f.line_start %}:{{ f.line_start }}{% endif %}</span>

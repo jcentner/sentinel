@@ -145,27 +145,54 @@ async def finding_action(request: Request) -> Response:
     return RedirectResponse(url=url, status_code=303)
 
 
-async def scan_trigger(request: Request) -> Response:
-    """Trigger a new scan via POST."""
+async def scan_page(request: Request) -> Response:
+    """Show scan form (GET) or trigger a scan (POST)."""
+    if request.method == "GET":
+        current_repo = getattr(request.app.state, "repo_path", "") or ""
+        return templates.TemplateResponse(request, "scan.html", {
+            "current_repo": current_repo,
+        })
+
+    # POST — trigger scan
     import anyio
 
     from sentinel.config import load_config
     from sentinel.core.runner import run_scan
 
     conn = _get_conn(request.app)
-    repo_path: str | None = getattr(request.app.state, "repo_path", None)
+
+    form = await request.form()
+    form_repo = str(form.get("repo_path", "")).strip()
+    user_provided = bool(form_repo)
+    repo_path: str = form_repo or str(getattr(request.app.state, "repo_path", None) or "")
     if not repo_path:
         return Response("No repo configured", status_code=500)
 
-    config = load_config(Path(repo_path))
+    repo = Path(repo_path)
+    # Only validate path existence for user-supplied paths
+    if user_provided and not repo.is_dir():
+        return Response(f"Repository path not found: {repo_path}", status_code=400)
+
+    config = load_config(repo)
+
+    # Apply form overrides
+    form_model = str(form.get("model", "")).strip()
+    if form_model:
+        config.model = form_model
+    form_embed = str(form.get("embed_model", "")).strip()
+    if form_embed:
+        config.embed_model = form_embed
+    if form.get("skip_judge"):
+        config.skip_judge = True
 
     def _do_scan() -> tuple[RunSummary, list[Finding], str]:
         return run_scan(
-            repo_path,
+            str(repo),
             conn,
             model=config.model,
             ollama_url=config.ollama_url,
             skip_judge=config.skip_judge,
+            embed_model=config.embed_model,
         )
 
     try:
@@ -183,6 +210,80 @@ async def scan_trigger(request: Request) -> Response:
     return RedirectResponse(url=f"/runs/{run_summary.id}", status_code=303)
 
 
+async def github_page(request: Request) -> Response:
+    """GitHub issues dashboard — view approved findings and create issues."""
+    from sentinel.github import get_approved_findings, get_github_config
+
+    conn = _get_conn(request.app)
+    approved = get_approved_findings(conn)
+
+    gh = get_github_config()
+    gh_configured = gh is not None
+
+    return templates.TemplateResponse(request, "github.html", {
+        "approved": approved,
+        "gh_configured": gh_configured,
+        "gh_owner": gh.owner if gh else "",
+        "gh_repo": gh.repo if gh else "",
+    })
+
+
+async def github_create_issues(request: Request) -> Response:
+    """Create GitHub issues from approved findings."""
+    import anyio
+
+    from sentinel.github import IssueResult, create_issues, get_github_config
+
+    conn = _get_conn(request.app)
+    form = await request.form()
+    dry_run = str(form.get("dry_run", "false")).lower() == "true"
+
+    gh = get_github_config()
+    if gh is None and not dry_run:
+        return Response(
+            '<div class="toast toast-error">GitHub not configured. '
+            "Set SENTINEL_GITHUB_OWNER, SENTINEL_GITHUB_REPO, and SENTINEL_GITHUB_TOKEN env vars.</div>",
+            media_type="text/html",
+        )
+
+    if dry_run and gh is None:
+        # Dry run without GitHub config — show what would be created
+        from sentinel.github import get_approved_findings
+
+        approved = get_approved_findings(conn)
+        from sentinel.github import IssueResult
+
+        results = [
+            IssueResult(
+                finding_id=db_id,
+                fingerprint=f.fingerprint,
+                success=True,
+                error="dry run",
+            )
+            for db_id, f in approved
+        ]
+        return templates.TemplateResponse(request, "github_results.html", {
+            "results": results,
+            "dry_run": True,
+        })
+
+    assert gh is not None
+
+    def _do_create() -> list[IssueResult]:
+        return create_issues(conn, gh, dry_run=dry_run)
+
+    try:
+        results = await anyio.to_thread.run_sync(_do_create)
+    except Exception:
+        logger.exception("Issue creation failed")
+        return Response("Issue creation failed — check server logs", status_code=500)
+
+    return templates.TemplateResponse(request, "github_results.html", {
+        "results": results,
+        "dry_run": dry_run,
+    })
+
+
 # ── App factory ──────────────────────────────────────────────────────
 
 
@@ -196,7 +297,9 @@ def create_app(
         Route("/runs/{run_id:int}", endpoint=run_detail),
         Route("/findings/{finding_id:int}", endpoint=finding_detail),
         Route("/findings/{finding_id:int}/action", endpoint=finding_action, methods=["POST"]),
-        Route("/scan", endpoint=scan_trigger, methods=["POST"]),
+        Route("/scan", endpoint=scan_page, methods=["GET", "POST"]),
+        Route("/github", endpoint=github_page),
+        Route("/github/create-issues", endpoint=github_create_issues, methods=["POST"]),
         Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),
     ]
 

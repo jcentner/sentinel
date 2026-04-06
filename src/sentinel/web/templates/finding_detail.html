@@ -1,9 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Sentinel — Finding #{{ finding.id }}{% endblock %}
 {% block content %}
-<p class="mb-1"><a href="javascript:history.back()">&larr; Back</a></p>
+<a href="javascript:history.back()" class="back-link">&larr; Back</a>
 
-<h1 class="mb-1">{{ finding.title }}</h1>
+<div class="page-header">
+  <h1>{{ finding.title }}</h1>
+  <p class="subtitle">
+    Finding #{{ finding.id }} &middot;
+    <span class="badge badge-{{ finding.severity.value }}">{{ finding.severity.value }}</span>
+    <span id="status-badge" style="display:inline;">
+      <span class="badge badge-{{ finding.status.value }}">{{ finding.status.value }}</span>
+    </span>
+  </p>
+</div>
 
 <div class="card mb-2">
   <dl>
@@ -13,16 +22,8 @@
     <dt>Category</dt>
     <dd>{{ finding.category }}</dd>
 
-    <dt>Severity</dt>
-    <dd><span class="badge badge-{{ finding.severity.value }}">{{ finding.severity.value }}</span></dd>
-
     <dt>Confidence</dt>
     <dd>{{ '%.0f' | format(finding.confidence * 100) }}%</dd>
-
-    <dt>Status</dt>
-    <dd id="status-badge">
-      <span class="badge badge-{{ finding.status.value }}">{{ finding.status.value }}</span>
-    </dd>
 
     <dt>Fingerprint</dt>
     <dd class="text-mono">{{ finding.fingerprint }}</dd>
@@ -30,6 +31,11 @@
     {% if finding.file_path %}
     <dt>Location</dt>
     <dd class="text-mono">{{ finding.file_path }}{% if finding.line_start %}:{{ finding.line_start }}{% if finding.line_end and finding.line_end != finding.line_start %}-{{ finding.line_end }}{% endif %}{% endif %}</dd>
+    {% endif %}
+
+    {% if finding.context and finding.context.occurrence_count and finding.context.occurrence_count > 1 %}
+    <dt>Recurrence</dt>
+    <dd>Seen {{ finding.context.occurrence_count }} times (first: {{ finding.context.first_seen | default('?') }})</dd>
     {% endif %}
   </dl>
 </div>
@@ -43,7 +49,7 @@
 <div class="card mb-2">
   <h3 class="card-title mb-1">Evidence</h3>
   {% for ev in finding.evidence %}
-  <div class="mb-1">
+  <div class="evidence-header">
     <span class="badge badge-new">{{ ev.type.value }}</span>
     {% if ev.source %}<span class="text-muted text-mono">{{ ev.source }}</span>{% endif %}
     {% if ev.line_range %}<span class="text-muted text-mono">L{{ ev.line_range[0] }}-{{ ev.line_range[1] }}</span>{% endif %}
@@ -53,21 +59,31 @@
 </div>
 {% endif %}
 
-{% if finding.status.value not in ('suppressed', 'approved') %}
-<div class="card">
+<div class="card" id="actions-card">
   <h3 class="card-title mb-1">Actions</h3>
-  <div class="btn-group">
+  {% if finding.status.value not in ('suppressed', 'approved', 'resolved') %}
+  <div class="actions-bar">
     <form method="post" action="/findings/{{ finding.id }}/action"
           hx-post="/findings/{{ finding.id }}/action" hx-target="#status-badge" hx-swap="innerHTML">
       <input type="hidden" name="action" value="approve">
-      <button type="submit" class="btn btn-primary btn-sm">Approve for Issue</button>
+      <button type="submit" class="btn btn-success btn-sm">Approve for Issue</button>
     </form>
     <form method="post" action="/findings/{{ finding.id }}/action"
-          hx-post="/findings/{{ finding.id }}/action" hx-target="#status-badge" hx-swap="innerHTML">
+          hx-post="/findings/{{ finding.id }}/action" hx-target="#status-badge" hx-swap="innerHTML"
+          style="display:flex;align-items:end;gap:0.5rem;">
       <input type="hidden" name="action" value="suppress">
+      <div>
+        <input class="form-input" type="text" name="reason" placeholder="Reason (optional)" style="width:220px;font-size:0.82rem;padding:0.3rem 0.6rem;">
+      </div>
       <button type="submit" class="btn btn-sm">Suppress</button>
     </form>
   </div>
+  {% elif finding.status.value == 'approved' %}
+  <p class="text-muted" style="font-size:0.88rem;">This finding is approved for GitHub issue creation. Go to <a href="/github">Issues</a> to create it.</p>
+  {% elif finding.status.value == 'suppressed' %}
+  <p class="text-muted" style="font-size:0.88rem;">This finding has been suppressed.</p>
+  {% elif finding.status.value == 'resolved' %}
+  <p class="text-muted" style="font-size:0.88rem;">This finding has been resolved — a GitHub issue was created.</p>
+  {% endif %}
 </div>
-{% endif %}
 {% endblock %}
