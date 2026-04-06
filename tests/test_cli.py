@@ -678,3 +678,55 @@ class TestInitCommand:
         assert result.exit_code == 0
         content = (tmp_path / "sentinel.toml").read_text()
         assert 'model = "qwen3.5:4b"' in content
+
+
+# ── scan-all command ─────────────────────────────────────────────────
+
+
+class TestScanAllCommand:
+    def test_scan_all_multiple_repos(self, runner, test_repo, tmp_path):
+        """Scan two repos into a shared DB."""
+        # Create a second test repo
+        repo2 = tmp_path / "repo2"
+        repo2.mkdir()
+        subprocess.run(["git", "init"], cwd=str(repo2), capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=str(repo2), capture_output=True, check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=str(repo2), capture_output=True, check=True,
+        )
+        (repo2 / "app.py").write_text("# TODO: implement\n")
+        subprocess.run(["git", "add", "-A"], cwd=str(repo2), capture_output=True, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"],
+            cwd=str(repo2), capture_output=True, check=True,
+        )
+
+        db_path = str(tmp_path / "shared.db")
+        result = runner.invoke(main, [
+            "scan-all", str(test_repo), str(repo2),
+            "--db", db_path, "--skip-judge",
+        ])
+        assert result.exit_code == 0
+        assert "Scanned 2/2 repos" in result.output
+        assert "total findings" in result.output
+
+    def test_scan_all_json_output(self, runner, test_repo, tmp_path):
+        db_path = str(tmp_path / "shared.db")
+        result = runner.invoke(main, [
+            "scan-all", str(test_repo),
+            "--db", db_path, "--skip-judge", "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "results" in data
+        assert len(data["results"]) == 1
+        assert data["results"][0]["status"] == "ok"
+        assert data["results"][0]["findings"] >= 0
+
+    def test_scan_all_requires_db(self, runner, test_repo):
+        result = runner.invoke(main, ["scan-all", str(test_repo)])
+        assert result.exit_code != 0

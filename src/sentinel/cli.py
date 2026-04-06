@@ -709,6 +709,79 @@ def serve(
         conn.close()
 
 
+@main.command("scan-all")
+@click.argument("repo_paths", nargs=-1, required=True, type=click.Path(exists=True, file_okay=False))
+@click.option("--db", required=True, help="Shared database path for all repos")
+@click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def scan_all(
+    repo_paths: tuple[str, ...],
+    db: str,
+    skip_judge: bool,
+    output_json: bool,
+) -> None:
+    """Scan multiple repositories into a shared database.
+
+    Each repo is scanned independently. All results go into the same
+    database, accessible via 'sentinel serve' or 'sentinel history'.
+
+    \b
+    Example:
+        sentinel scan-all ~/project-a ~/project-b --db ~/.sentinel/all.db
+    """
+    from sentinel.config import load_config
+    from sentinel.core.runner import run_scan
+    from sentinel.store.db import get_connection
+
+    conn = get_connection(db)
+    results: list[dict[str, Any]] = []
+
+    try:
+        for repo_path in repo_paths:
+            repo = Path(repo_path).resolve()
+            config = load_config(repo)
+            if skip_judge:
+                config.skip_judge = True
+
+            try:
+                run, findings, _report = run_scan(
+                    str(repo), conn,
+                    model=config.model,
+                    ollama_url=config.ollama_url,
+                    skip_judge=config.skip_judge,
+                    embed_model=config.embed_model,
+                    embed_chunk_size=config.embed_chunk_size,
+                    embed_chunk_overlap=config.embed_chunk_overlap,
+                    detectors_dir=config.detectors_dir,
+                )
+                results.append({
+                    "repo": str(repo),
+                    "run_id": run.id,
+                    "findings": len(findings),
+                    "status": "ok",
+                })
+                if not output_json:
+                    click.echo(f"  {repo}: {len(findings)} findings (run #{run.id})")
+            except Exception as e:
+                results.append({
+                    "repo": str(repo),
+                    "error": str(e),
+                    "status": "error",
+                })
+                if not output_json:
+                    click.echo(f"  {repo}: ERROR — {e}", err=True)
+
+        if output_json:
+            click.echo(json.dumps({"results": results}, indent=2))
+        else:
+            total = sum(r.get("findings", 0) for r in results)
+            ok = sum(1 for r in results if r["status"] == "ok")
+            click.echo(f"\nScanned {ok}/{len(repo_paths)} repos, {total} total findings")
+            click.echo(f"Database: {db}")
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     main()
 
