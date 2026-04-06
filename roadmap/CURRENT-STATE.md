@@ -1,11 +1,11 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 14 — JSON CLI output, eslint-runner detector)
+> Last updated: 2026-04-06 (Session 14 — JSON CLI, eslint-runner, web clustering, eval metrics)
 
 ## Session 14 Summary
 
 ### Current Objective
-CLI as AI-agent interface (JSON output) and multi-language detector support (JS/TS).
+CLI as AI-agent interface, multi-language detector support, web UI clustering, persistent eval metrics.
 
 ### What Was Accomplished
 
@@ -28,67 +28,91 @@ CLI as AI-agent interface (JSON output) and multi-language detector support (JS/
 14. Maps ESLint severity levels and Biome diagnostic categories to Sentinel severities
 15. Security-sensitive rules (`no-eval`, `suspicious/*`) elevated to HIGH
 16. 19 new tests (properties, parsing, detection, fallback, timeout, scope filtering)
-17. Registered in `runner.py` alongside existing detectors
 
-**Doc updates:**
-18. README updated: 7 detectors, JSON output section, `--json-output` in options table
-19. Architecture overview: updated detector list and tier descriptions
-20. VISION-LOCK v2.1: new success criterion #9 (CLI agent interface), 7 detectors, 481 tests
+**Slice 3 — Web UI directory clustering:**
+17. Run detail page now groups 3+ findings in the same directory into collapsible `<details>` elements
+18. Reuses existing `cluster_findings()` from markdown report clustering
+19. Folder icon + directory path label on cluster summaries
+20. Checkboxes preserved inside clusters for bulk actions
+21. New CSS for .finding-cluster, .cluster-summary, .cluster-body
+
+**Slice 4 — Persistent eval metrics:**
+22. DB migration v6: `eval_results` table for storing evaluation metrics over time
+23. `sentinel eval` now persists results to the repo's configured DB (not `:memory:`)
+24. New `sentinel eval-history` CLI command to view past eval results
+25. `eval_store.py`: `save_eval_result()`, `get_eval_history()`, `StoredEvalResult.to_dict()`
+26. New `/eval/history` web page with eval trend table
+27. Eval page POST now saves results to DB
+28. Link from eval page to eval history
 
 ### Decisions Made This Session
 1. `--json-output` flag name (not `--format json`) — explicit, boolean, no ambiguity
 2. Biome preferred over ESLint — faster, zero-config, auto-fallback to ESLint
 3. eslint-runner uses detector name "eslint-runner" regardless of which tool runs — consistent fingerprints
 4. Biome byte offsets not converted to line numbers — imprecise mapping, null is better than wrong
+5. Web clustering reuses `cluster_findings()` from report module — single implementation
+6. Eval results persisted to repo's configured DB (not :memory:) — enables tracking over time
+7. `eval-history` as separate CLI command (not merged into `eval`) — cleaner separation
 
 ### Test Results
 ```
-481 passed in 33.94s
+488 passed in 34.23s
 ruff check: All checks passed
-mypy strict: All checks passed (33 source files)
+mypy strict: All checks passed (34 source files)
 eval: 100% precision, 100% recall (15 TPs, 0 FPs)
 ```
 
 ### Files Changed
-- `src/sentinel/cli.py` — `--json-output` flag on 5 commands, JSON output paths
+- `src/sentinel/cli.py` — `--json-output` flag on 5 commands, `eval-history` command
 - `src/sentinel/models.py` — `RunSummary.to_dict()` method
 - `src/sentinel/core/eval.py` — `EvalResult.to_dict()` method
 - `src/sentinel/core/runner.py` — eslint-runner import
 - `src/sentinel/detectors/eslint_runner.py` — new detector (ESLint/Biome wrapper)
+- `src/sentinel/store/db.py` — migration v6 (eval_results table)
+- `src/sentinel/store/eval_store.py` — new module (eval result persistence)
+- `src/sentinel/web/app.py` — clustering, eval persistence, eval-history route
+- `src/sentinel/web/templates/run_detail.html` — cluster rendering
+- `src/sentinel/web/templates/eval_history.html` — new template
+- `src/sentinel/web/templates/eval.html` — history link
+- `src/sentinel/web/templates/base.html` — nav link fix
+- `src/sentinel/web/static/style.css` — cluster styles
 - `tests/test_cli.py` — 7 new JSON output tests
 - `tests/detectors/test_eslint_runner.py` — 19 new detector tests
+- `tests/test_web.py` — 3 new tests (clustering, eval history)
+- `tests/test_store.py` — 4 new eval store tests
+- `tests/test_embeddings.py` — schema version test fix
 - `README.md` — updated detector count, JSON output docs
 - `docs/architecture/overview.md` — updated detector list/tiers
 - `docs/vision/VISION-LOCK.md` — v2.1 with new features
 
 ### Repository State
-- **Implementation**: 26+ Python modules in `src/sentinel/`
-- **Tests**: 25+ test files, 481 tests (27 CLI tests, 19 eslint-runner tests)
-- **Web UI**: Dark/light mode, 11 routes, bulk triage, settings, eval
-- **CLI**: 10 commands, `--json-output` on 5 key commands
-- **Web pages**: /, /runs, /runs/{id}, /findings/{id}, /scan, /github, /settings, /eval + actions
+- **Implementation**: 27+ Python modules in `src/sentinel/`
+- **Tests**: 25+ test files, 488 tests (61 web tests, 27 CLI tests, 19 eslint-runner tests)
+- **Web UI**: Dark/light mode, 12 routes, bulk triage, settings, eval + eval history, clustering
+- **CLI**: 11 commands, `--json-output` on 6 key commands
+- **Web pages**: /, /runs, /runs/{id}, /findings/{id}, /scan, /github, /settings, /eval, /eval/history + actions
 - **Detectors**: 7 (todo-scanner, lint-runner, eslint-runner, dep-audit, docs-drift, git-hotspots, complexity)
-- **DB schema**: v5
+- **DB schema**: v6
 - **Open questions**: 2 open (OQ-005, OQ-006), 5 resolved
 - **ADRs**: 9 accepted
 - **Tech debt**: 2 active (TD-002 async, TD-009 scheduling), 7 resolved
 - **Lint**: Clean (ruff)
-- **Type check**: Clean (mypy strict, 33 files)
+- **Type check**: Clean (mypy strict, 34 files)
 - **Vision**: v2.1
 
 ### What Remains / Next Priority
-1. Root-cause finding grouping in web UI
-2. Eval metrics dashboard (persistent tracking over time)
-3. Go linter integration (golangci-lint)
-4. JSON output for `suppress`/`approve` commands
-5. TD-002: Async detector interface (low priority)
-6. Multi-repo support (OQ-005)
+1. Go linter integration (golangci-lint)
+2. JSON output for `suppress`/`approve` commands
+3. Eval metrics chart visualization (sparklines or SVG in web UI)
+4. TD-002: Async detector interface (low priority)
+5. Multi-repo support (OQ-005)
+6. Packaging & distribution (PyPI)
 
 ### Blocked Items
 None.
 
 ### Vision Completion Status
-All 9 success criteria met. Multi-language support started with JS/TS.
+All 9 success criteria met. Multi-language support started with JS/TS. Eval metrics dashboard shipped.
 
 ---
 

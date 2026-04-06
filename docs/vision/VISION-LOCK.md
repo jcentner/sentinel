@@ -88,7 +88,7 @@ All key commands support `--json-output` for machine-readable structured output,
 - Environment variable config (no secrets in config files)
 
 ### Quality
-- 481 tests, ruff clean, mypy strict clean
+- 488 tests, ruff clean, mypy strict clean
 - 100% precision + 100% recall on ground-truth eval (15 TPs, 0 FPs)
 - Eval framework with ground-truth TOML, `sentinel eval` CLI + web UI
 
