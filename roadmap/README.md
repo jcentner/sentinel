@@ -63,7 +63,7 @@ Phase planning docs live in `roadmap/phases/` and are created via the `/phase-pl
 
 ## Future (unscheduled)
 - Multi-repo support
-- Web UI for report review and approval
+- ~~Web UI for report review and approval~~ ✅ (Session 11–13: full triage UI with bulk actions)
 - Watch mode (continuous development)
 - Custom detector plugin system
 - Team mode / shared findings

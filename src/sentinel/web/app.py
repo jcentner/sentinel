@@ -145,6 +145,52 @@ async def finding_action(request: Request) -> Response:
     return RedirectResponse(url=url, status_code=303)
 
 
+async def bulk_action(request: Request) -> Response:
+    """Handle bulk approve/suppress for multiple findings."""
+    conn = _get_conn(request.app)
+    run_id = int(request.path_params["run_id"])
+
+    form = await request.form()
+    action = str(form.get("action", ""))
+    finding_ids_raw = form.getlist("finding_ids")
+
+    if action not in ("approve", "suppress"):
+        return Response("Unknown action", status_code=400)
+    if not finding_ids_raw:
+        return Response("No findings selected", status_code=400)
+
+    # Parse and validate finding IDs
+    finding_ids: list[int] = []
+    for raw_id in finding_ids_raw:
+        try:
+            finding_ids.append(int(str(raw_id)))
+        except (ValueError, TypeError):
+            return Response(f"Invalid finding ID: {raw_id}", status_code=400)
+
+    count = 0
+    for fid in finding_ids:
+        finding = get_finding_by_id(conn, fid)
+        if finding is None:
+            continue
+        if action == "approve":
+            update_finding_status(conn, fid, FindingStatus.APPROVED)
+            count += 1
+        elif action == "suppress":
+            if finding.fingerprint:
+                reason = str(form.get("reason", "")) or None
+                suppress_finding(conn, finding.fingerprint, reason=reason)
+                count += 1
+
+    if request.headers.get("hx-request"):
+        past = "approved" if action == "approve" else "suppressed"
+        return Response(
+            f'<div class="toast toast-success">{count} finding{"s" if count != 1 else ""} {past}</div>',
+            headers={"HX-Trigger": "bulkActionComplete"},
+            media_type="text/html",
+        )
+    return RedirectResponse(url=f"/runs/{run_id}", status_code=303)
+
+
 async def scan_page(request: Request) -> Response:
     """Show scan form (GET) or trigger a scan (POST)."""
     if request.method == "GET":
@@ -297,6 +343,7 @@ def create_app(
         Route("/runs/{run_id:int}", endpoint=run_detail),
         Route("/findings/{finding_id:int}", endpoint=finding_detail),
         Route("/findings/{finding_id:int}/action", endpoint=finding_action, methods=["POST"]),
+        Route("/runs/{run_id:int}/bulk-action", endpoint=bulk_action, methods=["POST"]),
         Route("/scan", endpoint=scan_page, methods=["GET", "POST"]),
         Route("/github", endpoint=github_page),
         Route("/github/create-issues", endpoint=github_create_issues, methods=["POST"]),

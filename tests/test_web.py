@@ -245,6 +245,124 @@ class TestFindingActions:
         assert finding.status == FindingStatus.APPROVED
 
 
+class TestBulkActions:
+    def test_bulk_approve(self, seeded_app: tuple[TestClient, int, int]) -> None:
+        client, run_id, finding_id = seeded_app
+        # Get findings to know both IDs
+        resp = client.get(f"/runs/{run_id}")
+        # Use both finding IDs (seeded_db creates 2)
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "approve", "finding_ids": [str(finding_id), str(finding_id + 1)]},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+
+    def test_bulk_approve_htmx(self, seeded_app: tuple[TestClient, int, int]) -> None:
+        client, run_id, finding_id = seeded_app
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "approve", "finding_ids": [str(finding_id)]},
+            headers={"hx-request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "1 finding approved" in resp.text
+
+    def test_bulk_suppress(self, seeded_app: tuple[TestClient, int, int]) -> None:
+        client, run_id, finding_id = seeded_app
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "suppress", "finding_ids": [str(finding_id)]},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+
+    def test_bulk_suppress_with_reason(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, run_id, finding_id = seeded_app
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={
+                "action": "suppress",
+                "finding_ids": [str(finding_id)],
+                "reason": "false positive",
+            },
+            headers={"hx-request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "suppressed" in resp.text
+
+    def test_bulk_no_findings_selected(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, run_id, _ = seeded_app
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "approve"},
+        )
+        assert resp.status_code == 400
+        assert "No findings selected" in resp.text
+
+    def test_bulk_unknown_action(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, run_id, finding_id = seeded_app
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "bogus", "finding_ids": [str(finding_id)]},
+        )
+        assert resp.status_code == 400
+
+    def test_bulk_invalid_finding_id(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, run_id, _ = seeded_app
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "approve", "finding_ids": ["not-a-number"]},
+        )
+        assert resp.status_code == 400
+        assert "Invalid finding ID" in resp.text
+
+    def test_bulk_updates_db(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, run_id, finding_id = seeded_db
+        application = create_app(conn)
+        client = TestClient(application)
+        client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "approve", "finding_ids": [str(finding_id), str(finding_id + 1)]},
+            follow_redirects=False,
+        )
+        f1 = get_finding_by_id(conn, finding_id)
+        f2 = get_finding_by_id(conn, finding_id + 1)
+        assert f1 is not None and f1.status == FindingStatus.APPROVED
+        assert f2 is not None and f2.status == FindingStatus.APPROVED
+
+    def test_bulk_skips_nonexistent_findings(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, run_id, finding_id = seeded_app
+        resp = client.post(
+            f"/runs/{run_id}/bulk-action",
+            data={"action": "approve", "finding_ids": [str(finding_id), "9999"]},
+            headers={"hx-request": "true"},
+        )
+        assert resp.status_code == 200
+        assert "1 finding approved" in resp.text
+
+    def test_run_detail_has_checkboxes(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        client, run_id, _ = seeded_app
+        resp = client.get(f"/runs/{run_id}")
+        assert resp.status_code == 200
+        assert 'class="bulk-checkbox' in resp.text
+        assert 'id="bulk-bar"' in resp.text
+
+
 class TestStaticFiles:
     def test_css_served(self, app: TestClient) -> None:
         resp = app.get("/static/style.css")
