@@ -139,12 +139,14 @@ CREATE TABLE IF NOT EXISTS embed_meta (
 ]
 
 
-def get_connection(db_path: str | Path) -> sqlite3.Connection:
+def get_connection(
+    db_path: str | Path, *, check_same_thread: bool = True
+) -> sqlite3.Connection:
     """Open (or create) a SQLite database and ensure schema is current."""
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")

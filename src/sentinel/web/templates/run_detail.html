@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Run #{{ run.id }}{% endblock %}
+{% block content %}
+<h1 class="mb-1">Run #{{ run.id }}</h1>
+<p class="text-muted mb-2">
+  {{ run.repo_path }} &middot;
+  {{ run.started_at.strftime('%Y-%m-%d %H:%M') }} &middot;
+  {{ run.finding_count }} finding{{ 's' if run.finding_count != 1 else '' }} &middot;
+  {{ run.scope.value }}
+  {% if run.commit_sha %} &middot; <span class="text-mono">{{ run.commit_sha[:8] }}</span>{% endif %}
+</p>
+
+{% if not findings %}
+<div class="empty-state">
+  <h2>No findings</h2>
+  <p>This run produced no findings. The codebase looks clean!</p>
+</div>
+{% else %}
+
+{% for severity in ['critical', 'high', 'medium', 'low'] %}
+{% if grouped[severity] %}
+<div class="severity-group">
+  <h2>
+    <span class="badge badge-{{ severity }}">{{ severity }}</span>
+    {{ grouped[severity]|length }} finding{{ 's' if grouped[severity]|length != 1 else '' }}
+  </h2>
+  {% for f in grouped[severity] %}
+  <div class="finding-row">
+    <span class="badge badge-{{ f.status.value }}">{{ f.status.value }}</span>
+    <a href="/findings/{{ f.id }}" class="finding-title">{{ f.title }}</a>
+    <span class="finding-meta">{{ f.detector }}</span>
+    {% if f.file_path %}
+    <span class="finding-location">{{ f.file_path }}{% if f.line_start %}:{{ f.line_start }}{% endif %}</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% endif %}
+{% endblock %}

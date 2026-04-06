@@ -469,5 +469,48 @@ def eval(
         raise SystemExit(1)
 
 
+@main.command()
+@click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
+@click.option("--host", default="127.0.0.1", help="Bind address (default: localhost only)")
+@click.option("--port", default=8888, type=int, help="Port number")
+@click.option("--db", default=None, help="Database path")
+def serve(
+    repo_path: str,
+    host: str,
+    port: int,
+    db: str | None,
+) -> None:
+    """Start the local web UI for reviewing scan results.
+
+    Launches a browser-based interface on localhost for browsing
+    runs, reviewing findings, and approving/suppressing issues.
+    Requires the [web] optional dependency group.
+    """
+    try:
+        import uvicorn
+    except ImportError:
+        click.echo(
+            "Web UI dependencies not installed. Run: pip install sentinel[web]",
+            err=True,
+        )
+        raise SystemExit(1) from None
+
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.web.app import create_app
+
+    repo = Path(repo_path).resolve()
+    config = load_config(repo)
+    db_path = db or str(repo / config.db_path)
+    conn = get_connection(db_path, check_same_thread=False)
+
+    app = create_app(conn)
+    click.echo(f"Sentinel web UI: http://{host}:{port}")
+    try:
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     main()

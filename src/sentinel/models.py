@@ -98,6 +98,7 @@ class Finding:
     context: dict[str, Any] | None = None
     fingerprint: str = ""
     status: FindingStatus = FindingStatus.NEW
+    id: int | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:

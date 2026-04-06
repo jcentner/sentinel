@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Finding #{{ finding.id }}{% endblock %}
+{% block content %}
+<p class="mb-1"><a href="javascript:history.back()">&larr; Back</a></p>
+
+<h1 class="mb-1">{{ finding.title }}</h1>
+
+<div class="card mb-2">
+  <dl>
+    <dt>Detector</dt>
+    <dd>{{ finding.detector }}</dd>
+
+    <dt>Category</dt>
+    <dd>{{ finding.category }}</dd>
+
+    <dt>Severity</dt>
+    <dd><span class="badge badge-{{ finding.severity.value }}">{{ finding.severity.value }}</span></dd>
+
+    <dt>Confidence</dt>
+    <dd>{{ '%.0f' | format(finding.confidence * 100) }}%</dd>
+
+    <dt>Status</dt>
+    <dd id="status-badge">
+      <span class="badge badge-{{ finding.status.value }}">{{ finding.status.value }}</span>
+    </dd>
+
+    <dt>Fingerprint</dt>
+    <dd class="text-mono">{{ finding.fingerprint }}</dd>
+
+    {% if finding.file_path %}
+    <dt>Location</dt>
+    <dd class="text-mono">{{ finding.file_path }}{% if finding.line_start %}:{{ finding.line_start }}{% if finding.line_end and finding.line_end != finding.line_start %}-{{ finding.line_end }}{% endif %}{% endif %}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+<div class="card mb-2">
+  <h3 class="card-title mb-1">Description</h3>
+  <p>{{ finding.description }}</p>
+</div>
+
+{% if finding.evidence %}
+<div class="card mb-2">
+  <h3 class="card-title mb-1">Evidence</h3>
+  {% for ev in finding.evidence %}
+  <div class="mb-1">
+    <span class="badge badge-new">{{ ev.type.value }}</span>
+    {% if ev.source %}<span class="text-muted text-mono">{{ ev.source }}</span>{% endif %}
+    {% if ev.line_range %}<span class="text-muted text-mono">L{{ ev.line_range[0] }}-{{ ev.line_range[1] }}</span>{% endif %}
+  </div>
+  <div class="evidence-block">{{ ev.content }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if finding.status.value not in ('suppressed', 'approved') %}
+<div class="card">
+  <h3 class="card-title mb-1">Actions</h3>
+  <div class="btn-group">
+    <form method="post" action="/findings/{{ finding.id }}/action"
+          hx-post="/findings/{{ finding.id }}/action" hx-target="#status-badge" hx-swap="innerHTML">
+      <input type="hidden" name="action" value="approve">
+      <button type="submit" class="btn btn-primary btn-sm">Approve for Issue</button>
+    </form>
+    <form method="post" action="/findings/{{ finding.id }}/action"
+          hx-post="/findings/{{ finding.id }}/action" hx-target="#status-badge" hx-swap="innerHTML">
+      <input type="hidden" name="action" value="suppress">
+      <button type="submit" class="btn btn-sm">Suppress</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
