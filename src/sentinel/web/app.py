@@ -13,7 +13,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-from sentinel.models import Finding, FindingStatus
+from sentinel.models import Finding, FindingStatus, RunSummary
 from sentinel.store.findings import (
     get_finding_by_id,
     get_findings_by_run,
@@ -124,6 +124,8 @@ async def finding_action(request: Request) -> Response:
     if action == "approve":
         update_finding_status(conn, finding_id, FindingStatus.APPROVED)
     elif action == "suppress":
+        if not finding.fingerprint:
+            return Response("Finding has no fingerprint", status_code=400)
         reason = str(form.get("reason", "")) or None
         suppress_finding(conn, finding.fingerprint, reason=reason)
     else:
@@ -137,13 +139,17 @@ async def finding_action(request: Request) -> Response:
             media_type="text/html",
         )
 
-    # Regular form POST — redirect back
+    # Regular form POST — redirect back (validate referer is a relative path)
     referer = request.headers.get("referer", "/")
-    return RedirectResponse(url=referer, status_code=303)
+    url = referer if referer.startswith("/") else "/"
+    return RedirectResponse(url=url, status_code=303)
 
 
 async def scan_trigger(request: Request) -> Response:
     """Trigger a new scan via POST."""
+    import anyio
+
+    from sentinel.config import load_config
     from sentinel.core.runner import run_scan
 
     conn = _get_conn(request.app)
@@ -151,8 +157,19 @@ async def scan_trigger(request: Request) -> Response:
     if not repo_path:
         return Response("No repo configured", status_code=500)
 
+    config = load_config(Path(repo_path))
+
+    def _do_scan() -> tuple[RunSummary, list[Finding], str]:
+        return run_scan(
+            repo_path,
+            conn,
+            model=config.model,
+            ollama_url=config.ollama_url,
+            skip_judge=config.skip_judge,
+        )
+
     try:
-        run_summary, _findings, _report_path = run_scan(repo_path, conn)
+        run_summary, _findings, _report_path = await anyio.to_thread.run_sync(_do_scan)
     except Exception:
         logger.exception("Scan failed")
         return Response("Scan failed — check server logs", status_code=500)

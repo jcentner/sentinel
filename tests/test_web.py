@@ -257,3 +257,122 @@ class TestScanTrigger:
         resp = app.post("/scan", follow_redirects=False)
         assert resp.status_code == 500
         assert "No repo configured" in resp.text
+
+    def test_scan_success(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        from sentinel.models import RunSummary
+
+        conn, _run_id, _ = seeded_db
+        application = create_app(conn, repo_path="/tmp/test-repo")
+        client = TestClient(application)
+
+        mock_run = RunSummary(id=42, repo_path="/tmp/test-repo")
+        monkeypatch.setattr(
+            "sentinel.core.runner.run_scan",
+            MagicMock(return_value=(mock_run, [], "/dev/null")),
+        )
+        mock_config = MagicMock()
+        mock_config.model = "test"
+        mock_config.ollama_url = "http://localhost:11434"
+        mock_config.skip_judge = True
+        monkeypatch.setattr("sentinel.config.load_config", MagicMock(return_value=mock_config))
+
+        resp = client.post("/scan", follow_redirects=False)
+        assert resp.status_code == 303
+        assert "/runs/42" in resp.headers["location"]
+
+    def test_scan_htmx(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        from sentinel.models import RunSummary
+
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path="/tmp/test-repo")
+        client = TestClient(application)
+
+        mock_run = RunSummary(id=7, repo_path="/tmp/test-repo")
+        monkeypatch.setattr(
+            "sentinel.core.runner.run_scan",
+            MagicMock(return_value=(mock_run, [], "/dev/null")),
+        )
+        mock_config = MagicMock()
+        mock_config.model = "test"
+        mock_config.ollama_url = "http://localhost:11434"
+        mock_config.skip_judge = True
+        monkeypatch.setattr("sentinel.config.load_config", MagicMock(return_value=mock_config))
+
+        resp = client.post("/scan", headers={"hx-request": "true"})
+        assert resp.status_code == 200
+        assert "/runs/7" in resp.text
+        assert "Scan complete" in resp.text
+
+    def test_scan_failure(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path="/tmp/test-repo")
+        client = TestClient(application)
+
+        monkeypatch.setattr(
+            "sentinel.core.runner.run_scan",
+            MagicMock(side_effect=RuntimeError("Ollama not available")),
+        )
+        mock_config = MagicMock()
+        mock_config.model = "test"
+        mock_config.ollama_url = "http://localhost:11434"
+        mock_config.skip_judge = True
+        monkeypatch.setattr("sentinel.config.load_config", MagicMock(return_value=mock_config))
+
+        resp = client.post("/scan", follow_redirects=False)
+        assert resp.status_code == 500
+        assert "Scan failed" in resp.text
+
+
+class TestSecurityGuards:
+    def test_open_redirect_blocked(
+        self, seeded_app: tuple[TestClient, int, int]
+    ) -> None:
+        """External referer should redirect to / not to the external URL."""
+        client, _, finding_id = seeded_app
+        resp = client.post(
+            f"/findings/{finding_id}/action",
+            data={"action": "approve"},
+            headers={"referer": "https://evil.example.com/steal"},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/"
+
+    def test_empty_fingerprint_suppress_blocked(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Suppress should fail if finding has empty fingerprint."""
+        run = create_run(db_conn, "/tmp/test")
+        f = Finding(
+            detector="test",
+            category="test",
+            severity=Severity.LOW,
+            confidence=0.5,
+            title="No fingerprint",
+            description="Test",
+            evidence=[Evidence(type=EvidenceType.CODE, content="x", source="test")],
+            fingerprint="",
+        )
+        fid = insert_finding(db_conn, run.id, f)
+        complete_run(db_conn, run.id, 1)
+
+        application = create_app(db_conn)
+        client = TestClient(application)
+        resp = client.post(
+            f"/findings/{fid}/action",
+            data={"action": "suppress"},
+        )
+        assert resp.status_code == 400
+        assert "no fingerprint" in resp.text.lower()

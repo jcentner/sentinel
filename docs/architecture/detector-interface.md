@@ -26,6 +26,7 @@ Finding:
   fingerprint:  string        # Content-hash for dedup (assigned post-construction by the pipeline, not by detectors)
   status:       FindingStatus # Lifecycle state: new, confirmed, approved, suppressed, resolved
   timestamp:    datetime      # When the finding was produced
+  id:           int | null    # Database primary key, assigned after storage
 ```
 
 ## Evidence schema
@@ -103,14 +104,14 @@ The tier is `LLM_ASSISTED` because the LLM comparison is available, but the prim
 
 ## Planned detectors (Phase 2+)
 
-| Detector | Tier | Categories | Description |
-|----------|------|------------|-------------|
-| `test-runner` | Deterministic | test-health | Runs test suite, captures failures |
-| `sql-antipattern` | Deterministic + LLM | performance | SQLFluff + LLM for semantic suggestions (CTE, N+1) |
-| `semgrep-runner` | Deterministic | security, code-quality | Wraps Semgrep with custom rules |
-| `dead-code` | Heuristic | code-quality | Tree-sitter reachability analysis |
-| `config-drift` | Deterministic | config-drift | Compare env configs, schema vs. defaults |
-| `complexity` | Heuristic | code-quality | Cyclomatic complexity, function length |
+| Detector | Tier | Categories | Status | Description |
+|----------|------|------------|--------|-------------|
+| `test-runner` | Deterministic | test-health | Planned | Runs test suite, captures failures |
+| `sql-antipattern` | Deterministic + LLM | performance | Planned | SQLFluff + LLM for semantic suggestions (CTE, N+1) |
+| `semgrep-runner` | Deterministic | security, code-quality | Planned | Wraps Semgrep with custom rules |
+| `dead-code` | Heuristic | code-quality | Planned | Tree-sitter reachability analysis |
+| `config-drift` | Deterministic | config-drift | Planned | Compare env configs, schema vs. defaults |
+| `complexity` | Heuristic | code-quality | ✅ Implemented | Cyclomatic complexity, function length |
 
 ## Custom detectors
 

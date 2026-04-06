@@ -37,12 +37,12 @@ def _cyclomatic_complexity(node: ast.AST) -> int:
     """Calculate McCabe cyclomatic complexity for a function/method node.
 
     Complexity = 1 + number of decision points (if, elif, for, while,
-    except, with, and, or, assert, ternary).
+    except, and, or, assert, ternary).
     """
     complexity = 1
     for child in ast.walk(node):
         if isinstance(child, (ast.If, ast.IfExp, ast.For, ast.While,
-                              ast.ExceptHandler, ast.With, ast.Assert)):
+                              ast.ExceptHandler, ast.Assert)):
             complexity += 1
         elif isinstance(child, ast.BoolOp):
             # `and`/`or` add len(values)-1 decision points
@@ -155,7 +155,7 @@ class ComplexityDetector(Detector):
 
             # Determine severity from how far over threshold
             severity = self._severity_for(cc, lines)
-            confidence = 0.9  # AST analysis is deterministic
+            confidence = 0.95  # AST measurement is deterministic; threshold choice is heuristic
 
             description = f"`{func_name}` has " + " and ".join(issues) + "."
             title = f"Complex function: {func_name} ({', '.join(issues)})"

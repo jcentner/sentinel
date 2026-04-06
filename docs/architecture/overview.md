@@ -58,7 +58,7 @@ The architecture is **mostly Tier 1 + 2, with the LLM as the judgment/summarizat
 
 Every detector produces a `Finding` conforming to the [Detector Interface](detector-interface.md).
 
-**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2).
+**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
 
 ### 2. Fingerprint Assignment
 
@@ -133,6 +133,17 @@ Primary output. Markdown formatted, designed to be scannable in under 2 minutes:
 
 Takes approved findings and creates GitHub issues. Only runs after explicit human approval via `sentinel create-issues`. Deduplicates against existing open issues using fingerprint markers in issue bodies. Supports dry-run mode.
 
+### 10. Web UI
+
+Optional browser-based review interface (`sentinel serve <repo>`). Starlette + Jinja2 with htmx for progressive enhancement:
+- Run history with finding counts
+- Findings grouped by severity with inline approve/suppress
+- Filter by severity, status, or detector
+- Scan Now trigger button
+- Reads the same SQLite database — CLI and web share a single source of truth
+- Localhost-only by default, no authentication required
+- Optional dependency group (`pip install sentinel[web]`)
+
 ## What runs where
 
 | Component | Runs on | Resource profile |
@@ -147,7 +158,8 @@ Embeddings are implemented via Ollama's `/api/embed` endpoint (ADR-009). Reranke
 
 ## Trigger modes
 
-- **Manual**: On-demand CLI invocation (`sentinel scan <repo>`) — the only currently implemented trigger.
+- **Manual**: On-demand CLI invocation (`sentinel scan <repo>`) — the primary trigger mode.
+- **Web UI**: Scan Now button in `sentinel serve` web interface.
 - **Cron / systemd timer**: Users can schedule overnight runs using their system's cron or systemd timer. See the README for setup instructions. Sentinel itself does not include a built-in scheduler.
 - **Git hook**: On last push of the day or on specific events (not implemented — potential future addition).
 - **Watch**: File-system watcher for continuous development (not implemented — future).
