@@ -127,11 +127,12 @@ sentinel serve /path/to/repo --port 9000
 ```
 
 The web UI runs on `http://127.0.0.1:8888` by default. It provides:
-- Run history with finding counts
-- Findings grouped by severity with inline approve/suppress actions
-- Filter by severity, status, or detector
-- Scan Now button to trigger a scan from the browser
-- Finding detail view with full evidence
+- **Dark/light mode** — "Night Watch" dark-first theme with toggle (persists across sessions)
+- **Run dashboard** — severity stat cards, findings grouped by severity, filter by severity/status/detector
+- **Finding detail** — full metadata, evidence, inline approve/suppress with optional reason
+- **GitHub Issues page** — view approved findings, create GitHub issues or dry-run, config status indicator
+- **Configurable scan** — form-based scan with repo path, model override, embedding model, skip-judge, incremental
+- **Run history** — all past scan runs with finding counts and scope badges
 
 ### Options
 

@@ -34,3 +34,7 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Embedding index** | A pre-computed set of vector embeddings for repo file chunks, stored in the SQLite `chunks` table. Used by the context gatherer to find semantically relevant code for each finding. |
 | **Chunk** | A contiguous segment of a source file (default: 50 lines with 10-line overlap) stored with its embedding vector for semantic search. |
 | **Cosine similarity** | The similarity metric used to compare embedding vectors (dot product / product of magnitudes). Values range from -1 (opposite) to 1 (identical). |
+| **Serve mode** | Running Sentinel as a local web server (`sentinel serve`) providing a browser-based review and management interface. Reads the same SQLite database as the CLI. |
+| **Night Watch** | The design system used by the Sentinel web UI. A dark-first theme with warm amber accent on deep navy-black, Bricolage Grotesque display font, JetBrains Mono code font, and a light mode toggle. |
+| **Theme toggle** | A dark/light mode switch in the web UI header. Preference is stored in `localStorage` and applied via inline script before render to prevent flash-of-wrong-theme. |
+| **htmx** | A JavaScript library used for progressive enhancement in the web UI. Enables inline actions (approve/suppress update the status badge without a full page reload). Loaded from a vendored static file, no build step required. |

@@ -135,14 +135,29 @@ Takes approved findings and creates GitHub issues. Only runs after explicit huma
 
 ### 10. Web UI
 
-Optional browser-based review interface (`sentinel serve <repo>`). Starlette + Jinja2 with htmx for progressive enhancement:
-- Run history with finding counts
-- Findings grouped by severity with inline approve/suppress
-- Filter by severity, status, or detector
-- Scan Now trigger button
-- Reads the same SQLite database — CLI and web share a single source of truth
+Optional browser-based review and management interface (`sentinel serve <repo>`). Starlette + Jinja2 with htmx for progressive enhancement. "Night Watch" design system — dark-first with warm amber accent, Bricolage Grotesque + JetBrains Mono typography, with a light mode toggle. No JavaScript build step.
+
+**Pages and routes:**
+
+| Route | Purpose |
+|-------|--------|
+| `/` | Redirect to latest run, or empty state |
+| `/runs` | Run history table with scope badges |
+| `/runs/{id}` | Run detail: severity stat cards, filters, findings by severity group |
+| `/findings/{id}` | Finding detail: metadata, description, evidence, approve/suppress with reason |
+| `/scan` | Configurable scan form: repo path, model override, skip-judge, incremental |
+| `/github` | GitHub Issues dashboard: config status, approved findings, create/dry-run |
+
+**Key capabilities:**
+- Full CLI workflow parity — daily triage (review, approve, suppress, create issues) without the terminal
+- Dark/light theme toggle with `localStorage` persistence, no-flash inline script
+- htmx inline actions (approve/suppress update status badge without page reload)
+- Severity stat cards for at-a-glance distribution on run detail
+- GitHub issue creation with dry-run from the browser
+- Scan form with model/embedding/judge/incremental options
 - Localhost-only by default, no authentication required
 - Optional dependency group (`pip install sentinel[web]`)
+- Reads the same SQLite database — CLI and web share a single source of truth
 
 ## What runs where
 
@@ -159,7 +174,7 @@ Embeddings are implemented via Ollama's `/api/embed` endpoint (ADR-009). Reranke
 ## Trigger modes
 
 - **Manual**: On-demand CLI invocation (`sentinel scan <repo>`) — the primary trigger mode.
-- **Web UI**: Scan Now button in `sentinel serve` web interface.
+- **Web UI**: Configurable scan form in `sentinel serve` web interface — supports repo path override, model selection, skip-judge, and incremental mode.
 - **Cron / systemd timer**: Users can schedule overnight runs using their system's cron or systemd timer. See the README for setup instructions. Sentinel itself does not include a built-in scheduler.
 - **Git hook**: On last push of the day or on specific events (not implemented — potential future addition).
 - **Watch**: File-system watcher for continuous development (not implemented — future).

@@ -33,6 +33,14 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Detectors run sequentially. No parallelism.
 **Proposed resolution**: Migrate to async in Phase 2 when concurrent detector execution matters. Spec updated to reflect sync for now.
 
+### TD-009: VR-002 built-in scheduling not implemented
+**Status**: Active
+**Severity**: Low
+**Introduced**: Session 12
+**Description**: VISION-REVISION-002 specified built-in scheduling within `sentinel serve` (cron expression or interval via `sentinel.toml`). This was deliberately not implemented. The architecture overview, prior session decisions, and codebase consistently treat Sentinel as a single-run tool triggered externally by cron or systemd timers.
+**Impact**: Users who expected `sentinel serve` to also handle scheduling must configure system cron/systemd instead. This is well-documented in the README scheduling section.
+**Proposed resolution**: Won't implement unless a compelling use case emerges. System schedulers are more reliable, observable, and configurable than an application-level scheduler. See VISION-REVISION-004 for rationale.
+
 ### TD-003: No schema migration system
 **Status**: Resolved (Session 5)
 **Severity**: Medium

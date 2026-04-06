@@ -37,7 +37,7 @@ Tracked questions that need resolution before or during implementation. Each que
 **Status**: Resolved
 **Priority**: Medium
 **Context**: The morning report needs to be scannable in under 2 minutes. Options: plain markdown file, terminal output, local web UI, notification (email/Slack/desktop). The approve/suppress UX depends on this choice.
-**Resolution**: Markdown file output + CLI for approve/suppress/history commands. Report written to `.sentinel/report-{id}.md`. Web UI deferred to future phase.
+**Resolution**: Dual delivery — markdown file output (`report-{id}.md`) for archival/scripting, plus a browser-based web UI (`sentinel serve`) for interactive triage. The web UI provides full CLI workflow parity: run review with severity stat cards, finding detail with evidence, inline approve/suppress with reason, GitHub issue creation, and configurable scan form. Dark/light themes. See VISION-REVISION-002 (initial scope) and VISION-REVISION-004 (expanded scope with GitHub issues, scan form, design system).
 
 ### OQ-003: How should finding fingerprints be computed?
 **Status**: Resolved (→ implementation in `src/sentinel/core/dedup.py`)
