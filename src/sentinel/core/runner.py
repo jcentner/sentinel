@@ -187,6 +187,7 @@ def run_scan(
 
 def _ensure_detectors_loaded() -> None:
     """Import all built-in detector modules to trigger registration."""
+    import sentinel.detectors.complexity
     import sentinel.detectors.dep_audit
     import sentinel.detectors.docs_drift
     import sentinel.detectors.git_hotspots
