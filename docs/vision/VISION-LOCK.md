@@ -1,6 +1,6 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 2.0
+> **Version**: 2.2
 > **Updated**: 2026-04-06
 > **Supersedes**: [archive/VISION-LOCK-v1.md](archive/VISION-LOCK-v1.md) + VISION-REVISION-001 through 005
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
@@ -64,20 +64,28 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 ## What Exists Today
 
 ### Core Pipeline
-- **Pluggable detectors** covering Python, JS/TS, dependency auditing, docs-drift, git history, and code complexity
+- **9 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift, git churn hotspots, and TODO/FIXME scanning
+- **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
 - **Embedding-based context gathering**: opt-in via Ollama, falls back to file-proximity heuristics
 - **LLM judge**: structured judgment via Ollama. System degrades gracefully (raw findings only) when no model is running
 - **Finding fingerprinting**: content-hash deduplication, suppression persistence, occurrence tracking
-- **Morning report**: markdown output, severity-grouped, directory clustering
+- **Two-pass clustering**: pattern clustering (same detector + normalized title) then directory clustering (3+ findings in shared parent)
+- **Morning report**: markdown output, severity-grouped, clustered, with occurrence badges
 
 ### CLI
-Full scan-to-triage workflow from the command line. All commands support `--json-output` for AI agent integration.
+14 commands: `scan`, `scan-all`, `init`, `doctor`, `show`, `suppress`, `approve`, `create-issues`, `history`, `eval`, `eval-history`, `index`, `serve`, plus global `--version`/`-v`/`-q`. All key commands support `--json-output` for AI agent integration.
 
 ### Web UI (`sentinel serve`)
-Browser-based triage interface with run review, finding detail, bulk actions, GitHub issue creation, scan configuration, and evaluation. Dark/light themes.
+Browser-based triage interface with run review, finding detail, bulk actions, GitHub issue creation, scan configuration, evaluation with trend chart, and run comparison. Dark/light themes.
 
 ### GitHub Integration
 Issue creation from approved findings with fingerprint-based dedup. Environment variable config (no secrets in config files).
+
+### Multi-repo
+`scan-all` scans multiple repos into a shared database. Web UI and CLI display runs across all repos.
+
+### Quality Infrastructure
+CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 614 tests, 90% code coverage. Output samples, CONTRIBUTING.md, TOML config scaffolding via `init`.
 
 ## Success Criteria
 
@@ -120,32 +128,26 @@ These hold across all versions and must not be violated:
 
 These are the next areas of investment, roughly priority-ordered. Each will be planned and validated before implementation.
 
-### Multi-language repo support
-Currently detector coverage is strongest for Python (ruff, pip-audit, AST-based complexity) with initial JS/TS support (eslint-runner wrapping ESLint and Biome). Broader real-world use requires scanning Go and mixed-language repos. This means:
-- Language-aware detector dispatch (run the right linters per file type)
-- golangci-lint for Go
-- Language-neutral detectors (todo-scanner, docs-drift, git-hotspots) already work cross-language
-- eslint-runner already handles JS/TS; needs real-world validation
-- Each language pack is an isolated module — multiple devs or agents can build support for different languages in parallel without conflicting
-- Users install only the language packs they need (e.g., `pip install sentinel[js]` for JS/TS linting deps)
+### Multi-language repo support — Shipped
+Detectors now cover Python (ruff, pip-audit, AST complexity), JS/TS (eslint-runner wrapping ESLint/Biome), Go (golangci-lint), and Rust (cargo clippy). Language-neutral detectors (todo-scanner, docs-drift, git-hotspots) work across all languages. Each language linter is an isolated detector module. *Remaining*: real-world validation on non-Python repos, optional language-specific pip extras.
 
-### Multi-repo support
-Run Sentinel across multiple repos and surface a unified morning report. Schema already uses repo-scoped state; the gap is CLI/UI workflow for managing a repo portfolio and cross-repo comparison.
+### Multi-repo support — Shipped
+`sentinel scan-all REPO1 REPO2 ... --db shared.db` scans multiple repos into a shared database. Web UI and `sentinel history` display runs across all repos. Partial failure handling (exit code 2). See OQ-005 resolution.
 
-### Root-cause finding grouping
-Findings from a shared root cause (renamed directory → N stale links) should be grouped in the web UI, not just in the markdown report. This is a noise reduction feature that directly impacts perceived precision.
+### Root-cause finding grouping — Shipped
+Two-pass clustering: pattern clustering (same detector + normalized title across directories) applied first, then directory clustering (3+ findings sharing a parent directory). Both the markdown report and web UI display clustered findings.
 
-### CLI as an AI-agent interface
-The CLI is now equally usable by human developers and by AI coding agents via `--json-output`. The foundation is in place: structured JSON output mode, predictable exit codes (0=success, 1=error), `--help` on every command, machine-readable IDs. Future enhancements: JSON output for suppress/approve, structured error responses, `--quiet` mode for script use.
+### CLI as an AI-agent interface — Shipped
+All key commands support `--json-output`. `-q/--quiet` mode for scripts. Predictable exit codes. `suppress` and `approve` support `--json-output`. `sentinel doctor --json-output` for dependency checking.
 
-### Eval metrics dashboard
-Persistent tracking of precision, recall, and FP rate over time — not just one-shot eval runs. A chart showing quality trends across versions and config changes.
+### Eval metrics dashboard — Shipped
+Eval results persist in SQLite via `eval_store`. Web UI includes a server-side SVG trend chart showing precision/recall over time. `sentinel eval-history` lists past eval runs.
 
 ### Model benchmarking
-Compare model sizes and quantization levels (qwen3.5 4B vs 9B, Q4 vs Q6) to find the quality/VRAM sweet spot. Document context length requirements empirically.
+Compare model sizes and quantization levels (qwen3.5 4B vs 9B, Q4 vs Q6) to find the quality/VRAM sweet spot. Document context length requirements empirically. *Requires Ollama with multiple models pulled.*
 
-### Packaging and distribution
-CI/CD pipeline, test coverage reports, output samples in the repo, `pip install sentinel` from PyPI, clear onboarding docs.
+### Packaging and distribution — Mostly shipped
+CI/CD pipeline (GitHub Actions, Python 3.11–3.13 matrix, ruff + mypy + pytest with coverage). Output samples in repo. CONTRIBUTING.md. PyPI-ready wheel with templates/static included. *Remaining*: `pip install local-repo-sentinel` from PyPI (needs credentials/trusted publisher).
 
 ## Out of Scope (permanent)
 
@@ -168,6 +170,11 @@ These are explicitly excluded from the project's vision, not deferred:
 | Ollama dependency creates friction | Low | Low | Degrade gracefully; document setup clearly |
 
 ## Changelog
+
+### v2.2 (2026-04-06)
+- "What Exists Today" expanded: 9 detectors (Go, Rust added), 14 CLI commands, multi-repo, clustering, quality infrastructure
+- "Where We're Going" items marked shipped: multi-language, multi-repo, root-cause grouping, CLI agent interface, eval dashboard, packaging (mostly)
+- Remaining future items: model benchmarking, PyPI publish
 
 ### v2.1 (2026-04-06)
 - Added eslint-runner detector for JS/TS linting via ESLint or Biome (multi-language support foundation)
