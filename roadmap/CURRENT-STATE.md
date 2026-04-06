@@ -1,11 +1,11 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 15 — Reviewer fixes + 3 new slices)
+> Last updated: 2026-04-06 (Session 15 — 5 slices: reviewer fixes, JSON CLI, eval chart, go-linter, run comparison)
 
 ## Session 15 Summary
 
 ### Current Objective
-Fix reviewer findings from Session 14, then continue with highest-leverage improvements.
+Fix reviewer findings from Session 14, then continue with highest-leverage improvements across CLI, detectors, and web UI.
 
 ### What Was Accomplished
 
@@ -16,41 +16,41 @@ Fix reviewer findings from Session 14, then continue with highest-leverage impro
 4. Test coverage: 4 eval-history CLI tests
 
 **Slice 1 — Complete JSON output + `__main__.py`:**
-5. Added `--json-output` to `suppress` and `approve` CLI commands
+5. `--json-output` on `suppress` and `approve` commands (all 11 commands now support it)
 6. Fixed `show` command not-found to respect `--json-output`
-7. Updated CLI group docstring ("any subcommand")
-8. Added `src/sentinel/__main__.py` for `python -m sentinel`
-9. Updated README machine-readable output examples
-10. 4 new tests (suppress/approve JSON + error cases)
+7. Added `python -m sentinel` entry point
+8. 4 new tests
 
 **Slice 2 — Eval trend SVG chart:**
-11. Server-side SVG chart on eval history page (precision/recall polylines)
-12. Y-axis gridlines, dashed threshold lines (70%/90%), X-axis date labels
-13. Theme-aware colors using existing CSS tokens
-14. Only renders with 2+ eval results
-15. 2 new tests with coordinate validation
+9. Server-side SVG chart on eval history page (precision/recall polylines)
+10. Theme-aware colors, threshold lines, Y/X axis labels
+11. 2 new tests with coordinate validation
 
 **Slice 3 — Go linter detector (golangci-lint):**
-16. New `go-linter` detector wrapping golangci-lint
-17. Auto-skips non-Go repos (checks go.mod or .go files)
-18. Maps JSON output to findings; elevates security linters (gosec, govet, etc.) to HIGH
-19. Supports incremental and targeted scopes with Go package conventions
-20. 29 new tests
-21. Updated README (8 detectors), overview, detector-interface, glossary
+12. 8th detector: wraps golangci-lint for Go repos
+13. Auto-skip non-Go repos, elevates security linters (gosec, govet, staticcheck, errcheck) to HIGH
+14. Incremental and targeted scope support
+15. 29 new tests
+
+**Slice 4 — Run comparison:**
+16. `compare_runs()` in store layer: fingerprint-based set operations
+17. `/runs/{id}/compare/{base_id}` web route with new/resolved/persistent sections
+18. "Compare with" dropdown on run detail page
+19. 6 new tests
 
 ### Test Results
 ```
-527 passed
+533 passed
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
 ### Repository State
-- **Implementation**: 28+ Python modules in `src/sentinel/`
-- **Tests**: 527 passing
+- **Implementation**: 29+ Python modules in `src/sentinel/`
+- **Tests**: 533 passing
 - **Detectors**: 8 (todo-scanner, lint-runner, eslint-runner, go-linter, dep-audit, docs-drift, git-hotspots, complexity)
 - **CLI**: 11 commands, all with `--json-output`, plus `python -m sentinel`
-- **Web UI**: 12 routes, eval trend chart, clustering, dark/light mode
+- **Web UI**: 13 routes, eval trend chart, run comparison, clustering, dark/light mode
 - **DB schema**: v6
 - **Lint/Type**: Clean (ruff, mypy strict)
 - **Vision**: v2.1
@@ -59,8 +59,8 @@ mypy strict: All checks passed
 1. TD-002: Async detector interface (low priority)
 2. Multi-repo support (OQ-005)
 3. Packaging & distribution (PyPI)
-4. Web UI: finding diff view (compare runs)
-5. Detector: Rust linter (clippy)
+4. Detector: Rust linter (clippy)
+5. Web UI: finding annotation/notes feature
 
 ### Blocked Items
 None.
