@@ -16,6 +16,7 @@ $ sentinel scan ~/myproject --skip-judge
 16:26:02 [INFO] sentinel.core.runner: LLM judge skipped (--skip-judge)
 16:26:02 [INFO] sentinel.core.runner: Report written to /home/user/myproject/report-1.md
 Scan complete: 92 findings in run #1
+  Severity: 2 high, 13 medium, 77 low
 Report: /home/user/myproject/report-1.md
 
 $ sentinel show 1

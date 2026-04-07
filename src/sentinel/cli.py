@@ -98,6 +98,14 @@ def scan(
             }, indent=2))
         else:
             click.echo(f"Scan complete: {len(findings)} findings in run #{run.id}")
+            if findings:
+                from collections import Counter
+                sev_counts = Counter(f.severity.value for f in findings)
+                parts = []
+                for sev in ("critical", "high", "medium", "low"):
+                    if sev in sev_counts:
+                        parts.append(f"{sev_counts[sev]} {sev}")
+                click.echo(f"  Severity: {', '.join(parts)}")
             if incremental and scope_result.get("changed_files"):
                 click.echo(f"Incremental: {len(scope_result['changed_files'])} files changed since last run")
             click.echo(f"Report: {actual_path}")
