@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,17 +21,8 @@ from sentinel.models import (
     FindingStatus,
     Severity,
 )
-from sentinel.store.db import get_connection
 from sentinel.store.findings import insert_finding, update_finding_status
 from sentinel.store.runs import create_run
-
-
-@pytest.fixture
-def db_conn():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        conn = get_connection(Path(tmpdir) / "test.db")
-        yield conn
-        conn.close()
 
 
 def _sample_finding(fingerprint: str = "fp-001", title: str = "Test finding") -> Finding:

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,6 +14,7 @@ from sentinel.store.findings import (
     get_findings_by_run,
     suppress_finding,
 )
+from sentinel.store.llm_log import get_llm_log_for_run
 from sentinel.store.runs import get_run_by_id
 
 
@@ -68,15 +71,6 @@ def test_repo(tmp_path):
     )
 
     return repo
-
-
-@pytest.fixture
-def db_conn(tmp_path):
-    db_dir = tmp_path / "db"
-    db_dir.mkdir()
-    conn = get_connection(db_dir / "test.db")
-    yield conn
-    conn.close()
 
 
 @pytest.fixture
@@ -294,3 +288,94 @@ class TestDocsDriftIntegration:
             assert "flask" in dep_drift[0].title.lower()
         finally:
             conn.close()
+
+
+def _ollama_response(is_real: bool, severity: str = "medium"):
+    """Create a mock httpx response matching Ollama /api/generate format."""
+    return MagicMock(
+        status_code=200,
+        json=lambda: {
+            "response": json.dumps({
+                "is_real": is_real,
+                "adjusted_severity": severity,
+                "summary": "Confirmed" if is_real else "False positive",
+                "reasoning": "Test reasoning",
+            }),
+            "eval_count": 30,
+            "eval_duration": 500_000_000,
+        },
+        raise_for_status=lambda: None,
+    )
+
+
+class TestJudgeIntegration:
+    """Integration tests that exercise the full pipeline including LLM judge.
+
+    Only the Ollama HTTP endpoint is mocked — everything else (detectors,
+    fingerprinting, dedup, context, persistence, report) runs for real.
+    """
+
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
+    def test_full_scan_with_judge(
+        self, mock_check, mock_post, test_repo, db_conn, out_dir,
+    ):
+        """run_scan with judge enabled: findings get verdicts and are stored."""
+        mock_check.return_value = True
+        mock_post.return_value = _ollama_response(is_real=True, severity="medium")
+
+        _run, findings, report = run_scan(
+            str(test_repo), db_conn, skip_judge=False,
+            output_path=str(out_dir / "report.md"),
+        )
+
+        assert len(findings) >= 3
+        # Judge should have been called for each finding
+        assert mock_post.call_count == len(findings)
+        # All findings should have judge verdict metadata
+        for f in findings:
+            assert f.context is not None
+            assert f.context.get("judge_verdict") == "confirmed"
+            assert f.context["judge"]["summary"] == "Confirmed"
+        # Report should contain judge output
+        assert "confirmed" in report.lower() or "Confirmed" in report
+
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
+    def test_judge_fp_reduces_confidence(
+        self, mock_check, mock_post, test_repo, db_conn, out_dir,
+    ):
+        """When judge marks findings as FP, confidence drops and report shows it."""
+        mock_check.return_value = True
+        mock_post.return_value = _ollama_response(is_real=False, severity="low")
+
+        _run, findings, _report = run_scan(
+            str(test_repo), db_conn, skip_judge=False,
+            output_path=str(out_dir / "report.md"),
+        )
+
+        assert len(findings) >= 1
+        for f in findings:
+            assert f.context.get("judge_verdict") == "likely_false_positive"
+            assert f.confidence <= 0.3
+
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
+    def test_judge_writes_llm_log(
+        self, mock_check, mock_post, test_repo, db_conn, out_dir,
+    ):
+        """Full pipeline writes LLM log entries for each judged finding."""
+        mock_check.return_value = True
+        mock_post.return_value = _ollama_response(is_real=True)
+
+        run, findings, _ = run_scan(
+            str(test_repo), db_conn, skip_judge=False,
+            output_path=str(out_dir / "report.md"),
+        )
+
+        log_rows = get_llm_log_for_run(db_conn, run.id)
+        assert len(log_rows) == len(findings)
+        for row in log_rows:
+            assert row["purpose"] == "judge"
+            assert row["prompt"] != ""
+            assert row["verdict"] == "confirmed"

@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import patch
 
-import pytest
-
 from sentinel.core.indexer import (
     _collect_files,
     _should_skip_dir,
@@ -14,15 +12,6 @@ from sentinel.core.indexer import (
     build_index,
     chunk_file,
 )
-from sentinel.store.db import get_connection
-
-
-@pytest.fixture
-def db_conn(tmp_path):
-    conn = get_connection(tmp_path / "test.db")
-    yield conn
-    conn.close()
-
 
 # ── skip helpers ─────────────────────────────────────────────────────
 

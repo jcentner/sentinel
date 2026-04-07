@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
-import pytest
-
 from sentinel.models import (
     Evidence,
     EvidenceType,
@@ -36,15 +31,6 @@ from sentinel.store.runs import (
     get_run_by_id,
     get_run_history,
 )
-
-
-@pytest.fixture
-def db_conn():
-    """Provide a fresh in-memory database connection."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        conn = get_connection(Path(tmpdir) / "test.db")
-        yield conn
-        conn.close()
 
 
 def _sample_finding(fingerprint: str = "fp-001") -> Finding:

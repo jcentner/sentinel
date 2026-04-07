@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from sentinel.core.runner import run_scan
@@ -17,7 +14,6 @@ from sentinel.models import (
     Finding,
     Severity,
 )
-from sentinel.store.db import get_connection
 
 
 class _MockDetector(Detector):
@@ -81,14 +77,6 @@ def _sample_finding(title: str = "Test finding") -> Finding:
         file_path="x.py",
         line_start=1,
     )
-
-
-@pytest.fixture
-def db_conn():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        conn = get_connection(Path(tmpdir) / "test.db")
-        yield conn
-        conn.close()
 
 
 @pytest.fixture

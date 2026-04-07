@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -161,3 +162,17 @@ class TestDepAudit:
         (tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\n')
         deps = auditor._extract_pyproject_deps(tmp_path)
         assert deps is None
+
+
+class TestRealTool:
+    @pytest.mark.skipif(
+        not shutil.which("pip-audit"),
+        reason="pip-audit not installed",
+    )
+    def test_real_pip_audit_on_clean_requirements(self, auditor, tmp_path):
+        """Integration test: run real pip-audit on a safe requirements file."""
+        (tmp_path / "requirements.txt").write_text("pip>=24.0\n")
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = auditor.detect(ctx)
+        # pip is generally safe; should produce zero or minimal findings
+        assert all(f.detector == "dep-audit" for f in findings)

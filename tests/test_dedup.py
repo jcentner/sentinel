@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
-import pytest
-
 from sentinel.core.dedup import (
     assign_fingerprints,
     compute_fingerprint,
@@ -18,7 +13,6 @@ from sentinel.models import (
     Finding,
     Severity,
 )
-from sentinel.store.db import get_connection
 from sentinel.store.findings import insert_finding, suppress_finding
 from sentinel.store.runs import create_run
 
@@ -36,14 +30,6 @@ def _make_finding(**kwargs) -> Finding:
     }
     defaults.update(kwargs)
     return Finding(**defaults)
-
-
-@pytest.fixture
-def db_conn():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        conn = get_connection(Path(tmpdir) / "test.db")
-        yield conn
-        conn.close()
 
 
 class TestFingerprinting:

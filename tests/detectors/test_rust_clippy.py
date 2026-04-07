@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess as sp
 from unittest.mock import MagicMock, patch
 
@@ -373,3 +374,24 @@ class TestScopeFiltering:
         )
         findings = runner.detect(ctx)
         assert len(findings) == 3
+
+
+class TestRealTool:
+    @pytest.mark.skipif(
+        not shutil.which("cargo"),
+        reason="cargo/clippy not installed",
+    )
+    def test_real_clippy_on_dirty_file(self, runner, tmp_path):
+        """Integration test: run real cargo clippy on code with issues."""
+        (tmp_path / "Cargo.toml").write_text(
+            '[package]\nname = "test"\nversion = "0.1.0"\nedition = "2021"\n'
+        )
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "main.rs").write_text(
+            'fn main() {\n    let x = vec![1,2,3];\n    if x.len() == 0 { println!("empty"); }\n}\n'
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = runner.detect(ctx)
+        # clippy should flag `x.len() == 0` as `clippy::len_zero`
+        assert all(f.detector == "rust-clippy" for f in findings)

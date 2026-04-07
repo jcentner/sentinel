@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -278,3 +279,21 @@ class TestScopeFiltering:
             tmp_path,
         )
         assert targets == []
+
+
+class TestRealTool:
+    @pytest.mark.skipif(
+        not shutil.which("golangci-lint"),
+        reason="golangci-lint not installed",
+    )
+    def test_real_golangci_lint_on_dirty_file(self, runner, tmp_path):
+        """Integration test: run real golangci-lint on a Go file with issues."""
+        (tmp_path / "go.mod").write_text("module example.com/test\n\ngo 1.21\n")
+        (tmp_path / "main.go").write_text(
+            'package main\n\nimport "fmt"\nimport "os"\n\nfunc main() {\n\tfmt.Println("hello")\n}\n'
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = runner.detect(ctx)
+        # Should find at least the unused import (os)
+        assert len(findings) >= 1
+        assert all(f.detector == "go-linter" for f in findings)

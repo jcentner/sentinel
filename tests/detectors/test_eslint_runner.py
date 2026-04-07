@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -263,3 +264,17 @@ class TestEslintDetection:
         ctx = DetectorContext(repo_root=str(tmp_path))
         findings = runner.detect(ctx)
         assert findings == []
+
+
+class TestRealTool:
+    @pytest.mark.skipif(
+        not shutil.which("biome") and not shutil.which("eslint"),
+        reason="neither biome nor eslint installed",
+    )
+    def test_real_biome_or_eslint_on_dirty_file(self, runner, tmp_path):
+        """Integration test: run real biome/eslint on a file with issues."""
+        (tmp_path / "bad.js").write_text("var x = 1;\nvar y = 2;\n")
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = runner.detect(ctx)
+        assert len(findings) >= 1
+        assert all(f.detector == "eslint-runner" for f in findings)
