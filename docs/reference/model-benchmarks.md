@@ -43,12 +43,14 @@ The 9B model is **significantly more skeptical** — it marks 58% of findings as
 
 | Severity | No Judge | 4B | 9B |
 |----------|----------|----|----|
-| low | 80 | 82 | 72 |
-| medium | 13 | 13 | 23 |
-| high | 2 | 2 | 0 |
+| low | 54 | 82 | 72 |
+| medium | 37 | 13 | 23 |
+| high | 4 | 2 | 0 |
 | **Total** | **95** | **97** | **95** |
 
-The 9B model promoted more findings from low to medium severity but eliminated both high-severity findings. This suggests it may be miscalibrating — flagging complexity findings (which have high detector confidence) as false positives.
+> Note: The 4B run shows 97 findings vs 95 for no-judge/9B because runs were sequential — minor repo changes (new files) between runs caused 2 additional docs-drift findings. This does not reflect model behavior.
+
+Both models significantly redistribute severity compared to raw detector output: the no-judge run has 4 high + 37 medium, but after LLM judgment the 4B model produces 2 high + 13 medium (lowering most to low), and the 9B is even more aggressive (0 high + 23 medium). Both models act as severity filters, which aligns with the design intent — the LLM judge reduces noise by downgrading speculative findings.
 
 ## Recommendations
 
