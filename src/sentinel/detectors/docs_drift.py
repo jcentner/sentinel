@@ -223,6 +223,10 @@ class DocsDriftDetector(Detector):
         if target.startswith(("http://", "https://", "mailto:", "ftp://", "#")):
             return None
 
+        # Skip regex patterns that look like link targets (e.g. \d+, [0-9]+, .*)
+        if re.search(r"\\[dDwWsS]|[^/]\*|\{\d+\}|\[\^|\(\?", target):
+            return None
+
         # Strip anchor fragments for file existence check
         file_part = target.split("#")[0]
         if not file_part:

@@ -285,6 +285,20 @@ class TestStaleReferences:
             f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
         ]
         assert len(inline_path_findings) == 2
+
+    def test_ignores_regex_patterns_as_links(self, detector, tmp_path):
+        r"""FP prevention: regex like [JS](\d+) should not be treated as broken link."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            r"| bill_number | `^[JS](\d+)$` | e.g. H0001 |" "\n"
+            r"| session | `^\d{4}$` | 4-digit year |" "\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        link_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-reference"
+        ]
+        assert len(link_findings) == 0
     """Tests for dependency drift detection."""
 
     def test_detects_missing_dep(self, detector, tmp_path):
