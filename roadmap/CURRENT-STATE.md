@@ -1,6 +1,6 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-07 (Session 19 — 3 slices + real-world validation)
+> Last updated: 2026-04-07 (Session 19 — 7 slices + real-world validation)
 
 ## Session 19 Summary
 
@@ -27,56 +27,76 @@ Resolve TD-010 (configurable num_ctx), then run real-world validation on ~/wyocl
 - 5 new tests for FP prevention + regression
 - Result: docs-drift went from 130 → 79 findings (51 fewer FPs)
 
-**Real-world validation — wyoclear scan results:**
+**Slice 4 — Fix regex patterns misidentified as markdown links (commit 0a27bc2):**
+- `[JS](\d+)` in markdown tables was parsed as a broken link. Added regex metacharacter filter in `_check_link_target`.
+- 1 new test, 620 tests passing.
 
-Scan 1 (pre-fix): 195 raw → 159 after dedup → 137 confirmed, 22 FP
-Scan 2 (post-fix): 144 raw → 112 after dedup → 95 confirmed, 17 FP
+**Slice 5 — Fix dedup for same-target different-doc findings (commit 7fa82a6):**
+- Two docs referencing the same missing file now get the same fingerprint (deduped). `_effective_file_path()` uses `referenced_path`/`target` instead of source doc path.
+- 2 new tests, 622 tests passing.
 
-Detailed accuracy analysis by detector:
+**Slice 6 — Skip inline paths in markdown strikethrough (commit d2353e2):**
+- Paths in `~~strikethrough~~` blocks are intentionally documenting deleted files — no longer flagged.
+- 1 new test, 623 tests passing.
 
-| Detector | Raw | After Dedup | Confirmed | FP | True Accuracy |
+**Slice 7 — Reviewer-requested num_ctx tests (commit 211f624):**
+- Added tests: `test_judge_custom_num_ctx` (4096 reaches Ollama API), `test_loads_custom_num_ctx`, `test_rejects_wrong_type_for_num_ctx`.
+- 626 tests passing.
+
+**Real-world validation — wyoclear scan results (3 scans):**
+
+| Metric | Scan 1 (pre-fix) | Scan 2 (FP filters) | Scan 3 (all fixes) |
+|---|---|---|---|
+| Raw findings | 195 | 144 | 136 |
+| After dedup | 159 | 112 | 104 |
+| Confirmed | 137 | 95 | 92 |
+| Likely FP | 22 | 17 | 12 |
+| Judge time | 303.6s | 275.5s | 179.0s |
+| Inconsistent verdicts | 4 | 4 | **0** |
+
+Final scan 3 accuracy by detector:
+
+| Detector | Raw | After Dedup | Confirmed | FP | Accuracy Notes |
 |---|---|---|---|---|---|
 | complexity | 19 | 19 | 18 | 1 | 100% (1 borderline correctly rejected) |
-| docs-drift | 79 | 66 | 59 | 7 | ~90% (see notes below) |
+| docs-drift | 77 | 58 | 56 | 2 | 97% (2 FPs correctly identified by judge) |
 | git-hotspots | 16 | 16 | 7 | 9 | 100% (9 config/doc files correctly rejected) |
 | lint-runner | 29 | 10 | 10 | 0 | 100% (all legitimate ruff findings) |
 | todo-scanner | 1 | 1 | 1 | 0 | 100% |
 
-**Docs-drift deep accuracy (post-fix):**
+**Docs-drift deep accuracy (final):**
 - Stale links: 37 confirmed — all verified as genuinely broken links (100% accurate)
-- Stale path refs: 22 confirmed — all verified as genuinely missing files (100% accurate)
-- BUT: Judge is inconsistent — 4 findings had the same title judged differently across duplicates (e.g., `bill-funnel.tsx` was both confirmed and FP'd, because the doc mentions it was "deliberately deleted")
-- `[JS](\d+)` regex pattern in a markdown table was incorrectly parsed as a link (detector bug, not FP filter issue)
-- `2026/Introduced/HB0011.pdf` correctly FP'd by judge (it's an example URL pattern, not a local path)
+- Stale path refs: 19 confirmed — all verified as genuinely missing files (100% accurate)
+- Judge inconsistency: **0** (was 4 in scan 2) — dedup fix completely resolved this
+- 2 remaining FPs correctly identified by judge: `session-phase-strip.tsx` (documented as deleted in table, not strikethrough), `2026/Introduced/HB0011.pdf` (example URL, not local path)
 
 **LLM Judge quality assessment (qwen3.5:4b):**
-- Good at: rejecting config/doc files in git-hotspots, rejecting borderline complexity cases, confirming lint findings
-- Bad at: inconsistent verdicts for duplicate findings of the same path, fabricating plausible reasons to confirm noise (scan 1 confirmed CSS selectors and date patterns as "real issues")
-- Critical weakness: judge contradicts itself on identical inputs — same finding title gets confirmed in one dedup copy and FP'd in another
-- Severity assignment is reasonable: complexity with CC>20 = high, broken links = medium, ruff warnings = low
+- Good at: rejecting config/doc files in git-hotspots, rejecting borderline complexity cases, confirming lint findings, identifying deliberately-documented deletions
+- Bad at: fabricating plausible reasons to confirm noise when given low-quality detector input (scan 1 confirmed 42/42 obvious non-paths)
+- Lesson confirmed: detector precision must be high first; the judge is a refinement layer, not a noise filter
+- Severity assignment is reasonable: complexity CC>20 = high, broken links = medium, ruff warnings = low
 
-**Key finding: deterministic detector precision matters more than LLM judgment.** The FP filters added in slice 3 eliminated 51 noise findings at the detector level — something the judge failed to do in scan 1 (confirmed 42/42 of these as "real" with fabricated reasoning).
+**Key finding: deterministic detector precision matters more than LLM judgment.** The FP filters added across slices 3-6 reduced findings from 159 → 104 (35% reduction) and FPs from 22 → 12 (45% reduction), with judge time dropping 41%. The judge now handles only genuinely ambiguous cases.
 
 ### Test Results
 ```
-619 passed (5 new), 90% coverage
+626 passed, 90% coverage
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
 ### Repository State
-- **Tests**: 619 passing, 90% code coverage
-- **Commits this session**: 3 (e5fc834, f0bb090, 6b0988f)
+- **Tests**: 626 passing, 90% code coverage
+- **Commits this session**: 7 (e5fc834, f0bb090, 6b0988f, 0a27bc2, 7fa82a6, d2353e2, 211f624)
 - **Detectors**: 9 with centralized COMMON_SKIP_DIRS
-- **Real-world tested**: ~/wyoclear (Next.js + Python, ~102 source files)
+- **Real-world tested**: ~/wyoclear (Next.js + Python, ~102 source files), 3 successive scans
 
 ### What Remains / Next Priority
-1. Fix duplicate finding issue — dedup should merge identical findings from different doc locations, not pass both to judge
-2. Fix `[JS](\d+)` regex-as-link false match (docs-drift detector bug)
-3. Consider adding "deliberately deleted" awareness to stale path checker (skip paths in strikethrough text)
-4. Improve judge consistency for duplicate inputs (system prompt?)
-5. Real-world validation on Go/Rust repos
-6. PyPI publication (needs credentials)
+1. Real-world validation on Go/Rust repos
+2. Consider making `starts_with_known_dir` list configurable instead of hardcoded
+3. Improve dep-audit to detect Python subdirectory projects (e.g., ~/wyoclear/ingestion/)
+4. PyPI publication (needs credentials)
+5. TD-002: Async detector interface (low priority)
 
 ### Blocked Items
 - PyPI publishing: needs PyPI credentials / trusted publisher setup
@@ -85,12 +105,15 @@ mypy strict: All checks passed
 - COMMON_SKIP_DIRS is the single source of truth for skip directories across all detectors
 - Detector precision must be improved before relying on LLM judgment — the 4B model fabricates plausible reasoning to confirm noise
 - Centralized skip dirs future-proofs against new framework build artifacts
+- Docs-drift dedup uses target path (not source doc) for stale references — eliminates judge inconsistency
+- Reviewer subagent run before final commit; all minor findings addressed
 
 ### Lessons Learned
-- Real-world testing exposed 2 critical bugs (missing .next skip, FP path matching) that unit tests would never catch
-- The LLM judge is a poor last line of defense against detector noise — it confirmed 42/42 obvious non-paths in scan 1
-- Judge inconsistency on duplicate inputs is a reliability concern for report credibility
-- `.env.local` was flagged as stale (`../.env.local` reference) but actually exists at project root — relative path resolution across doc subdirectories needs work
+- Real-world testing exposed 5 bugs (missing .next skip, FP path matching, regex-as-link, dedup inconsistency, strikethrough awareness) that unit tests would never catch
+- The LLM judge is NOT a viable noise filter — it confirmed 42/42 obvious non-paths in scan 1 with fabricated reasoning
+- Judge inconsistency on duplicate inputs is fully solved by better dedup (give it one chance, not two)
+- Iterative fix-scan-analyze cycles are extremely productive: each re-scan quantifies the improvement precisely
+- Total improvement across 3 scans: 159 → 104 findings (-35%), 22 → 12 FPs (-45%), 304s → 179s judge time (-41%)
 
 ---
 
