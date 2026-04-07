@@ -94,12 +94,12 @@ def _judge_single(
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "think": False,
+            "think": False,  # Disable chain-of-thought (Qwen-specific; ignored by other models)
             "format": "json",
             "options": {
                 "temperature": 0.1,
                 "num_predict": 512,
-                "num_ctx": 2048,
+                "num_ctx": 2048,  # Adequate for current prompts (~523 tokens avg). See TD-010.
             },
         },
         timeout=_TIMEOUT,
