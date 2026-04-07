@@ -301,6 +301,12 @@ class DocsDriftDetector(Detector):
         # Skip things that are clearly not paths
         if path_text.startswith(("http://", "https://", "//", "#")):
             return None
+        # Skip references inside strikethrough text (~~deleted~~) — these
+        # intentionally document removed files.
+        if "~~" in line and re.search(
+            r"~~[^~]*`" + re.escape(path_text) + r"`[^~]*~~", line
+        ):
+            return None
         # Skip absolute paths — these describe external systems (containers,
         # servers, OS paths), not files in the repo.
         if path_text.startswith("/"):

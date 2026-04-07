@@ -272,6 +272,20 @@ class TestStaleReferences:
         ]
         assert len(inline_path_findings) == 0
 
+    def test_ignores_strikethrough_deleted_paths(self, detector, tmp_path):
+        """FP prevention: paths in ~~strikethrough~~ are intentionally documenting deletions."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "- ~~Remove `src/components/old-widget.tsx`~~ Done\n"
+            "- ~~`src/lib/deprecated.ts` deleted~~\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
     def test_still_detects_real_src_paths(self, detector, tmp_path):
         """TP: paths with extensions or known dirs are still flagged when missing."""
         readme = tmp_path / "README.md"
