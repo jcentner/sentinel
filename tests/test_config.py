@@ -46,3 +46,15 @@ def test_partial_config_keeps_defaults(tmp_path):
     config = load_config(tmp_path)
     assert config.model == "gemma:2b"
     assert config.ollama_url == "http://localhost:11434"  # default preserved
+
+
+def test_loads_custom_num_ctx(tmp_path):
+    (tmp_path / "sentinel.toml").write_text("[sentinel]\nnum_ctx = 4096\n")
+    config = load_config(tmp_path)
+    assert config.num_ctx == 4096
+
+
+def test_rejects_wrong_type_for_num_ctx(tmp_path):
+    (tmp_path / "sentinel.toml").write_text('[sentinel]\nnum_ctx = "big"\n')
+    with pytest.raises(ConfigError, match="'num_ctx' must be int"):
+        load_config(tmp_path)

@@ -105,6 +105,27 @@ class TestJudgeFindings:
 
     @patch("httpx.post")
     @patch("sentinel.core.judge.check_ollama")
+    def test_judge_custom_num_ctx(self, mock_check, mock_post):
+        mock_check.return_value = True
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "response": json.dumps({
+                    "is_real": True,
+                    "adjusted_severity": "medium",
+                    "summary": "Real issue",
+                    "reasoning": "Custom context window",
+                }),
+            },
+            raise_for_status=lambda: None,
+        )
+        findings = [_make_finding()]
+        judge_findings(findings, num_ctx=4096)
+        call_json = mock_post.call_args[1]["json"]
+        assert call_json["options"]["num_ctx"] == 4096
+
+    @patch("httpx.post")
+    @patch("sentinel.core.judge.check_ollama")
     def test_judge_marks_false_positive(self, mock_check, mock_post):
         mock_check.return_value = True
         mock_post.return_value = MagicMock(
