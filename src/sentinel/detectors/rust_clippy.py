@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from sentinel.detectors.base import Detector
+from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
     DetectorContext,
     DetectorTier,
@@ -22,7 +22,7 @@ from sentinel.models import (
 logger = logging.getLogger(__name__)
 
 _RS_EXTENSIONS = frozenset({".rs"})
-_SKIP_DIRS = frozenset({".git", ".sentinel", "target", "node_modules", ".venv"})
+_SKIP_DIRS = COMMON_SKIP_DIRS | {"target"}
 
 # Map Rust diagnostic level to Sentinel severity
 _SEVERITY_MAP: dict[str, Severity] = {

@@ -11,6 +11,18 @@ from sentinel.models import DetectorContext, DetectorTier, Finding
 
 logger = logging.getLogger(__name__)
 
+# Common directories that all detectors should skip when walking the file tree.
+# Detectors may extend this with domain-specific entries (e.g. "vendor" for Go).
+COMMON_SKIP_DIRS = frozenset({
+    ".git", ".hg", ".svn",
+    "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+    ".tox", ".eggs",
+    ".venv", "venv",
+    "node_modules", ".next", ".turbo",
+    "dist", "build", "out", "coverage",
+    ".egg-info", ".sentinel",
+})
+
 # Module-level registry of detector classes
 _REGISTRY: dict[str, type[Detector]] = {}
 

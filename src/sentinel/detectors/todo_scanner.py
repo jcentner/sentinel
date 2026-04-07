@@ -9,7 +9,7 @@ import subprocess
 from datetime import UTC
 from pathlib import Path
 
-from sentinel.detectors.base import Detector
+from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
     DetectorContext,
     DetectorTier,
@@ -54,11 +54,7 @@ _SKIP_EXTENSIONS = frozenset({
 # Markdown/documentation extensions — scanned only for HTML comment TODOs
 _MARKDOWN_EXTENSIONS = frozenset({".md", ".rst", ".adoc", ".html", ".htm"})
 
-_SKIP_DIRS = frozenset({
-    ".git", ".hg", ".svn", "__pycache__", "node_modules",
-    ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
-    ".ruff_cache", "dist", "build", ".egg-info", ".sentinel",
-})
+_SKIP_DIRS = COMMON_SKIP_DIRS
 
 
 def _is_in_string_literal(line: str, prefix: str) -> bool:

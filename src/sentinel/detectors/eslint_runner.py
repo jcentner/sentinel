@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from sentinel.detectors.base import Detector
+from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
     DetectorContext,
     DetectorTier,
@@ -47,7 +47,7 @@ _BIOME_HIGH_CATEGORIES = frozenset({
     "suspicious", "security",
 })
 
-_SKIP_DIRS = frozenset({".git", ".sentinel", "node_modules", "dist", "build", ".venv", "__pycache__"})
+_SKIP_DIRS = COMMON_SKIP_DIRS
 
 
 def _has_js_files(repo_root: Path) -> bool:

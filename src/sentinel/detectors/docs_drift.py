@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from sentinel.core.ollama import check_ollama
-from sentinel.detectors.base import Detector
+from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
     DetectorContext,
     DetectorTier,
@@ -41,11 +41,7 @@ _PIP_INSTALL = re.compile(r"pip\s+install\s+(.+)", re.IGNORECASE)
 _NPM_INSTALL = re.compile(r"npm\s+install\s+(.+)", re.IGNORECASE)
 
 # Skip directories
-_SKIP_DIRS = frozenset({
-    ".git", ".hg", ".svn", "__pycache__", "node_modules",
-    ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
-    ".ruff_cache", "dist", "build", ".egg-info", ".sentinel",
-})
+_SKIP_DIRS = COMMON_SKIP_DIRS
 
 # Template/example path patterns to ignore
 _TEMPLATE_PATH_PARTS = frozenset({

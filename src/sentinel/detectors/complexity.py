@@ -6,7 +6,7 @@ import ast
 import logging
 from pathlib import Path
 
-from sentinel.detectors.base import Detector
+from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
     DetectorContext,
     DetectorTier,
@@ -26,11 +26,7 @@ _MAX_CYCLOMATIC_COMPLEXITY = 10
 _PYTHON_EXTENSIONS = {".py"}
 
 # Directories to skip
-_SKIP_DIRS = {
-    ".git", ".hg", "__pycache__", "node_modules", ".venv", "venv",
-    ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache", "dist", "build",
-    ".eggs", ".sentinel",
-}
+_SKIP_DIRS = COMMON_SKIP_DIRS
 
 
 def _cyclomatic_complexity(node: ast.AST) -> int:

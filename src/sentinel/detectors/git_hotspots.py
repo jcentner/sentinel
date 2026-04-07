@@ -7,7 +7,7 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
-from sentinel.detectors.base import Detector
+from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
     DetectorContext,
     DetectorTier,
@@ -28,10 +28,7 @@ _DEFAULT_MIN_COMMITS = 10
 # Files with commit counts above (mean + threshold * stdev) are hotspots
 _DEFAULT_STDEV_THRESHOLD = 2.0
 
-_SKIP_DIRS = frozenset({
-    ".git", "node_modules", ".venv", "venv", "__pycache__",
-    "dist", "build", ".tox", ".sentinel",
-})
+_SKIP_DIRS = COMMON_SKIP_DIRS
 
 
 class GitHotspotsDetector(Detector):
