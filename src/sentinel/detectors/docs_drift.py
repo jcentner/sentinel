@@ -307,6 +307,24 @@ class DocsDriftDetector(Detector):
         # Skip template/example paths
         if _is_template_path(path_text):
             return None
+        # Skip URLs without scheme (domain.tld/path patterns)
+        if re.match(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/", path_text):
+            return None
+        # Skip date-like patterns (M/D/YYYY, MM/DD, etc.)
+        if re.match(r"^\d{1,4}/\d{1,4}(/\d{1,4})?$", path_text):
+            return None
+        # Skip known non-path patterns: npm/language imports (e.g. next/dynamic),
+        # CSS class references (e.g. text-foreground/80), GitHub Actions (actions/*)
+        segments = path_text.split("/")
+        has_extension = bool(re.search(r"\.[a-zA-Z0-9]{1,10}$", path_text))
+        has_dot_in_segment = any("." in seg for seg in segments)
+        starts_with_known_dir = segments[0] in ("src", "docs", "lib", "test", "tests",
+                                                 "e2e", "public", "ingestion", "branding")
+        has_relative_nav = ".." in segments or segments[0] == "."
+        # A real file path should have an extension, start with a known project dir,
+        # or use relative navigation (../).  Two bare words like "next/dynamic" are not paths.
+        if not has_extension and not starts_with_known_dir and not has_relative_nav and not has_dot_in_segment:
+            return None
 
         # Dual resolution: try repo-root-relative and doc-dir-relative
         repo_resolved = repo_root.resolve()

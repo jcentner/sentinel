@@ -215,8 +215,76 @@ class TestStaleReferences:
         ]
         assert len(inline_path_findings) == 0
 
+    def test_ignores_npm_imports(self, detector, tmp_path):
+        """FP prevention: next/dynamic, react/jsx-runtime etc. are imports, not paths."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Use `next/dynamic` for lazy loading.\n"
+            "Import from `next/image` and `next/link`.\n"
+            "Also `react/jsx-runtime` is used internally.\n"
+            "Try `shadcn/ui` components.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
 
-class TestDependencyDrift:
+    def test_ignores_urls_without_scheme(self, detector, tmp_path):
+        """FP prevention: domain.com/path patterns are URLs, not file paths."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Donate at `donate.stripe.com/abc123`.\n"
+            "API at `api.github.com/repos`.\n"
+            "Census: `geocoding.geo.census.gov/geocoder`.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
+    def test_ignores_date_patterns(self, detector, tmp_path):
+        """FP prevention: 3/5/2026 etc. are dates, not paths."""
+        readme = tmp_path / "README.md"
+        readme.write_text("Updated on `3/5/2026` and `12/31/2025`.\n")
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
+    def test_ignores_language_constructs(self, detector, tmp_path):
+        """FP prevention: async/await, string/number etc. are code, not paths."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Uses `async/await` pattern.\n"
+            "Type can be `string/number/boolean`.\n"
+            "Call `revalidatePath/Tag` after mutation.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
+    def test_still_detects_real_src_paths(self, detector, tmp_path):
+        """TP: paths with extensions or known dirs are still flagged when missing."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Config in `src/config/settings.py`.\n"
+            "Schema at `docs/api/schema.json`.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 2
     """Tests for dependency drift detection."""
 
     def test_detects_missing_dep(self, detector, tmp_path):
