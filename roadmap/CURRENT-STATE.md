@@ -1,99 +1,78 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-06 (Session 17 — 11 slices)
+> Last updated: 2026-04-06 (Session 18 — 4 slices)
 
-## Session 17 Summary
+## Session 18 Summary
 
 ### Current Objective
-CLI polish, multi-repo support, packaging, CI, documentation, error handling normalization.
+Address reviewer findings from Session 17, add CI coverage, update vision lock, model benchmarking.
 
 ### What Was Accomplished
 
-**Slice 1 — CLI --quiet mode:**
-1. Added `-q`/`--quiet` flag to CLI main group
-2. Suppresses log output below ERROR level
-3. Mutually exclusive with `-v`/`--verbose` (raises UsageError)
+**Slice 1 — Reviewer fixes (8 files):**
+1. CONTRIBUTING.md: added 7 missing source modules
+2. README.md: fixed test count 610→614, added --quiet to options table
+3. sample-cli-session.txt: fixed Status: active → Status: new
+4. go_linter.py: fixed evidence/context args formatting
+5. eslint_runner.py: fixed _SKIP_DIRS to use relative_to(repo_root)
+6. Architecture overview: added scan-all to trigger modes, setup/diagnostics section
+7. Glossary: added entries for scan-all, doctor, init
+8. test_cli.py: strengthened doctor JSON test
 
-**Slice 2 — Reviewer fixes (round 1):**
-4. Fixed open redirect via protocol-relative URL (`//evil.com`)
-5. Updated glossary, architecture overview, README for pattern clustering docs drift
-6. Added protocol-relative redirect test
+**Slice 2 — CI coverage reporting:**
+9. Added pytest-cov>=5.0 to dev dependencies
+10. CI now runs with --cov=sentinel --cov-report=term-missing --cov-report=xml
+11. Coverage artifact uploaded on Python 3.12 runs
+12. Current coverage: 90%
 
-**Slice 3 — GitHub Actions CI:**
-7. `.github/workflows/ci.yml`: Python 3.11/3.12/3.13 matrix
-8. Runs ruff, mypy strict, pytest with 10-minute timeout and pip cache
+**Slice 3 — Vision lock v2.2:**
+13. Marked 5/7 "Where We're Going" items as shipped
+14. Expanded "What Exists Today" section for full reality
+15. Phase 4 (Extended Detectors) marked complete
 
-**Slice 4 — Output samples:**
-9. `samples/` directory with sample report, JSON output, CLI session examples
-
-**Slice 5 — sentinel init command:**
-10. `sentinel init` creates sentinel.toml + .sentinel dir + .gitignore entry
-11. Line-based `.gitignore` check (avoids substring false matches), `--force` flag
-
-**Slice 6 — scan command refactor:**
-12. Extracted `_apply_cli_overrides()`, `_resolve_scope()`, `_execute_scan()` helpers
-13. Proper type annotations (SentinelConfig, sqlite3.Connection)
-14. `click.UsageError` for --incremental/--target conflict
-
-**Slice 7 — Multi-repo support:**
-15. `sentinel scan-all REPO1 REPO2 ... --db shared.db`
-16. All scan options (--model, --ollama-url, --embed-model, --skip-judge)
-17. Per-repo error handling with partial-failure exit code (2)
-18. Resolved OQ-005
-
-**Slice 8 — Reviewer fixes (round 2):**
-19. scan-all reuses _apply_cli_overrides + _execute_scan helpers
-20. Narrowed exception types (OSError, RuntimeError, ValueError)
-21. load_config inside try/except per-repo
-
-**Slice 9 — Pattern clustering web test + detector error normalization:**
-22. Integration test for pattern clustering in web UI
-23. Warning-level logs for missing tools (was debug) in eslint, go, rust detectors
-24. Added outer exception safety nets to all detectors
-
-**Slice 10 — PyPI packaging:**
-25. Added package-data for web templates and static files
-26. Verified wheel includes all 12 templates + 3 static files
-
-**Slice 11 — Doctor command + documentation:**
-27. `sentinel doctor` checks all external tools, Ollama, optional packages
-28. JSON output support
-29. CONTRIBUTING.md with project structure and conventions
-30. README updates for doctor, contributing, scan-all
+**Slice 4 — Model benchmarking:**
+16. Benchmarked qwen3.5:4b vs qwen3.5:9b-q4_K_M on self-scan
+17. 4B: 5m8s, 53 tok/s, fits GPU fully. 9B: 14m22s, 18.5 tok/s, partial CPU offload
+18. 9B is 2.9× slower with more aggressive FP rejection
+19. Prompts avg ~523 tokens — well within 2048 default num_ctx
+20. Explicitly set num_ctx: 2048 in judge.py
+21. Documented in docs/reference/model-benchmarks.md
 
 ### Test Results
 ```
-614 passed
+614 passed, 90% coverage
 ruff check: All checks passed
 mypy strict: All checks passed
 ```
 
 ### Repository State
-- **Implementation**: 30+ Python modules in `src/sentinel/`
-- **Tests**: 614 passing
+- **Implementation**: 37 Python modules in `src/sentinel/`
+- **Tests**: 614 passing, 90% code coverage
 - **Detectors**: 9 (todo-scanner, lint-runner, eslint-runner, go-linter, rust-clippy, dep-audit, docs-drift, git-hotspots, complexity)
 - **CLI**: 14 commands (scan, scan-all, init, doctor, show, suppress, approve, create-issues, history, eval, eval-history, index, serve, --version)
 - **Web UI**: 16+ routes, annotations, eval trend chart, run comparison, two-pass clustering, dark/light mode
 - **DB schema**: v7
-- **CI**: GitHub Actions (Python 3.11/3.12/3.13 matrix, ruff, mypy, pytest)
+- **CI**: GitHub Actions (Python 3.11/3.12/3.13 matrix, ruff, mypy, pytest with coverage)
 - **Packaging**: PyPI-ready wheel with templates/static included
 - **Lint/Type**: Clean (ruff, mypy strict)
+- **Model benchmarks**: 4B recommended (53 tok/s, full GPU), 9B too slow with CPU offload
 
 ### What Remains / Next Priority
-1. Model benchmarking (requires Ollama running — could do in next session)
-2. Real-world validation on non-Python repos
-3. TD-002: Async detector interface (low priority)
-4. `pip install local-repo-sentinel` publish to PyPI (needs credentials)
-5. Test coverage reporting in CI
+1. Real-world validation on non-Python repos (Go, Rust, JS/TS projects)
+2. TD-002: Async detector interface (low priority)
+3. `pip install local-repo-sentinel` publish to PyPI (needs credentials)
+4. Improve docs_drift coverage (currently 81%)
+5. Investigate 9B model's high FP rejection rate
+6. Benchmark with embeddings enabled
 
 ### Blocked Items
 - PyPI publishing: needs PyPI credentials / trusted publisher setup
-- Model benchmarking: needs Ollama with multiple models pulled
+- Formal model quality eval: needs ground-truth fixture with LLM-sensitive findings
 
-### Decisions Made
-- OQ-005 resolved: Multi-repo via `scan-all` command with shared DB
-- Partial failure exit code: `scan-all` exits 2 when any repo fails
-- Detector error handling: all detectors log at `warning` for missing tools, have outer exception safety nets
+### Decisions Made This Session
+- num_ctx: 2048 is adequate for current prompt sizes (avg 523 tokens)
+- qwen3.5:4b confirmed as best default (fits 8GB VRAM, 3× faster than 9B)
+- Phase 4 marked complete (all planned detectors shipped)
 
 ---
 
