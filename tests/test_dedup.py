@@ -113,6 +113,42 @@ class TestFingerprinting:
         )
         assert compute_fingerprint(f1) != compute_fingerprint(f2)
 
+    def test_stale_ref_same_target_different_docs_dedup(self):
+        """Two docs referencing the same missing file should get the same fingerprint."""
+        f1 = _make_finding(
+            detector="docs-drift",
+            category="docs-drift",
+            title="Stale path reference: `src/components/widget.tsx`",
+            file_path="docs/plan-a.md",
+            context={"pattern": "stale-inline-path", "referenced_path": "src/components/widget.tsx"},
+        )
+        f2 = _make_finding(
+            detector="docs-drift",
+            category="docs-drift",
+            title="Stale path reference: `src/components/widget.tsx`",
+            file_path="docs/plan-b.md",
+            context={"pattern": "stale-inline-path", "referenced_path": "src/components/widget.tsx"},
+        )
+        assert compute_fingerprint(f1) == compute_fingerprint(f2)
+
+    def test_stale_link_same_target_different_docs_dedup(self):
+        """Two docs linking to the same missing file should get the same fingerprint."""
+        f1 = _make_finding(
+            detector="docs-drift",
+            category="docs-drift",
+            title="Stale link: [plan](phase-4.md)",
+            file_path="docs/README.md",
+            context={"pattern": "stale-reference", "target": "phase-4.md"},
+        )
+        f2 = _make_finding(
+            detector="docs-drift",
+            category="docs-drift",
+            title="Stale link: [plan](phase-4.md)",
+            file_path="docs/other.md",
+            context={"pattern": "stale-reference", "target": "phase-4.md"},
+        )
+        assert compute_fingerprint(f1) == compute_fingerprint(f2)
+
 
 class TestDeduplication:
     def test_filters_suppressed(self, db_conn):

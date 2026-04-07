@@ -13,11 +13,13 @@ from sentinel.store.findings import get_known_fingerprints, get_suppressed_finge
 def compute_fingerprint(finding: Finding) -> str:
     """Compute a content-based fingerprint for deduplication.
 
-    Hash is based on (detector, category, file_path, normalized_content)
-    so that line number shifts don't break dedup.
+    Hash is based on (detector, category, effective_file_path, normalized_content)
+    so that line number shifts don't break dedup.  For docs-drift stale
+    references the effective path is the *target*, not the source doc.
     """
     content = _normalize_content(finding)
-    raw = f"{finding.detector}:{finding.category}:{finding.file_path or ''}:{content}"
+    file_path = _effective_file_path(finding)
+    raw = f"{finding.detector}:{finding.category}:{file_path}:{content}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
@@ -77,3 +79,20 @@ def _normalize_content(finding: Finding) -> str:
     # Normalize whitespace
     content = re.sub(r"\s+", " ", content).strip().lower()
     return content
+
+
+def _effective_file_path(finding: Finding) -> str:
+    """Return the file path to use for fingerprinting.
+
+    For docs-drift stale references, the finding's file_path is the *source*
+    doc containing the broken reference, but the *target* (referenced_path or
+    link target) is what identifies the issue.  Multiple docs referencing the
+    same missing file should be deduped into a single finding.
+    """
+    if finding.context:
+        pattern = finding.context.get("pattern", "")
+        if pattern in ("stale-inline-path", "stale-reference"):
+            target = finding.context.get("referenced_path") or finding.context.get("target")
+            if target:
+                return str(target)
+    return finding.file_path or ""
