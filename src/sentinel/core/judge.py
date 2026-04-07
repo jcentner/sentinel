@@ -95,7 +95,11 @@ def _judge_single(
             "prompt": prompt,
             "stream": False,
             "think": False,
-            "options": {"temperature": 0.1, "num_predict": 512},
+            "options": {
+                "temperature": 0.1,
+                "num_predict": 512,
+                "num_ctx": 2048,
+            },
         },
         timeout=_TIMEOUT,
     )
