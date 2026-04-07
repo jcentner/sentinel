@@ -12,23 +12,32 @@
 | Apr 4, afternoon | **Session 3**: Phase 2 docs-drift detector, TODO scanner FP reduction, 170 tests |
 | Apr 4, late afternoon | **Session 4**: Code reviews, precision fixes, eval CLI, ground truth test harness |
 | Apr 4, evening | **Session 5**: Migration framework, persistence scoring, git-hotspots, GitHub integration, 217 tests |
-| Apr 5 | Final code review pass, 220 tests passing |
+| Apr 5 | **Session 6–14**: Web UI, incremental scanning, embeddings, complexity detector, JSON CLI, eval trends, Go/Rust/ESLint detectors, run comparison. 220→575 tests |
+| Apr 6 | **Session 15–17**: CLI polish (init, scan-all, doctor), CI pipeline, packaging for PyPI, CONTRIBUTING.md. 575→614 tests |
+| Apr 6 (late) | **Session 18**: Model benchmarking (4B vs 9B), structured JSON output, coverage reporting. Vision lock v2.2 |
+| Apr 7, morning | **Session 19**: Real-world validation on external repo (wyoclear). 7 commits fixing FPs. 614→626 tests |
+| Apr 7, afternoon | **Session 20**: Strategic recalibration. Vision lock v3.0 — cross-artifact analysis as core differentiator |
+| Apr 7 (late) | Template extraction — autonomous workflow extracted into reusable copier template |
 
-**Total wall-clock from first code commit to feature-complete: ~12 hours across one day.**
+**Total wall-clock from first code commit to feature-complete MVP: ~12 hours across one day.**
+**Total from brainstorm to 630 tests and strategic maturity: ~10 days, ~20 autonomous sessions.**
 
 ## The Numbers
 
-| Metric | Value |
-|--------|-------|
-| Source code (Python) | ~3,600 lines across 25 files |
-| Test code | ~3,100 lines across 23 files |
-| Tests passing | 220 |
-| Detectors | 5 |
-| CLI commands | 6 |
-| ADRs written | 8 |
-| Documentation files | 26 markdown files |
-| Git commits | 46 |
-| External runtime dependencies | 2 (click, httpx) |
+| Metric | At Session 5 (Apr 5) | Current (Apr 7) |
+|--------|---------------------|------------------|
+| Source code (Python) | ~3,600 lines / 25 files | ~7,500 lines / 37 files |
+| Test code | ~3,100 lines / 23 files | ~8,400 lines / 30+ files |
+| Tests passing | 220 | 630 |
+| Detectors | 5 | 9 |
+| CLI commands | 6 | 9 (scan, suppress, approve, history, eval, create-issues, init, scan-all, doctor) |
+| ADRs written | 8 | 8 |
+| Documentation files | 26 | 35 |
+| Git commits | 46 | 155 |
+| External runtime deps | 2 (click, httpx) | 2 (click, httpx) |
+| Web UI | — | Full (htmx, bulk triage, eval trends, run comparison) |
+| CI | — | GitHub Actions (Python 3.11/3.12/3.13, 90% coverage) |
+| Language support | Python repos | Python, TypeScript/JS, Go, Rust repos |
 
 ## Phase 0: The Brainstorm (Mar 28)
 
@@ -200,13 +209,143 @@ Each implementation session followed a loop: read the current state → identify
 
 5. **Deduplication is a trust feature** — If the same finding appears in every report, the tool is noise. SQLite state, fingerprinting, and suppression exist specifically to prevent this.
 
+## Phase 6–14: The Web UI, Extended Language Support, and Incremental Hardening (Apr 5–6)
+
+After the core product was delivered in a single day, development continued with the autonomous builder running additional sessions. These sessions followed the same checkpoint protocol: read CURRENT-STATE.md, identify the next slice, implement, test, commit.
+
+### Web UI (Sessions 6–10)
+
+A full web interface was built using Flask + htmx — lightweight, server-rendered, no JavaScript build step. Features accumulated across sessions:
+
+- **Finding browser** with filtering by detector, severity, status
+- **Bulk triage** — approve/suppress multiple findings at once
+- **Run comparison** — diff two scan runs showing new, resolved, and persistent findings
+- **Eval history** with SVG trend charts
+- **Root-cause pattern clustering** — group findings by automatically detected patterns
+- **Finding annotations/notes** — attach context to individual findings
+
+Design choice: htmx over a React SPA. The reasoning was simplicity — no separate build pipeline, no client-side state management, server-side rendering is sufficient for this use case. This aligned with the project's "simple over clever" principle.
+
+### Extended detectors (Sessions 11–15)
+
+- **Complexity detector** — cyclomatic complexity via AST analysis, configurable thresholds
+- **ESLint runner** — for TypeScript/JavaScript repos, same shell-out + parse pattern as ruff
+- **Go linter** — golangci-lint integration
+- **Rust Clippy** — cargo clippy integration
+- **Incremental scanning** — only re-scan files modified since the last run (via git diff)
+
+This brought language coverage from Python-only to Python, TypeScript/JS, Go, and Rust. Each detector followed the same pattern: shell out to the ecosystem's native tool, parse structured output, map to Sentinel's `Finding` model.
+
+### Embeddings exploration (Sessions 8–9)
+
+An experimental embedding-based context gatherer was built to replace file-proximity heuristics. This used Ollama's embedding API to find semantically related code for each finding. It worked but was slow and the quality improvement over file-proximity was marginal for the 4B model. Filed as tech debt — the right approach with a stronger model, but premature at current scale.
+
+## Phase 15–17: Production Polish (Apr 6)
+
+### New CLI commands
+
+- **`sentinel init`** — scaffolds a `sentinel.toml` config file in the target repo
+- **`sentinel scan-all`** — scans multiple repos from a config file, shared DB for cross-repo dedup
+- **`sentinel doctor`** — checks system dependencies (Ollama running? ruff installed? etc.)
+
+These were informed by actually using the tool. `init` reduced the friction of first use. `scan-all` resolved OQ-005 (multi-repo support) by treating it as "run scan in a loop with a shared database" rather than building complex orchestration. `doctor` prevented the most common support question: "why isn't it working?" (Answer: Ollama isn't running.)
+
+### CI and packaging
+
+- GitHub Actions CI testing Python 3.11, 3.12, 3.13
+- 90% test coverage tracked with pytest-cov
+- Wheel packaging with templates and static files included
+- CONTRIBUTING.md for external contributors
+
+## Phase 18: Model Benchmarking (Apr 6)
+
+A direct comparison of Qwen 3.5 4B vs 9B on the same scan:
+
+| Metric | 4B | 9B |
+|--------|-----|-----|
+| Judge time | 284s | 560s |
+| Confirmed findings | — | — |
+| Agreement | ~92% overlap |
+
+The 9B model was slower but not meaningfully more accurate on the structured triage task. This validated the 4B default — for binary "is this real?" judgments, the smaller model was sufficient.
+
+Ollama's structured JSON output feature (`format: json`) was also enabled in this session, eliminating JSON parsing failures from the judge. Previously, the model occasionally returned markdown-wrapped JSON or trailing explanations. The format constraint fixed this entirely.
+
+## Phase 19: Real-World Validation (Apr 7)
+
+The most important session for product quality. Sentinel was pointed at **~/wyoclear**, an external Next.js + Python project the tool had never seen.
+
+### Three iterative scans
+
+| Metric | Scan 1 | Scan 2 | Scan 3 |
+|--------|--------|--------|--------|
+| Findings (after dedup) | 159 | 112 | 104 |
+| False positives | 22 | 17 | 12 |
+| Judge time | 304s | 276s | 179s |
+| Judge inconsistencies | 4 | 4 | 0 |
+
+Each scan-fix-rescan cycle exposed specific FP patterns:
+
+1. **Missing `.next` in skip dirs** — the todo-scanner found 3,836 findings in the Next.js build directory. Fixed by creating `COMMON_SKIP_DIRS` as a single source of truth for all detectors (19 entries: `.next`, `.turbo`, `out`, `coverage`, etc.).
+2. **Non-path patterns matched as paths** — Next.js imports like `@/components/foo`, dates like `2026-01-15`, and CSS values were being flagged as broken file references. Fixed with 4 filter stages.
+3. **Regex as markdown links** — `[JS](\d+)` in markdown tables parsed as a broken link to file `\d+`. Fixed by detecting regex metacharacters.
+4. **Same target, different docs** — Two markdown files referencing the same missing file produced two findings that the judge evaluated inconsistently. Fixed by deduplicating on target path rather than source doc path.
+5. **Strikethrough paths** — `~~old/path/deleted.tsx~~` was flagged as a broken reference. The path was intentionally documenting a deletion. Fixed by detecting strikethrough syntax.
+
+### The key lesson: LLM judges fabricate reasoning
+
+In Scan 1, the judge confirmed 42 out of 42 obvious non-path patterns (dates, URLs, CSS values) with fabricated but plausible-sounding reasoning like "the referenced file `2026-01-15` appears to be missing from the repository." The 4B model would dutifully construct an explanation for why any input was a real issue.
+
+This proved a core architectural thesis: **detector precision must be high before the LLM sees anything.** The judge is a refinement layer for genuinely ambiguous cases, not a noise filter. Adding deterministic FP filters reduced findings by 35% and FPs by 45% — far more effective than any prompt engineering could achieve.
+
+## Phase 20: Strategic Recalibration (Apr 7)
+
+After 19 implementation sessions, a docs-only session stepped back to evaluate what had actually been built versus what was promised.
+
+### The honest assessment
+
+Most of Sentinel's detectors (lint runner, todo scanner, complexity) were wrappers around tools developers already have. They added value through unified reporting and dedup, but a developer with `ruff` and `grep` already has 80% of that capability.
+
+The **genuinely differentiated** capability was **cross-artifact analysis** — specifically, docs-drift detection. No existing tool compares documentation against code to find semantic inconsistencies. The stale-reference detector (100% accuracy across 56 findings on wyoclear) was finding real issues that no combination of existing tools would catch.
+
+### Vision Lock v3.0
+
+This led to VISION-LOCK v3.0 — a strategic rewrite positioning cross-artifact analysis as the core differentiator:
+
+- **Core concept reframed**: The LLM has two roles — judge (shipped, validates findings) and analyst (planned, discovers cross-artifact inconsistencies)
+- **Detector value tiers**: lint/todo/complexity are "low" (wrap existing tools), docs-drift is "high" (unique capability), planned semantic detectors are "highest" (the real product)
+- **Key product insight**: Even a binary "in sync / needs review" signal is high value. A 4B model can't explain HOW docs are wrong, but reliably identifying THAT they need review is the product.
+- **New success criterion**: "surface issues the dev didn't already know about" — partially met
+
+### What this means for development priority
+
+New investment should go to cross-artifact semantic detectors (docs-drift with code comprehension, test-code coherence) rather than improving lint wrappers. The existing low-value detectors are kept — they're cheap to maintain and useful for repos that don't have ruff set up — but they're not the product.
+
+## The Template Extraction (Apr 7)
+
+After 20 sessions of autonomous development, the workflow itself had matured into a reusable pattern. The `.github/` directory contained a battle-tested configuration:
+
+- An **autonomous builder agent** with checkpoint protocol, authority ordering, and self-improving workflow
+- A **reviewer subagent** (read-only tools, structured output, handoff to fix)
+- A **planner subagent** (read-only tools, handoff to implementation plan)
+- **7 dev-cycle prompts** encoding the full workflow: plan → implement → review → complete
+- Documentation skeleton with vision lock, ADRs, open questions, tech debt, and glossary
+- Cross-session continuity via CURRENT-STATE.md and repository memory
+
+This was extracted into a standalone **[copier](https://copier.readthedocs.io/) template** (`~/copilot-autonomous-template/`) that can bootstrap the same autonomous workflow in any new Git repo. The template accepts variables (project name, description, language, author) and generates all 27 files with correct substitution.
+
+Usage: `copier copy ~/copilot-autonomous-template new-project` — then open in VS Code, select the autonomous-builder agent, and tell it to start Phase 0.
+
+The extraction validated a hypothesis from ADR-006: **the Copilot agent configuration is itself a reusable artifact**, not just project-specific scaffolding. The workflow — vision lock → checkpoint protocol → ordered slices → reviewer passes → durable state — transfers to any project.
+
 ## What's Left
 
-The core product is complete. What remains is incremental:
+The core product is complete and validated on external repos. What remains is strategic:
 
-- **3 deferred detectors**: SQL anti-patterns, Semgrep integration, complexity/dead-code heuristics
-- **Context gatherer upgrade**: Replace file-proximity with embedding-based retrieval (needs vector store decision)
-- **Async detectors**: Current detectors run sequentially; parallelism would improve scan speed
-- **Minor polish**: Config type validation, markdown TODO visibility, Poetry pyproject.toml support
+- **Semantic docs-drift detector** (OQ-008) — pair doc sections with code sections using embeddings, ask the LLM for binary "in sync / needs review" verdicts. This is the highest-value planned feature.
+- **Test-code coherence detector** (OQ-009) — detect when test files don't cover recently changed code paths. Unknown whether the 4B model can reliably deliver this.
+- **Dead code / unused exports** — tree-sitter based, deterministic, cross-file analysis
+- **PyPI publication** — packaging is ready, needs credentials
+- **Real-world validation on Go/Rust repos** — detectors exist but haven't been battle-tested outside unit tests
 
-None of these block the core value proposition. The system scans a repo, produces a useful morning report, and creates GitHub issues after human approval. That's what was promised, and that's what was delivered.
+The system scans repos, produces useful morning reports, creates GitHub issues after human approval, and — most importantly — finds cross-artifact issues that no other tool catches. The autonomous development workflow that built it is now a reusable template.
