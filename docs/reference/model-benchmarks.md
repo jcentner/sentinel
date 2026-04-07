@@ -8,7 +8,7 @@ Empirical comparison of Ollama models for the Sentinel LLM judge.
 - **Hardware**: Windows 11 + WSL 2 Ubuntu, GPU with 8 GB VRAM
 - **Ollama version**: Current as of 2026-04-06
 - **Detectors**: 5 active for this repo (complexity, docs-drift, git-hotspots, lint-runner, todo-scanner)
-- **Context**: Default `num_ctx` 2048 (Ollama default)
+- **Context**: `num_ctx` hardcoded at 2048 in judge.py (Ollama Modelfile default is 2048; model metadata says 262k)
 - **Date**: 2026-04-06
 
 ## Context Usage

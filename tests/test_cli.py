@@ -64,6 +64,7 @@ class TestScanCommand:
         assert result.exit_code == 0
         assert "Scan complete:" in result.output
         assert "findings in run" in result.output
+        assert "Severity:" in result.output
         assert Path(out).exists()
 
     def test_scan_nonexistent_repo(self, runner, tmp_path, db_path):

@@ -102,6 +102,14 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 - **TD-007**: `_row_to_finding` now restores the `created_at` timestamp from the database.
 - **TD-008**: Poetry pyproject.toml dependency format now supported in docs-drift.
 
+### TD-010: Hardcoded num_ctx in LLM judge
+**Status**: Active
+**Severity**: Low
+**Introduced**: Session 18
+**Description**: `judge.py` hardcodes `num_ctx: 2048` in the Ollama API call. Current prompts use <50% of this (avg 523 tokens). The value is adequate today but is not configurable via `sentinel.toml`.
+**Impact**: If future detectors produce much larger evidence blocks, or if users want larger context for better judgment quality, they cannot adjust this without editing code.
+**Proposed resolution**: Add `num_ctx` to `SentinelConfig` with default 2048. Expose in `sentinel.toml` scaffold. Aligns with ADR-003 (model parameters as config, not code).
+
 ## Won't Fix
 
 (None yet)

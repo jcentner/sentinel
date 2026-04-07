@@ -143,8 +143,8 @@ All key commands support `--json-output`. `-q/--quiet` mode for scripts. Predict
 ### Eval metrics dashboard — Shipped
 Eval results persist in SQLite via `eval_store`. Web UI includes a server-side SVG trend chart showing precision/recall over time. `sentinel eval-history` lists past eval runs.
 
-### Model benchmarking
-Compare model sizes and quantization levels (qwen3.5 4B vs 9B, Q4 vs Q6) to find the quality/VRAM sweet spot. Document context length requirements empirically. *Requires Ollama with multiple models pulled.*
+### Model benchmarking — Shipped
+Compared qwen3.5:4b vs 9b on self-scan. 4B recommended: fits 8GB VRAM, 53 tok/s, 3× faster than 9B (which partially offloads to CPU). Prompts use <50% of 2048 context. See [model-benchmarks.md](../../docs/reference/model-benchmarks.md).
 
 ### Packaging and distribution — Mostly shipped
 CI/CD pipeline (GitHub Actions, Python 3.11–3.13 matrix, ruff + mypy + pytest with coverage). Output samples in repo. CONTRIBUTING.md. PyPI-ready wheel with templates/static included. *Remaining*: `pip install local-repo-sentinel` from PyPI (needs credentials/trusted publisher).

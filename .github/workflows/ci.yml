@@ -37,7 +37,7 @@ jobs:
         run: mypy src/sentinel/ --strict
 
       - name: Run tests with coverage
-        run: pytest --tb=short -q --cov=sentinel --cov-report=term-missing --cov-report=xml
+        run: pytest --tb=short -q --cov=sentinel --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

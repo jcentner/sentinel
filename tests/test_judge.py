@@ -98,6 +98,10 @@ class TestJudgeFindings:
         assert len(result) == 1
         assert result[0].severity == Severity.MEDIUM
         assert result[0].context["judge_verdict"] == "confirmed"
+        # Verify structured output params sent to Ollama
+        call_json = mock_post.call_args[1]["json"]
+        assert call_json["format"] == "json"
+        assert call_json["options"]["num_ctx"] == 2048
 
     @patch("httpx.post")
     @patch("sentinel.core.judge.check_ollama")
