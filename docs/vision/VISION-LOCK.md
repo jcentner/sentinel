@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 3.0
+> **Version**: 3.1
 > **Updated**: 2026-04-07
-> **Supersedes**: v2.2 (2026-04-06)
+> **Supersedes**: v3.0 (2026-04-07)
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -26,7 +26,7 @@ Local Repo Sentinel is a local, evidence-backed repository issue triage system f
 
 Both kinds of findings flow through a common pipeline: fingerprinting, deduplication, context enrichment, LLM judgment, persistent storage, and a concise morning report. After explicit approval, selected findings can become GitHub issues. A browser-based web UI provides the full triage workflow alongside the CLI.
 
-The LLM serves two roles: (a) as a **judge** that filters and re-prioritizes detector output, and (b) as an **analyst** that directly compares artifacts for semantic drift. The first role is shipped. The second is the next frontier.
+The LLM serves two roles: (a) as a **judge** that filters and re-prioritizes detector output, and (b) as an **analyst** that directly compares artifacts for semantic drift. Both roles are shipped: the judge evaluates all findings; the semantic-drift detector uses the LLM to compare doc sections against code.
 
 ## Explicit Non-Goals
 
@@ -75,7 +75,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 ## What Exists Today
 
 ### Core Pipeline
-- **9 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift (broken links + stale references), git churn hotspots, and TODO/FIXME scanning
+- **10 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), git churn hotspots, and TODO/FIXME scanning
 - **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
 - **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
 - **Embedding-based context gathering**: opt-in via Ollama, falls back to file-proximity heuristics
@@ -107,10 +107,11 @@ Based on real-world validation, the current detectors fall into three tiers:
 
 | Tier | Detectors | Value |
 |------|-----------|-------|
-| High | docs-drift (broken links, stale paths) | Catches real drift that accumulates silently. 97% accuracy post-FP-fixes. |
+| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift binary signal is high-value. |
 | Medium | complexity | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
 | Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
 | Mixed | git-hotspots | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
+| Planned | test-code coherence | Compare tests against implementation for semantic staleness. Not yet implemented. |
 | Mixed | dep-audit | Genuinely useful for CVE detection if user doesn't already run audit tools. Limited to Python with root-level project markers. |
 
 The current detectors are predominantly **surface-level structural checks**. The higher-value analysis — semantic comparison of docs vs code, tests vs implementation, config vs usage — is identified but not yet implemented.
@@ -161,7 +162,7 @@ These are the next areas of investment, roughly priority-ordered. Each connects 
 
 The highest-leverage improvement is using the LLM to do what deterministic detectors can't: compare two related artifacts and identify semantic inconsistency. These detectors feed the LLM focused, bounded inputs (one doc section + one code function) and ask specific comparison questions.
 
-**Semantic docs-drift**: Feed the LLM a documentation section alongside the code it describes. Ask: "Does this documentation accurately describe this code?" This catches the real docs-drift problem — not broken links, but *stale descriptions*. A function's signature changed, its behavior evolved, but the README paragraph explaining it still describes the old version. Tractable at 4B with small, focused context windows.
+**Semantic docs-drift**: ✅ **Shipped.** Feed the LLM a documentation section alongside the code it describes. Ask: "Does this documentation accurately describe this code?" This catches the real docs-drift problem — not broken links, but *stale descriptions*. Implemented as the `semantic-drift` detector using heading-based section chunking and name-matching pairing. Binary "needs_review" / "in_sync" output. Remains to be validated on real projects.
 
 **Test-code coherence**: Feed the LLM a test function alongside its target implementation. Ask: "Does this test meaningfully validate this implementation, or has the implementation changed enough that the test passes trivially or tests the wrong thing?" Harder than docs-drift — requires understanding intent — but even a noisy signal here has high value. May need the 9B model or careful prompt engineering.
 
@@ -210,6 +211,13 @@ These are explicitly excluded from the project's vision, not deferred:
 | Ollama dependency creates friction | Low | Low | Degrade gracefully; document setup clearly |
 
 ## Changelog
+
+### v3.1 (2026-04-07)
+Semantic docs-drift detector shipped (Phase 5 Slice 1).
+- **Core concept** updated: LLM analyst role now partially shipped (semantic-drift detector)
+- **What Exists Today** updated: 10 detectors (was 9), semantic-drift added to high-value tier
+- **Detector Value Assessment** updated: semantic-drift in high tier, test-code coherence planned
+- **Where We're Going** updated: semantic docs-drift marked as shipped, test-code coherence remains next
 
 ### v3.0 (2026-04-07)
 Strategic recalibration based on critical analysis and real-world validation.

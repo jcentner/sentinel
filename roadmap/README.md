@@ -14,6 +14,7 @@ Local Repo Sentinel development follows a phased approach. Each phase has a plan
 | 3 | Refinement | **Complete** | False-positive tuning, report UX, persistence scoring |
 | 4 | Extended Detectors | **Complete** | Git-hotspots, complexity, eslint-runner, go-linter, rust-clippy |
 | 5 | GitHub Integration | **Complete** | Issue creation from approved findings |
+| 6 | Semantic Detectors | **In Progress** | Cross-artifact LLM detectors: semantic docs-drift, test-code coherence |
 
 ## Phase details
 

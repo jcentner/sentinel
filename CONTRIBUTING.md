@@ -46,6 +46,7 @@ src/sentinel/
 │   ├── rust_clippy.py      # cargo clippy wrapper
 │   ├── dep_audit.py        # pip-audit wrapper
 │   ├── docs_drift.py       # Documentation drift detector
+│   ├── semantic_drift.py   # Semantic docs-drift (LLM prose vs code comparison)
 │   ├── git_hotspots.py     # Git churn analysis
 │   └── complexity.py       # Cyclomatic complexity
 ├── store/
