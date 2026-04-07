@@ -26,6 +26,7 @@ class SentinelConfig:
     embed_chunk_size: int = 50
     embed_chunk_overlap: int = 10
     detectors_dir: str = ""
+    num_ctx: int = 2048
 
 
 # Expected types for each config field, derived from the dataclass defaults.

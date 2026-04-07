@@ -24,6 +24,7 @@ def judge_findings(
     ollama_url: str = _DEFAULT_OLLAMA_URL,
     conn: sqlite3.Connection | None = None,
     run_id: int | None = None,
+    num_ctx: int = 2048,
 ) -> list[Finding]:
     """Run each finding through the LLM judge for evaluation.
 
@@ -47,7 +48,7 @@ def judge_findings(
         prompt = _build_prompt(f)
         try:
             t0 = time.monotonic()
-            result = _judge_single(f, model, ollama_url, prompt=prompt, conn=conn, run_id=run_id)
+            result = _judge_single(f, model, ollama_url, prompt=prompt, conn=conn, run_id=run_id, num_ctx=num_ctx)
             elapsed = time.monotonic() - t0
             total_time += elapsed
             verdict = result.context.get("judge_verdict", "unknown") if result.context else "no_parse"
@@ -82,6 +83,7 @@ def _judge_single(
     prompt: str,
     conn: sqlite3.Connection | None = None,
     run_id: int | None = None,
+    num_ctx: int = 2048,
 ) -> Finding:
     """Send a single finding to the LLM judge and return enriched finding."""
     import httpx
@@ -99,7 +101,7 @@ def _judge_single(
             "options": {
                 "temperature": 0.1,
                 "num_predict": 512,
-                "num_ctx": 2048,  # Adequate for current prompts (~523 tokens avg). See TD-010.
+                "num_ctx": num_ctx,  # Configurable via sentinel.toml. See TD-010.
             },
         },
         timeout=_TIMEOUT,

@@ -69,6 +69,7 @@ def run_scan(
     embed_chunk_size: int = 50,
     embed_chunk_overlap: int = 10,
     detectors_dir: str = "",
+    num_ctx: int = 2048,
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -149,7 +150,7 @@ def run_scan(
     if not skip_judge:
         deduped = judge_findings(
             deduped, model=model, ollama_url=ollama_url,
-            conn=conn, run_id=run.id,
+            conn=conn, run_id=run.id, num_ctx=num_ctx,
         )
     else:
         logger.info("LLM judge skipped (--skip-judge)")

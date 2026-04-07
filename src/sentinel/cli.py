@@ -176,6 +176,7 @@ def _execute_scan(
         embed_chunk_size=config.embed_chunk_size,
         embed_chunk_overlap=config.embed_chunk_overlap,
         detectors_dir=config.detectors_dir,
+        num_ctx=config.num_ctx,
     )
     if output_path is not None:
         kwargs["output_path"] = output_path
@@ -815,6 +816,9 @@ output_dir = ".sentinel"
 
 # Custom detectors directory (leave empty for built-in only)
 # detectors_dir = ""
+
+# LLM context window size (tokens). Current prompts use ~500 tokens.
+# num_ctx = 2048
 """
 
 
