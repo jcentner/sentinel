@@ -95,6 +95,7 @@ def _judge_single(
             "prompt": prompt,
             "stream": False,
             "think": False,
+            "format": "json",
             "options": {
                 "temperature": 0.1,
                 "num_predict": 512,
