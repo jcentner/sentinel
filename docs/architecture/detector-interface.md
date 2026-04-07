@@ -95,6 +95,7 @@ DetectorContext:
 | `docs-drift` | Deterministic + LLM | docs-drift | ✅ Implemented | Compares docs ↔ code, docs ↔ docs for consistency |
 | `git-hotspots` | Heuristic | git-health | ✅ Implemented | Identifies high-churn files via statistical outlier analysis on git log |
 | `complexity` | Deterministic | code-quality | ✅ Implemented | Flags functions exceeding cyclomatic complexity threshold |
+| `semantic-drift` | LLM-assisted | docs-drift | ✅ Implemented | Compares documentation prose sections against referenced source code for semantic drift |
 
 ### docs-drift implementation notes
 

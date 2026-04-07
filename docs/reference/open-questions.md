@@ -16,10 +16,11 @@ Tracked questions that need resolution before or during implementation. Each que
 ## Open
 
 ### OQ-008: How should semantic docs-drift pair doc sections with code?
-**Status**: Open
+**Status**: Resolved
 **Priority**: High
 **Context**: The planned semantic docs-drift detector needs to feed the LLM a documentation section alongside the code it describes. The pairing strategy is the hard design problem: should it use heading-based chunking of docs, then match to code via symbol names? File-proximity heuristics? Embedding similarity? A bad pairing strategy will produce noise (comparing unrelated doc + code).
 **Current thinking**: Start simple — match README sections to files/functions mentioned by name in the section text. Use tree-sitter to extract function signatures from the referenced file. Feed (doc section + function signatures) to the LLM and ask for a binary "in sync / needs review" signal. Expand to embedding-based pairing later if the name-matching approach misses important pairs.
+**Resolution**: Heading-based chunking + name-matching pairing. Sections are delimited by h1–h3 headings. References extracted via backtick paths, prose paths, markdown links, and backtick-wrapped symbol names. Python `ast` module extracts function/class signatures; regex-based extraction for other languages. Binary LLM output ("needs_review" / "in_sync"). Embedding-based pairing deferred. Implemented in `src/sentinel/detectors/semantic_drift.py`.
 
 ### OQ-009: Can a 4B model reliably deliver test-code coherence signals?
 **Status**: Open
