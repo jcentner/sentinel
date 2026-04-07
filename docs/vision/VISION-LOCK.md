@@ -1,13 +1,17 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 2.2
-> **Updated**: 2026-04-06
-> **Supersedes**: [archive/VISION-LOCK-v1.md](archive/VISION-LOCK-v1.md) + VISION-REVISION-001 through 005
+> **Version**: 3.0
+> **Updated**: 2026-04-07
+> **Supersedes**: v2.2 (2026-04-06)
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
 
-Developer-facing AI tools focus on helping in the moment — autocomplete, chat, inline edits. There is no tool that works in the background, revisits a repository with fresh context overnight, and surfaces overlooked issues for human review in the morning. Existing adjacent tools are either PR-scoped reviewers (triggered per diff, not persistent), autonomous agents (implement fixes and open PRs), or static analyzers (powerful but not cross-artifact, not persistent, not summarized).
+Developer-facing AI tools focus on helping in the moment — autocomplete, chat, inline edits. There is no tool that works in the background, revisits a repository with fresh context overnight, and surfaces overlooked issues for human review in the morning.
+
+Existing adjacent tools are either PR-scoped reviewers (triggered per diff, not persistent), autonomous agents (implement fixes and open PRs), or static analyzers (powerful but not cross-artifact, not persistent, not summarized). None of them do what a thoughtful colleague does when they look at a codebase after a week of rapid changes: notice that the docs no longer match the code, that a test file no longer tests what it claims, that three dependencies were added but only one is used, that a function grew to 200 lines during a refactor.
+
+The hardest problems to catch during fast development — especially AI-assisted development — are **cross-artifact inconsistencies**: drift between code, docs, tests, config, and dependencies that accumulates silently and compounds.
 
 ## Target User
 
@@ -15,7 +19,14 @@ A developer on Windows 11 + WSL 2 Ubuntu with 8 GB VRAM GPUs, comfortable runnin
 
 ## Core Concept
 
-Local Repo Sentinel is a local, evidence-backed repository issue triage system for overnight code health monitoring. It runs deterministic and heuristic detectors to produce candidate findings, gathers contextual evidence via embeddings, and uses a small local LLM as a judgment and summarization layer. It produces a concise morning report of findings worth human attention. After explicit approval, it can create GitHub issues from selected findings. A browser-based web UI provides the full triage workflow alongside the CLI.
+Local Repo Sentinel is a local, evidence-backed repository issue triage system for overnight code health monitoring. It combines two kinds of analysis:
+
+1. **Deterministic detectors** that scan for structural issues — broken links, lint violations, high complexity, known vulnerabilities, TODO accumulation. These are cheap, fast, and reliable.
+2. **LLM-powered cross-artifact analysis** that compares related artifacts (docs vs code, tests vs implementation, config vs usage) and identifies inconsistencies a regex can't catch.
+
+Both kinds of findings flow through a common pipeline: fingerprinting, deduplication, context enrichment, LLM judgment, persistent storage, and a concise morning report. After explicit approval, selected findings can become GitHub issues. A browser-based web UI provides the full triage workflow alongside the CLI.
+
+The LLM serves two roles: (a) as a **judge** that filters and re-prioritizes detector output, and (b) as an **analyst** that directly compares artifacts for semantic drift. The first role is shipped. The second is the next frontier.
 
 ## Explicit Non-Goals
 
@@ -49,7 +60,7 @@ Local Repo Sentinel is a local, evidence-backed repository issue triage system f
 | Model-agnostic prompts | Prompts target general instruction-following, not model-specific features |
 | SQLite state store | Persistent state; embedded, zero-deployment, single-file |
 | Python implementation | Chosen for ML/NLP ecosystem, tree-sitter bindings, native sqlite3 |
-| Deterministic-first signals | Linters and heuristics are primary; LLM is judgment layer, not signal source |
+| Deterministic-first signals | For issues detectable by static analysis or heuristics, deterministic detectors are primary and the LLM is a judgment layer. For cross-artifact semantic issues (docs vs code, test vs implementation), the LLM is the primary signal source with deterministic evidence gathering. |
 | No JS build step | Web UI uses server-rendered templates with progressive enhancement (htmx). No Node/npm. |
 | Modular dependencies | Optional dependency groups (`[web]`, `[detectors]`, language-specific linters). Core pipeline has minimal required deps. |
 
@@ -64,13 +75,17 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 ## What Exists Today
 
 ### Core Pipeline
-- **9 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift, git churn hotspots, and TODO/FIXME scanning
+- **9 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift (broken links + stale references), git churn hotspots, and TODO/FIXME scanning
 - **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
+- **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
 - **Embedding-based context gathering**: opt-in via Ollama, falls back to file-proximity heuristics
-- **LLM judge**: structured judgment via Ollama. System degrades gracefully (raw findings only) when no model is running
-- **Finding fingerprinting**: content-hash deduplication, suppression persistence, occurrence tracking
+- **LLM judge**: structured judgment via Ollama with JSON output. System degrades gracefully (raw findings only) when no model is running
+- **Finding fingerprinting**: content-hash deduplication, target-aware fingerprinting for docs-drift (same missing file referenced from multiple docs deduplicates correctly), suppression persistence, occurrence tracking
 - **Two-pass clustering**: pattern clustering (same detector + normalized title) then directory clustering (3+ findings in shared parent)
 - **Morning report**: markdown output, severity-grouped, clustered, with occurrence badges
+
+### Real-World Validation
+Tested on a production Next.js + Python project (~102 source files). After iterative FP reduction: 104 findings after dedup, 92 confirmed, 12 FP (88% confirmation rate). Judge time: 179s. Zero inconsistent verdicts. Every confirmed stale link and stale path reference verified as genuinely broken/missing.
 
 ### CLI
 14 commands: `scan`, `scan-all`, `init`, `doctor`, `show`, `suppress`, `approve`, `create-issues`, `history`, `eval`, `eval-history`, `index`, `serve`, plus global `--version`/`-v`/`-q`. All key commands support `--json-output` for AI agent integration.
@@ -85,7 +100,20 @@ Issue creation from approved findings with fingerprint-based dedup. Environment 
 `scan-all` scans multiple repos into a shared database. Web UI and CLI display runs across all repos.
 
 ### Quality Infrastructure
-CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 614 tests, 90% code coverage. Output samples, CONTRIBUTING.md, TOML config scaffolding via `init`.
+CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 626 tests, 90% code coverage.
+
+### Detector Value Assessment (honest)
+Based on real-world validation, the current detectors fall into three tiers:
+
+| Tier | Detectors | Value |
+|------|-----------|-------|
+| High | docs-drift (broken links, stale paths) | Catches real drift that accumulates silently. 97% accuracy post-FP-fixes. |
+| Medium | complexity | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
+| Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
+| Mixed | git-hotspots | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
+| Mixed | dep-audit | Genuinely useful for CVE detection if user doesn't already run audit tools. Limited to Python with root-level project markers. |
+
+The current detectors are predominantly **surface-level structural checks**. The higher-value analysis — semantic comparison of docs vs code, tests vs implementation, config vs usage — is identified but not yet implemented.
 
 ## Success Criteria
 
@@ -93,13 +121,14 @@ CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with 
 |---|-----------|--------|
 | 1 | Install, point at repo, get useful morning report | **Met** |
 | 2 | Report scannable in < 2 minutes | **Met** |
-| 3 | Majority of findings are real or worth reviewing | **Met** |
+| 3 | Majority of findings are real or worth reviewing | **Met** — 88% confirmation rate on real-world scan (92/104) |
 | 4 | Findings deduplicated across runs | **Met** |
 | 5 | Works fully offline except optional GitHub | **Met** |
 | 6 | Swap LLM model via config, not code | **Met** |
 | 7 | Suppress a FP and it stays suppressed | **Met** |
 | 8 | Full triage cycle from the browser without CLI | **Met** |
 | 9 | CLI usable by AI agents (JSON output, exit codes) | **Met** |
+| 10 | Findings surface issues the developer didn't already know about | **Partially met** — docs-drift catches real blind spots; lint/complexity/todo findings are mostly already visible through existing tools |
 
 ## Evaluation Criteria
 
@@ -126,28 +155,37 @@ These hold across all versions and must not be violated:
 
 ## Where We're Going
 
-These are the next areas of investment, roughly priority-ordered. Each will be planned and validated before implementation.
+These are the next areas of investment, roughly priority-ordered. Each connects to a gap identified through real-world validation.
 
-### Multi-language repo support — Shipped
-Detectors now cover Python (ruff, pip-audit, AST complexity), JS/TS (eslint-runner wrapping ESLint/Biome), Go (golangci-lint), and Rust (cargo clippy). Language-neutral detectors (todo-scanner, docs-drift, git-hotspots) work across all languages. Each language linter is an isolated detector module. *Remaining*: real-world validation on non-Python repos, optional language-specific pip extras.
+### Phase 5: Cross-artifact LLM detectors — Next priority
 
-### Multi-repo support — Shipped
-`sentinel scan-all REPO1 REPO2 ... --db shared.db` scans multiple repos into a shared database. Web UI and `sentinel history` display runs across all repos. Partial failure handling (exit code 2). See OQ-005 resolution.
+The highest-leverage improvement is using the LLM to do what deterministic detectors can't: compare two related artifacts and identify semantic inconsistency. These detectors feed the LLM focused, bounded inputs (one doc section + one code function) and ask specific comparison questions.
 
-### Root-cause finding grouping — Shipped
-Two-pass clustering: pattern clustering (same detector + normalized title across directories) applied first, then directory clustering (3+ findings sharing a parent directory). Both the markdown report and web UI display clustered findings.
+**Semantic docs-drift**: Feed the LLM a documentation section alongside the code it describes. Ask: "Does this documentation accurately describe this code?" This catches the real docs-drift problem — not broken links, but *stale descriptions*. A function's signature changed, its behavior evolved, but the README paragraph explaining it still describes the old version. Tractable at 4B with small, focused context windows.
 
-### CLI as an AI-agent interface — Shipped
-All key commands support `--json-output`. `-q/--quiet` mode for scripts. Predictable exit codes. `suppress` and `approve` support `--json-output`. `sentinel doctor --json-output` for dependency checking.
+**Test-code coherence**: Feed the LLM a test function alongside its target implementation. Ask: "Does this test meaningfully validate this implementation, or has the implementation changed enough that the test passes trivially or tests the wrong thing?" Harder than docs-drift — requires understanding intent — but even a noisy signal here has high value. May need the 9B model or careful prompt engineering.
 
-### Eval metrics dashboard — Shipped
-Eval results persist in SQLite via `eval_store`. Web UI includes a server-side SVG trend chart showing precision/recall over time. `sentinel eval-history` lists past eval runs.
+**The key product insight**: For both of these, even a simple binary signal — "this doc section needs review" or "this test may be stale" — is high value. The developer doesn't need the LLM to explain *how* the docs are wrong or *what* to fix. Identifying *that* something is out of sync is the hard part. A 4B model can deliver that binary triage signal reliably; detailed explanations are a bonus, not a requirement.
 
-### Model benchmarking — Shipped
-Compared qwen3.5:4b vs 9b on self-scan. 4B recommended: fits 8GB VRAM, 53 tok/s, 3× faster than 9B (which partially offloads to CPU). Prompts use <50% of 2048 context. See [model-benchmarks.md](../../docs/reference/model-benchmarks.md).
+### Phase 5b: High-value deterministic detectors
 
-### Packaging and distribution — Mostly shipped
-CI/CD pipeline (GitHub Actions, Python 3.11–3.13 matrix, ruff + mypy + pytest with coverage). Output samples in repo. CONTRIBUTING.md. PyPI-ready wheel with templates/static included. *Remaining*: `pip install local-repo-sentinel` from PyPI (needs credentials/trusted publisher).
+Detectors that find things existing dev tools don't, without needing the LLM:
+
+**Dead code / unused exports**: Use tree-sitter to identify exported symbols (functions, classes, constants) and cross-reference against imports across the codebase. Symbols exported but never imported elsewhere are likely dead code. Especially valuable after AI-assisted rapid development where approaches get generated, tried, and abandoned.
+
+**Unused dependencies**: Compare installed packages (from pyproject.toml / package.json) against actual imports in source code. Flag packages that are declared but never imported. Different from dep-audit (which checks for CVEs) — this checks for waste.
+
+**Stale config / env drift**: Compare `.env.example` against environment variables actually referenced in code (via `os.environ`, `process.env`). Flag variables that exist in the example but are never read, or that code reads but the example doesn't document.
+
+### Completed (shipped in prior phases)
+
+- **Multi-language repo support**: Python, JS/TS, Go, Rust detectors. Language-neutral detectors work across all.
+- **Multi-repo support**: `scan-all` with shared database. Web UI displays all repos.
+- **Root-cause finding grouping**: Two-pass clustering in reports and web UI.
+- **CLI as AI-agent interface**: `--json-output`, quiet mode, predictable exit codes.
+- **Eval metrics dashboard**: Persistent eval results, trend charts, history.
+- **Model benchmarking**: 4B recommended for 8GB VRAM. Documented.
+- **Packaging**: CI/CD, wheel, CONTRIBUTING.md. *Remaining*: PyPI publish.
 
 ## Out of Scope (permanent)
 
@@ -164,12 +202,25 @@ These are explicitly excluded from the project's vision, not deferred:
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| FP rate too high with 4B model | Medium | High | Deterministic-first architecture; LLM is judgment layer; suppression mechanism |
-| Single-language limitation reduces real-world value | Medium | Medium | Prioritize multi-language detector support |
+| LLM judge fabricates reasoning to confirm noise | **Observed** | High | Detector precision matters more than judge sophistication. Fix FPs at the detector level. Better to give the judge 1 good finding than 2 duplicates (it will fabricate reasons to confirm both). |
+| Semantic detectors too noisy at 4B | Medium | High | Start with binary "needs review" signal, not detailed explanations. Use small focused context windows. Validate on real repos before shipping. |
+| FP rate too high erodes trust | Medium | High | Deterministic-first for structural issues; suppression mechanism; 88% confirmation rate achieved through iterative FP reduction |
+| Most detectors duplicate existing dev tooling | **Observed** | Medium | Accepted for now — lint/complexity/todo detectors provide value for repos without CI linting. Focus new investment on cross-artifact analysis that nothing else does. |
 | Fingerprinting breaks on file renames | Medium | Low | Accept; add similar-finding heuristic later |
 | Ollama dependency creates friction | Low | Low | Degrade gracefully; document setup clearly |
 
 ## Changelog
+
+### v3.0 (2026-04-07)
+Strategic recalibration based on critical analysis and real-world validation.
+- **Problem statement** sharpened: cross-artifact inconsistency is the core unsolved problem, not lint aggregation
+- **Core concept** reframed: LLM has two roles — judge (shipped) and analyst (next frontier)
+- **Technical constraints** nuanced: deterministic-first for structural issues; LLM as primary signal source for cross-artifact semantic analysis
+- **What Exists Today** updated: 626 tests, 90% coverage, real-world validation results (88% confirmation rate), added honest Detector Value Assessment table
+- **Risks** updated: replaced speculative risks with observed ones (LLM fabricates reasoning, most detectors duplicate existing tools)
+- **Where We're Going** rewritten: Phase 5 (semantic docs-drift, test-code coherence), Phase 5b (dead code, unused deps, stale config). Key insight: even a binary "needs review" signal is the high-value product.
+- **Success criterion #10** added: "Findings surface issues the developer didn't already know about" — partially met
+- Archived v2.2 as [archive/VISION-LOCK-v2.md](archive/VISION-LOCK-v2.md)
 
 ### v2.2 (2026-04-06)
 - "What Exists Today" expanded: 9 detectors (Go, Rust added), 14 CLI commands, multi-repo, clustering, quality infrastructure

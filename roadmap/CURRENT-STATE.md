@@ -1,6 +1,64 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-07 (Session 19 — 7 slices + real-world validation)
+> Last updated: 2026-04-07 (Session 20 — strategic docs update)
+
+## Session 20 Summary
+
+### Current Objective
+Critical analysis of detector value, vision recalibration, and docs alignment.
+
+### What Was Accomplished
+
+**VISION-LOCK v3.0 (strategic recalibration):**
+- Archived v2.2 as `docs/vision/archive/VISION-LOCK-v2.md`
+- Problem statement sharpened: cross-artifact inconsistency is the core unsolved problem
+- Core concept reframed: LLM has two roles — judge (shipped) and analyst (next frontier)
+- Risks updated with observed risks (LLM fabricates reasoning, detectors duplicate existing tools)
+- Where We're Going rewritten: Phase 5 (semantic docs-drift, test-code coherence) with key insight — even a binary "needs review" signal is the high-value product
+- Success criterion #10 added: "surface issues the dev didn't already know about" — partially met
+- Honest Detector Value Assessment table added
+
+**Strategy doc updated:**
+- "What it should be good at" rewritten with cross-artifact analysis as the core differentiator
+- Detector value tier table added
+- Relationship to existing tools clarified — Sentinel is not a lint aggregator, it's a cross-artifact analyst
+
+**Architecture overview updated:**
+- Detector Tier 3 expanded to describe planned semantic detectors
+- LLM Judge description expanded with planned analyst role
+- Value assessment note added linking to VISION-LOCK tier table
+
+**Open questions added:**
+- OQ-008: How should semantic docs-drift pair doc sections with code?
+- OQ-009: Can a 4B model reliably deliver test-code coherence signals?
+
+**Tech debt added:**
+- TD-011: Most detectors duplicate existing dev tooling (accepted, focus investment elsewhere)
+- TD-012: git-hotspots provides statistics without insight
+
+### Key Insight
+Even if the LLM is too simple to describe HOW the docs are out of date or how to fix it, identifying THAT they need review is a big deal. The binary "in sync / needs review" triage signal is the core product value for cross-artifact detectors. A 4B model can deliver this reliably.
+
+### Repository State
+- **Tests**: 626 passing, 90% code coverage (unchanged — docs-only session)
+- **Docs changed**: VISION-LOCK.md (v3.0), strategy.md, overview.md, open-questions.md, tech-debt.md, VISION-LOCK-v2.md (archive)
+
+### What Remains / Next Priority
+1. Phase 5: Build semantic docs-drift detector (OQ-008)
+2. Phase 5: Build test-code coherence detector (OQ-009)
+3. Phase 5b: Dead code / unused exports detector (tree-sitter)
+4. Phase 5b: Unused dependencies detector
+5. Phase 5b: Stale config / env drift detector
+6. Real-world validation on Go/Rust repos
+7. PyPI publication
+
+### Decisions Made This Session
+- VISION-LOCK v3.0 warranted (not a revision) due to strategic misalignment between vision promise and implementation reality
+- Binary "needs review" signal is the product — detailed explanations are a bonus
+- New development investment should prioritize cross-artifact semantic detectors over improving existing lint wrappers
+- Existing low-value detectors (lint, todo, etc.) kept — cheap to maintain, useful for some repos
+
+---
 
 ## Session 19 Summary
 

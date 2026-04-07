@@ -104,6 +104,22 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 
 ### TD-010: Hardcoded num_ctx in LLM judge
 **Status**: Resolved (Session 19)
+
+### TD-011: Most detectors duplicate existing dev tooling
+**Status**: Active
+**Severity**: Low
+**Introduced**: Session 19 (identified via critical analysis)
+**Description**: Lint-runner, eslint-runner, go-linter, rust-clippy, and todo-scanner largely duplicate what standard dev toolchains (CI linting, editor linting) already provide. They add value only for repos that don't already run these tools.
+**Impact**: Sentinel's findings are mostly things developers already know about, limiting the product's perceived value. Success criterion #10 ("surface issues the dev didn't already know about") is only partially met because of this.
+**Proposed resolution**: Accepted as-is — these detectors are cheap to maintain and useful for repos without CI linting. New development investment should focus on cross-artifact semantic detectors (Phase 5) that provide analysis nothing else does. No need to remove existing detectors.
+
+### TD-012: git-hotspots provides statistics without insight
+**Status**: Active
+**Severity**: Low
+**Introduced**: Session 19 (identified via critical analysis)
+**Description**: The git-hotspots detector correctly identifies high-churn files but doesn't explain *why* the churn matters. A file changed 50 times could be healthy (frequently improved) or problematic (constantly breaking). Without context about *what* changed, churn alone is weak signal.
+**Impact**: Findings are technically accurate but not actionable. Developers see "this file changed a lot" and shrug.
+**Proposed resolution**: Consider enriching with commit message analysis or pairing with other signals (e.g., "high churn + high complexity" or "high churn + failing tests"). Low priority — focus new investment on semantic detectors first.
 **Severity**: Low
 **Introduced**: Session 18
 **Description**: `judge.py` hardcodes `num_ctx: 2048` in the Ollama API call. Current prompts use <50% of this (avg 523 tokens). The value is adequate today but is not configurable via `sentinel.toml`.

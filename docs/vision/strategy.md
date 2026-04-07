@@ -18,12 +18,27 @@ A developer working primarily on Windows 11 with WSL 2 Ubuntu, using 8 GB VRAM G
 
 ## What it should be good at
 
+- **Cross-artifact inconsistency detection**: Identifying when docs, tests, config, and dependencies drift out of sync with the code. This is the core differentiator — no existing tool does this.
 - Surfacing evidence-backed candidates for bugs or maintenance issues
-- Detecting inconsistencies between code, tests, docs, and configuration (docs drift)
-- Summarizing suspicious patterns across code, tests, docs, and configuration
+- Detecting broken links and stale path references in documentation
 - Clustering similar findings to avoid noisy repetition
 - Turning raw observations into clear issue drafts for human approval
-- Maintaining continuity across repeated runs
+- Maintaining continuity across repeated runs (deduplication, recurrence tracking)
+- Providing a binary "needs review" triage signal: identifying *that* something is out of sync, even if the model can't fully explain *how* to fix it
+
+### Detector value tiers (honest assessment)
+
+Based on real-world validation (104 findings, 88% confirmation rate):
+
+| Tier | What | Why |
+|------|------|-----|
+| **Highest value (planned)** | Semantic docs-drift, test-code coherence | Cross-artifact analysis that nothing else does. Even a binary signal is high value. |
+| **High value (shipped)** | Docs-drift (broken links, stale paths) | Catches real drift that accumulates silently. 97% accuracy. |
+| **Medium** | Complexity | Useful on first scan; diminishing on repeat runs. |
+| **Low** | Lint, ESLint, go-linter, rust-clippy, todo-scanner | Duplicate what dev toolchains already provide. Useful only for repos without CI linting. |
+| **Mixed** | git-hotspots, dep-audit | Statistics without insight; or useful only if user doesn't already run audit tools. |
+
+New development investment should focus on the top two tiers.
 
 ## What it should not pretend to do
 
@@ -64,3 +79,5 @@ That keeps the human firmly in control while still making the system materially 
 This is not a replacement for interactive coding tools like GitHub Copilot or other chat-based assistants. Those tools help while coding. Repo Sentinel helps when stepping back.
 
 Interactive tools optimize for speed in the current task. Repo Sentinel optimizes for persistence, reviewability, and surfacing overlooked issues across the repository as a whole.
+
+It is also not a replacement for linters, security auditors, or complexity analyzers — those tools already exist and most dev teams already run them. The current suite of deterministic detectors (lint, complexity, todo, dep-audit) provides utility for repos without those tools, but **the strategic differentiator is cross-artifact semantic analysis**: comparing docs vs code, tests vs implementation, and config vs usage to find drift that no existing tool catches.

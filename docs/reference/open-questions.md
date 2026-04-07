@@ -15,6 +15,18 @@ Tracked questions that need resolution before or during implementation. Each que
 
 ## Open
 
+### OQ-008: How should semantic docs-drift pair doc sections with code?
+**Status**: Open
+**Priority**: High
+**Context**: The planned semantic docs-drift detector needs to feed the LLM a documentation section alongside the code it describes. The pairing strategy is the hard design problem: should it use heading-based chunking of docs, then match to code via symbol names? File-proximity heuristics? Embedding similarity? A bad pairing strategy will produce noise (comparing unrelated doc + code).
+**Current thinking**: Start simple — match README sections to files/functions mentioned by name in the section text. Use tree-sitter to extract function signatures from the referenced file. Feed (doc section + function signatures) to the LLM and ask for a binary "in sync / needs review" signal. Expand to embedding-based pairing later if the name-matching approach misses important pairs.
+
+### OQ-009: Can a 4B model reliably deliver test-code coherence signals?
+**Status**: Open
+**Priority**: Medium
+**Context**: Test-code coherence requires the LLM to understand implementation intent and whether a test meaningfully validates it. This is harder than docs-drift (which is mostly string comparison). A 4B model may not have enough capacity. The 9B model fits in 8 GB VRAM but is slower.
+**Current thinking**: Try 4B first with carefully constrained prompts (one test function + one implementation function, binary output). If precision is too low, fall back to 9B or reduce scope to "test file exists but doesn't import the function it claims to test" (partially deterministic).
+
 ### OQ-005: Should Sentinel support multi-repo in MVP?
 **Status**: Resolved
 **Priority**: Low

@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-> **Status**: Active — reflects implementation as of 2026-04-06.
+> **Status**: Active — reflects implementation as of 2026-04-07.
 
 ## High-level data flow
 
@@ -52,13 +52,15 @@ Detectors produce raw candidate findings. They come in three tiers:
 
 **Tier 2 — Heuristic**: Git-history hotspots (commit frequency analysis), cyclomatic complexity / function length analysis. Also model-free.
 
-**Tier 3 — LLM-assisted**: Docs-drift doc-code comparison via Ollama. The model evaluates whether documentation accurately describes the code, not the primary signal source.
+**Tier 3 — LLM-assisted**: Docs-drift doc-code comparison via Ollama. Currently limited to structural checks (broken links, stale paths). Planned: semantic comparison of documentation sections against the code they describe, and test-code coherence analysis. The LLM would serve as the primary signal source for these cross-artifact detectors, not just a judgment layer.
 
-The architecture is **mostly Tier 1 + 2, with the LLM as the judgment/summarization layer**, not the primary signal source.
+The architecture is **mostly Tier 1 + 2 today, with the LLM as the judgment/summarization layer**. The next strategic investment is Tier 3 cross-artifact detectors where the LLM is the primary analyst.
 
 Every detector produces a `Finding` conforming to the [Detector Interface](detector-interface.md).
 
 **Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `go-linter` (T1), `rust-clippy` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
+
+**Value assessment**: Based on real-world validation, the highest-value shipped detector is docs-drift (97% accuracy catching broken links and stale paths). Lint/complexity/todo detectors largely duplicate existing dev tooling. The highest-leverage planned detectors are semantic docs-drift and test-code coherence — cross-artifact analysis that no existing tool provides. See [VISION-LOCK.md](../vision/VISION-LOCK.md) for the full detector value tier table.
 
 ### 2. Fingerprint Assignment
 
@@ -98,6 +100,8 @@ A small local model (via Ollama) that receives each finding + its gathered conte
 - How severe is it?
 
 This is a structured judgment task, not open-ended generation. The model doesn't invent findings — it evaluates candidates produced by deterministic/heuristic detectors. The judge is optional and can be skipped with `--skip-judge`.
+
+**Planned second role — Analyst**: For cross-artifact detectors (semantic docs-drift, test-code coherence), the LLM will also serve as the primary signal source. Instead of judging a detector's finding, it receives two related artifacts (e.g., a doc section + the code it describes) and produces a binary triage signal: "in sync" or "needs review". Even without detailed explanations, this binary signal is the core product value for these detectors.
 
 ### 6. Persistence Tracker
 
