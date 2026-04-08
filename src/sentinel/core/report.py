@@ -159,6 +159,9 @@ def _format_finding_line(finding: Finding) -> str:
             badges += f" ♻️ ×{occ}"
         if finding.context.get("judge_verdict") == "likely_false_positive":
             badges += " ⚠️ FP?"
+        synth = finding.context.get("synthesis")
+        if synth and synth.get("redundant"):
+            badges += " 🔄 redundant"
 
     # Include fingerprint as ID for suppress/approve commands
     fid = ""
@@ -194,6 +197,15 @@ def _format_evidence_block(finding: Finding) -> str:
         if "summary" in judge:
             lines.append(f"  **Judge**: {judge['summary']}")
             lines.append("")
+
+    # Add synthesis summary if available
+    if finding.context and "synthesis" in finding.context:
+        synth = finding.context["synthesis"]
+        if "root_cause" in synth:
+            lines.append(f"  **Root cause**: {synth['root_cause']}")
+        if "recommended_action" in synth:
+            lines.append(f"  **Action**: {synth['recommended_action']}")
+        lines.append("")
 
     lines.append("  </details>")
     return "\n".join(lines)

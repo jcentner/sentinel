@@ -79,7 +79,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 
 ### Core Pipeline
 - **14 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, unused dependency detection, dead code / unused exports detection, stale env/config drift detection, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), test-code coherence (LLM-powered test staleness detection), git churn hotspots, and TODO/FIXME scanning
-- **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`. Entry-points plugin discovery planned (ADR-012).
+- **Custom detector loading**: external detectors via `detectors_dir` config and `entry_points` plugin discovery (ADR-012), auto-registered through `__init_subclass__`
 - **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
 - **Embedding-based context gathering**: opt-in via configured provider (default: Ollama), falls back to file-proximity heuristics
 - **LLM judge**: structured judgment via configured provider (default: Ollama) with JSON output. System degrades gracefully (raw findings only) when no model is running
