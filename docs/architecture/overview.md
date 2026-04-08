@@ -58,7 +58,7 @@ The architecture is **mostly Tier 1 + 2 today, with the LLM as the judgment/summ
 
 Every detector produces a `Finding` conforming to the [Detector Interface](detector-interface.md).
 
-**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `go-linter` (T1), `rust-clippy` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
+**Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `go-linter` (T1), `rust-clippy` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `stale-env` (T1), `unused-deps` (T1), `git-hotspots` (T2), `complexity` (T2), `dead-code` (T2), `semantic-drift` (T3), `test-coherence` (T3).
 
 **Value assessment**: Based on real-world validation, the highest-value shipped detectors are docs-drift (97% accuracy catching broken links and stale paths), semantic-drift (LLM-powered prose-vs-code comparison), and test-coherence (LLM-powered test staleness detection). Lint/complexity/todo detectors largely duplicate existing dev tooling. The highest-leverage planned extensions are capability-tiered variants that leverage more powerful models for structured analysis. Detectors declare a **capability tier** (`basic`, `standard`, `advanced`) indicating the model class they need. See [VISION-LOCK.md](../vision/VISION-LOCK.md) for the full detector value tier table.
 

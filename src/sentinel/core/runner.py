@@ -20,6 +20,13 @@ from sentinel.store.runs import complete_run, create_run, get_last_completed_run
 
 logger = logging.getLogger(__name__)
 
+_TIER_ORDER = {
+    CapabilityTier.NONE: 0,
+    CapabilityTier.BASIC: 1,
+    CapabilityTier.STANDARD: 2,
+    CapabilityTier.ADVANCED: 3,
+}
+
 
 def git_head_sha(repo_root: str) -> str | None:
     """Return the HEAD commit SHA for the repo, or None if not a git repo."""
@@ -109,13 +116,14 @@ def run_scan(
         detectors = get_all_detectors()
 
     all_findings: list[Finding] = []
-    model_cap = CapabilityTier(ctx.config.get("model_capability", "basic"))
-    _TIER_ORDER = {
-        CapabilityTier.NONE: 0,
-        CapabilityTier.BASIC: 1,
-        CapabilityTier.STANDARD: 2,
-        CapabilityTier.ADVANCED: 3,
-    }
+    raw_cap = ctx.config.get("model_capability", "basic")
+    try:
+        model_cap = CapabilityTier(raw_cap)
+    except ValueError:
+        logger.warning(
+            "Unknown model_capability %r — falling back to 'basic'", raw_cap,
+        )
+        model_cap = CapabilityTier.BASIC
     for detector in detectors:
         try:
             det_cap = detector.capability_tier

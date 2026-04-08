@@ -469,28 +469,15 @@ class DeadCodeDetector(Detector):
 
         # --- Python ---
         py_files = _collect_python_files(repo_root)
-        py_modules: list[_ModuleInfo] = []
-        for path, rel in py_files:
-            if Path(rel).name in _SKIP_FILE_PATTERNS:
-                continue
-            info = _parse_python_module(path, rel)
-            if info:
-                py_modules.append(info)
 
-        # We still need import info from skipped files (tests, __init__.py, etc.)
-        # to know what's "used", but we don't report their definitions as unused.
+        # Parse all files once
         all_py_modules: list[_ModuleInfo] = []
         for path, rel in py_files:
-            if Path(rel).name in _SKIP_FILE_PATTERNS:
-                # Parse only for imports
-                info = _parse_python_module(path, rel)
-                if info:
+            info = _parse_python_module(path, rel)
+            if info:
+                if Path(rel).name in _SKIP_FILE_PATTERNS:
                     info.defined = []  # Don't flag these as unused
-                    all_py_modules.append(info)
-            else:
-                info = _parse_python_module(path, rel)
-                if info:
-                    all_py_modules.append(info)
+                all_py_modules.append(info)
 
         # Separate: definitions come from non-test, non-skip files.
         # Imports from ALL files (including tests) count as "used".

@@ -99,6 +99,9 @@ DetectorContext:
 | `complexity` | Deterministic | code-quality | ✅ Implemented | Flags functions exceeding cyclomatic complexity threshold |
 | `semantic-drift` | LLM-assisted | docs-drift | ✅ Implemented | Compares documentation prose sections against referenced source code for semantic drift |
 | `test-coherence` | LLM-assisted | test-coherence | ✅ Implemented | Compares test functions against implementations for staleness |
+| `stale-env` | Deterministic | config-drift | ✅ Implemented | Detects drift between .env.example and env var usage in code |
+| `unused-deps` | Deterministic | dependency | ✅ Implemented | Flags declared dependencies never imported in source |
+| `dead-code` | Heuristic | code-quality | ✅ Implemented | AST-based reachability analysis for exported symbols never imported elsewhere |
 
 ### docs-drift implementation notes
 
@@ -117,7 +120,6 @@ The tier is `LLM_ASSISTED` because the LLM comparison is available, but the prim
 | `test-runner` | Deterministic | test-health | Planned | Runs test suite, captures failures |
 | `sql-antipattern` | Deterministic + LLM | performance | Planned | SQLFluff + LLM for semantic suggestions (CTE, N+1) |
 | `semgrep-runner` | Deterministic | security, code-quality | Planned | Wraps Semgrep with custom rules |
-| `dead-code` | Heuristic | code-quality | Planned | Tree-sitter reachability analysis |
 | `config-drift` | Deterministic | config-drift | Planned | Compare env configs, schema vs. defaults |
 | `complexity` | Heuristic | code-quality | ✅ Implemented | Cyclomatic complexity, function length |
 

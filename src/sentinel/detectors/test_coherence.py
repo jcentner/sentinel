@@ -104,8 +104,12 @@ class TestCoherenceDetector(Detector):
             return []
 
         findings: list[Finding] = []
-        model_cap = context.config.get("model_capability", "basic")
-        use_enhanced = model_cap in ("standard", "advanced")
+        raw_cap = context.config.get("model_capability", "basic")
+        try:
+            model_cap = CapabilityTier(raw_cap)
+        except ValueError:
+            model_cap = CapabilityTier.BASIC
+        use_enhanced = model_cap in (CapabilityTier.STANDARD, CapabilityTier.ADVANCED)
 
         for test_file in test_files:
             impl_file = find_implementation_file(test_file, repo_root)

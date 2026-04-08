@@ -41,6 +41,9 @@ _FIELD_TYPES: dict[str, type] = {
 }
 
 
+_VALID_CAPABILITIES = frozenset({"none", "basic", "standard", "advanced"})
+
+
 def _validate_config(sentinel: dict[str, Any], config_file: Path) -> None:
     """Validate types of sentinel.toml values against the dataclass schema."""
     for key, value in sentinel.items():
@@ -55,6 +58,13 @@ def _validate_config(sentinel: dict[str, Any], config_file: Path) -> None:
                 f"{config_file}: '{key}' must be {expected_type.__name__}, "
                 f"got {type(value).__name__}: {value!r}"
             )
+
+    cap = sentinel.get("model_capability")
+    if cap is not None and cap not in _VALID_CAPABILITIES:
+        raise ConfigError(
+            f"{config_file}: 'model_capability' must be one of "
+            f"{sorted(_VALID_CAPABILITIES)}, got {cap!r}"
+        )
 
 
 def load_config(repo_path: str | Path) -> SentinelConfig:

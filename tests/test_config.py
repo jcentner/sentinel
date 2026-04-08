@@ -58,3 +58,20 @@ def test_rejects_wrong_type_for_num_ctx(tmp_path):
     (tmp_path / "sentinel.toml").write_text('[sentinel]\nnum_ctx = "big"\n')
     with pytest.raises(ConfigError, match="'num_ctx' must be int"):
         load_config(tmp_path)
+
+
+def test_rejects_invalid_model_capability(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\nmodel_capability = "turbo"\n'
+    )
+    with pytest.raises(ConfigError, match="model_capability"):
+        load_config(tmp_path)
+
+
+def test_accepts_valid_model_capability(tmp_path):
+    for cap in ("none", "basic", "standard", "advanced"):
+        (tmp_path / "sentinel.toml").write_text(
+            f'[sentinel]\nmodel_capability = "{cap}"\n'
+        )
+        config = load_config(tmp_path)
+        assert config.model_capability == cap

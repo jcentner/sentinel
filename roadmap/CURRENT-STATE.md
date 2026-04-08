@@ -1,6 +1,59 @@
 # Current State — Sentinel
 
-> Last updated: Session 28 — Phase 6b complete + Phase 8 Slice 1 (capability-tiered detectors)
+> Last updated: Session 29 — Reviewer fixes for Session 28 code
+
+## Session 29 Summary
+
+### Current Objective
+Run the reviewer subagent (skipped in Session 28) and fix all findings.
+
+### What Was Accomplished
+
+**Reviewer subagent** ran on all Session 28 code (Phase 6b + Phase 8 Slice 1). Found 3 HIGH, 5 MEDIUM, 4 LOW, 3 NIT severity issues. All fixed this session:
+
+#### HIGH severity fixes
+1. **CapabilityTier crash** (`runner.py`): `CapabilityTier(value)` crashed with `ValueError` on invalid `model_capability` config. Fixed with try/except fallback to `BASIC`.
+2. **Wrong category in stale-env** (`stale_env.py`): Used `"config"` but detector-interface spec says `"config-drift"`. Fixed in property + both Finding constructions + test assertion.
+3. **Stale docs**: `detector-interface.md` still listed `dead-code` as "Planned" with tree-sitter. `overview.md` only listed 9 of 14 detectors. Both updated to reflect all 14 implemented detectors.
+
+#### MEDIUM severity fixes
+4. **Config validation** (`config.py`): Added allowlist validation for `model_capability` — rejects invalid values at config load time. Added 2 tests.
+5. **Enum-based capability comparison** (`test_coherence.py`, `semantic_drift.py`): Replaced raw string comparison `model_cap in ("standard", "advanced")` with `CapabilityTier` enum comparison.
+6. **Double-parse in dead_code.py**: Non-skipped Python files were parsed twice (once to build `py_modules`, again to build `all_py_modules`). Refactored to single-pass parsing.
+
+#### NIT fixes
+7. **`_TIER_ORDER` module-level** (`runner.py`): Moved from per-call dict construction to module-level constant.
+
+#### Documentation
+8. **ADR-011**: Created formal ADR for the CapabilityTier system (was missing from Session 28).
+9. **ADR index**: Updated to include ADR-011, incremented "next" to 012.
+10. **copilot-instructions.md**: Added ADR-011 to the key decisions list.
+11. **Agent improvement log**: Documented the third repeat of the reviewer-skip failure (Sessions 9, 14, 28).
+
+### Verification
+- **Tests**: 875 passed, 3 skipped (up from 873 — 2 new config validation tests)
+- **Ruff**: Clean on all modified files
+- **Pre-existing lint**: 5 pre-existing issues in test_dead_code.py (unused imports) and test_provider.py (nested with statements) — not introduced by this session
+
+### Key Lessons
+- The reviewer subagent was correctly skipped 0 out of 4 major sessions. The improvement log now has 3 entries documenting this same failure. The rules and checklists exist but get bypassed under implementation pressure.
+- The reviewer found real bugs in Session 28 code — the CapabilityTier crash and wrong category would have manifested in production.
+
+### Repository State
+- **Tests**: 875 passing
+- **VISION-LOCK**: v4.3 (14 detectors, all ADRs current)
+- **Phase 6b**: Complete
+- **Phase 8**: In progress (infrastructure + standard tier enhancements)
+- **Providers**: 3 (ollama, openai, azure)
+- **ADRs**: 11 (001–011)
+
+### What Remains / Next Priority
+1. **Phase 8 Slice 2**: Advanced tier detectors (deep intent comparison, architecture-level drift)
+2. **Live validation**: Test enhanced modes with Azure AI Foundry gpt-5.4-nano
+3. **PyPI publication**: Packaging is ready, needs credentials
+4. **Self-scan validation**: Run all new detectors against a real project
+
+---
 
 ## Session 28 Summary
 

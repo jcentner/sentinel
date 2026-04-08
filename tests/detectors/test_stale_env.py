@@ -257,7 +257,7 @@ class TestDetectorMeta:
         assert detector.tier == DetectorTier.DETERMINISTIC
 
     def test_categories(self, detector):
-        assert "config" in detector.categories
+        assert "config-drift" in detector.categories
 
     def test_registered(self):
         from sentinel.detectors.base import get_detector

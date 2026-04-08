@@ -79,7 +79,7 @@ class StaleEnv(Detector):
 
     @property
     def categories(self) -> list[str]:
-        return ["config"]
+        return ["config-drift"]
 
     def detect(self, context: DetectorContext) -> list[Finding]:
         try:
@@ -109,7 +109,7 @@ class StaleEnv(Detector):
         for var in sorted(documented_filtered - code_filtered):
             findings.append(Finding(
                 detector=self.name,
-                category="config",
+                category="config-drift",
                 title=f"Documented env var never used: {var}",
                 description=(
                     f"Environment variable '{var}' is documented in {example_file} "
@@ -130,7 +130,7 @@ class StaleEnv(Detector):
         for var in sorted(code_filtered - documented_filtered):
             findings.append(Finding(
                 detector=self.name,
-                category="config",
+                category="config-drift",
                 title=f"Undocumented env var: {var}",
                 description=(
                     f"Environment variable '{var}' is referenced in source code "
