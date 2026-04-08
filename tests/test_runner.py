@@ -184,3 +184,97 @@ class TestRunner:
         assert len(findings) == 1
         assert captured_ctx["scope"] == ScopeType.TARGETED
         assert captured_ctx["target_paths"] == ["x.py"]
+
+
+class TestDetectorFiltering:
+    """Tests for enabled_detectors / disabled_detectors filtering."""
+
+    def test_enabled_detectors_filter(self, db_conn, repo):
+        """Only run detectors in the enabled list."""
+        class _DetA(_MockDetector):
+            @property
+            def name(self):
+                return "det-a"
+            def detect(self, ctx):
+                return [Finding(
+                    detector="det-a", category="test", severity=Severity.LOW,
+                    confidence=1.0, title="From A", description="a",
+                    evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="a")],
+                )]
+
+        class _DetB(_MockDetector):
+            @property
+            def name(self):
+                return "det-b"
+            def detect(self, ctx):
+                return [Finding(
+                    detector="det-b", category="test", severity=Severity.LOW,
+                    confidence=1.0, title="From B", description="b",
+                    evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="b")],
+                )]
+
+        run, findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[_DetA(), _DetB()],
+            skip_judge=True,
+            enabled_detectors=["det-a"],
+        )
+        assert len(findings) == 1
+        assert findings[0].detector == "det-a"
+
+    def test_disabled_detectors_filter(self, db_conn, repo):
+        """Skip detectors in the disabled list."""
+        class _DetC(_MockDetector):
+            @property
+            def name(self):
+                return "det-c"
+            def detect(self, ctx):
+                return [Finding(
+                    detector="det-c", category="test", severity=Severity.LOW,
+                    confidence=1.0, title="From C", description="c",
+                    evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="c")],
+                )]
+
+        class _DetD(_MockDetector):
+            @property
+            def name(self):
+                return "det-d"
+            def detect(self, ctx):
+                return [Finding(
+                    detector="det-d", category="test", severity=Severity.LOW,
+                    confidence=1.0, title="From D", description="d",
+                    evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="d")],
+                )]
+
+        run, findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[_DetC(), _DetD()],
+            skip_judge=True,
+            disabled_detectors=["det-c"],
+        )
+        assert len(findings) == 1
+        assert findings[0].detector == "det-d"
+
+    def test_no_filter_runs_all(self, db_conn, repo):
+        """Without filters, all detectors run."""
+        det = _MockDetector([_sample_finding()])
+        run, findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[det],
+            skip_judge=True,
+        )
+        assert len(findings) == 1
+
+    def test_unknown_enabled_detector_warns(self, db_conn, repo, caplog):
+        """Unknown names in enabled_detectors produce a warning."""
+        import logging
+        det = _MockDetector([_sample_finding()])
+        with caplog.at_level(logging.WARNING):
+            run, findings, _ = run_scan(
+                str(repo), db_conn,
+                detectors=[det],
+                skip_judge=True,
+                enabled_detectors=["mock-detector", "nonexistent"],
+            )
+        assert len(findings) == 1
+        assert "nonexistent" in caplog.text

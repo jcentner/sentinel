@@ -78,6 +78,8 @@ def run_scan(
     detectors_dir: str = "",
     num_ctx: int = 2048,
     model_capability: str = "basic",
+    enabled_detectors: list[str] | None = None,
+    disabled_detectors: list[str] | None = None,
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -114,6 +116,21 @@ def run_scan(
             from sentinel.detectors.base import load_custom_detectors
             load_custom_detectors(detectors_dir)
         detectors = get_all_detectors()
+
+    # 3b. Filter detectors by enabled/disabled lists
+    if enabled_detectors:
+        before_count = len(detectors)
+        known_names = {d.name for d in detectors}
+        unknown = [n for n in enabled_detectors if n not in known_names]
+        if unknown:
+            logger.warning("Unknown detector(s) in enabled list: %s", ", ".join(unknown))
+        detectors = [d for d in detectors if d.name in enabled_detectors]
+        logger.info("Filtered to %d enabled detectors (was %d)", len(detectors), before_count)
+    elif disabled_detectors:
+        skip_set = set(disabled_detectors)
+        before_count = len(detectors)
+        detectors = [d for d in detectors if d.name not in skip_set]
+        logger.info("Skipping %d disabled detectors (%d remaining)", before_count - len(detectors), len(detectors))
 
     all_findings: list[Finding] = []
     raw_cap = ctx.config.get("model_capability", "basic")

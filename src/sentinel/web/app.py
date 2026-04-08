@@ -469,9 +469,13 @@ async def eval_history_page(request: Request) -> Response:
 async def scan_page(request: Request) -> Response:
     """Show scan form (GET) or trigger a scan (POST)."""
     if request.method == "GET":
+        from sentinel.detectors.base import get_detector_info
+
         current_repo = getattr(request.app.state, "repo_path", "") or ""
+        detector_info = get_detector_info()
         return templates.TemplateResponse(request, "scan.html", {
             "current_repo": current_repo,
+            "detectors": sorted(detector_info, key=lambda d: d["name"]),
         })
 
     # POST — trigger scan
@@ -505,6 +509,27 @@ async def scan_page(request: Request) -> Response:
         config.embed_model = form_embed
     if form.get("skip_judge"):
         config.skip_judge = True
+    form_provider = str(form.get("provider", "")).strip()
+    if form_provider:
+        _VALID_PROVIDERS = {"ollama", "openai", "azure"}
+        if form_provider not in _VALID_PROVIDERS:
+            return Response(f"Invalid provider: {form_provider}", status_code=400)
+        config.provider = form_provider
+    form_capability = str(form.get("capability", "")).strip()
+    if form_capability:
+        from sentinel.config import _VALID_CAPABILITIES
+        if form_capability not in _VALID_CAPABILITIES:
+            return Response(f"Invalid capability: {form_capability}", status_code=400)
+        config.model_capability = form_capability
+    # Detector selection from checkboxes — validate names
+    import re
+    _DET_NAME_RE = re.compile(r"^[a-z0-9_-]+$")
+    selected_detectors = form.getlist("detectors")
+    if selected_detectors:
+        for det_name in selected_detectors:
+            if not _DET_NAME_RE.match(str(det_name)):
+                return Response(f"Invalid detector name: {det_name}", status_code=400)
+        config.enabled_detectors = [str(d) for d in selected_detectors]
 
     def _do_scan() -> tuple[RunSummary, list[Finding], str]:
         from sentinel.core.provider import create_provider
@@ -515,6 +540,10 @@ async def scan_page(request: Request) -> Response:
             conn,
             provider=provider,
             skip_judge=config.skip_judge,
+            embed_model=config.embed_model,
+            model_capability=config.model_capability,
+            enabled_detectors=config.enabled_detectors or None,
+            disabled_detectors=config.disabled_detectors or None,
         )
 
     try:

@@ -75,3 +75,43 @@ def test_accepts_valid_model_capability(tmp_path):
         )
         config = load_config(tmp_path)
         assert config.model_capability == cap
+
+
+def test_enabled_detectors_defaults_empty(tmp_path):
+    config = load_config(tmp_path)
+    assert config.enabled_detectors == []
+    assert config.disabled_detectors == []
+
+
+def test_loads_enabled_detectors(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\nenabled_detectors = ["todo-scanner", "docs-drift"]\n'
+    )
+    config = load_config(tmp_path)
+    assert config.enabled_detectors == ["todo-scanner", "docs-drift"]
+    assert config.disabled_detectors == []
+
+
+def test_loads_disabled_detectors(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\ndisabled_detectors = ["complexity"]\n'
+    )
+    config = load_config(tmp_path)
+    assert config.disabled_detectors == ["complexity"]
+    assert config.enabled_detectors == []
+
+
+def test_rejects_both_enabled_and_disabled(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\nenabled_detectors = ["a"]\ndisabled_detectors = ["b"]\n'
+    )
+    with pytest.raises(ConfigError, match="cannot set both"):
+        load_config(tmp_path)
+
+
+def test_rejects_non_string_detector_names(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        "[sentinel]\nenabled_detectors = [1, 2]\n"
+    )
+    with pytest.raises(ConfigError, match="list of strings"):
+        load_config(tmp_path)

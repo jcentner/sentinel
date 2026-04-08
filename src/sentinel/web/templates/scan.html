@@ -30,6 +30,28 @@
       </div>
     </div>
 
+    <div class="form-row mb-2">
+      <div class="form-group">
+        <label class="form-label" for="provider">Provider</label>
+        <select class="form-input" name="provider" id="provider">
+          <option value="">Default from config</option>
+          <option value="ollama">Ollama (local)</option>
+          <option value="openai">OpenAI-compatible</option>
+          <option value="azure">Azure AI Foundry</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="capability">Model Capability</label>
+        <select class="form-input" name="capability" id="capability">
+          <option value="">Default from config</option>
+          <option value="none">None (no model)</option>
+          <option value="basic">Basic (4B+)</option>
+          <option value="standard">Standard (9B+ / small cloud)</option>
+          <option value="advanced">Advanced (frontier)</option>
+        </select>
+      </div>
+    </div>
+
     <div style="display:flex; gap:2rem; margin-bottom:1.5rem;">
       <label class="form-check">
         <input type="checkbox" name="skip_judge" value="1">
@@ -40,6 +62,24 @@
         Incremental (changed files only)
       </label>
     </div>
+
+    {% if detectors %}
+    <div class="form-group mb-2">
+      <label class="form-label">Detectors</label>
+      <p class="form-hint">Select which detectors to run. Leave all unchecked to run all detectors.</p>
+      <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:0.5rem;">
+        {% for det in detectors %}
+        <label class="form-check" title="{{ det.description }} ({{ det.tier }})">
+          <input type="checkbox" name="detectors" value="{{ det.name }}">
+          {{ det.name }}
+          {% if det.tier != "none" %}
+          <span class="badge badge-sm" style="margin-left:0.25rem;">{{ det.tier }}</span>
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="actions-bar">
       <button type="submit" class="btn btn-accent">Start Scan</button>

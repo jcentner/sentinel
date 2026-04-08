@@ -179,6 +179,80 @@ class TestScanCommand:
             assert "title" in f
             assert "fingerprint" in f
 
+    def test_scan_with_detectors_filter(self, runner, test_repo, db_path, tmp_path):
+        """--detectors limits which detectors run."""
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+            "--detectors", "todo-scanner",
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        detectors_used = {f["detector"] for f in data["findings"]}
+        # Only todo-scanner findings (or empty if no TODOs)
+        assert detectors_used <= {"todo-scanner"}
+
+    def test_scan_with_skip_detectors(self, runner, test_repo, db_path, tmp_path):
+        """--skip-detectors excludes specific detectors."""
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+            "--skip-detectors", "todo-scanner,complexity",
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        detectors_used = {f["detector"] for f in data["findings"]}
+        assert "todo-scanner" not in detectors_used
+        assert "complexity" not in detectors_used
+
+    def test_scan_detectors_and_skip_detectors_conflict(self, runner, test_repo, db_path):
+        """Cannot use both --detectors and --skip-detectors."""
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path,
+            "--detectors", "todo-scanner",
+            "--skip-detectors", "complexity",
+        ])
+        assert result.exit_code != 0
+        assert "Cannot use both" in result.output
+
+    def test_scan_with_capability_flag(self, runner, test_repo, db_path, tmp_path):
+        """--capability sets model capability tier."""
+        out = str(tmp_path / "report.md")
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", out,
+            "--capability", "standard",
+        ])
+        assert result.exit_code == 0
+
+    def test_scan_invalid_capability(self, runner, test_repo, db_path):
+        """--capability rejects invalid values."""
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path,
+            "--capability", "turbo",
+        ])
+        assert result.exit_code != 0
+        assert "turbo" in result.output
+
+    def test_scan_config_enabled_plus_cli_skip_conflict(self, runner, test_repo, db_path):
+        """Config enabled_detectors + CLI --skip-detectors should conflict."""
+        (test_repo / "sentinel.toml").write_text(
+            '[sentinel]\nenabled_detectors = ["todo-scanner"]\n'
+        )
+        result = runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path,
+            "--skip-detectors", "complexity",
+        ])
+        assert result.exit_code != 0
+        assert "Cannot use both" in result.output
+
 
 # ── suppress command ─────────────────────────────────────────────────
 

@@ -60,6 +60,9 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
 @click.option("--embed-model", default=None, help="Embedding model (enables semantic context)")
 @click.option("--target", "-t", multiple=True, help="Scan only specific paths (repeatable)")
 @click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+@click.option("--detectors", "detector_names", default=None, help="Comma-separated list of detectors to run (overrides config)")
+@click.option("--skip-detectors", "skip_detector_names", default=None, help="Comma-separated list of detectors to skip (overrides config)")
+@click.option("--capability", "capability", default=None, help="Model capability tier: none, basic, standard, advanced")
 def scan(
     repo_path: str,
     model: str | None,
@@ -73,6 +76,9 @@ def scan(
     embed_model: str | None,
     target: tuple[str, ...],
     output_json: bool,
+    detector_names: str | None,
+    skip_detector_names: str | None,
+    capability: str | None,
 ) -> None:
     """Run detectors against a repository and generate a morning report."""
     from sentinel.config import load_config
@@ -81,7 +87,10 @@ def scan(
     repo = Path(repo_path).resolve()
     config = load_config(repo)
     _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model,
-                         provider_name=provider_name, api_base=api_base)
+                         provider_name=provider_name, api_base=api_base,
+                         detector_names=detector_names,
+                         skip_detector_names=skip_detector_names,
+                         capability=capability)
 
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
@@ -127,6 +136,9 @@ def _apply_cli_overrides(
     *,
     provider_name: str | None = None,
     api_base: str | None = None,
+    detector_names: str | None = None,
+    skip_detector_names: str | None = None,
+    capability: str | None = None,
 ) -> None:
     """Apply CLI flag overrides to a loaded config."""
     if provider_name:
@@ -141,6 +153,19 @@ def _apply_cli_overrides(
         config.skip_judge = True
     if embed_model:
         config.embed_model = embed_model
+    if detector_names:
+        config.enabled_detectors = [d.strip() for d in detector_names.split(",") if d.strip()]
+    if skip_detector_names:
+        config.disabled_detectors = [d.strip() for d in skip_detector_names.split(",") if d.strip()]
+    if capability:
+        from sentinel.config import _VALID_CAPABILITIES
+        if capability not in _VALID_CAPABILITIES:
+            raise click.UsageError(
+                f"--capability must be one of {sorted(_VALID_CAPABILITIES)}, got {capability!r}"
+            )
+        config.model_capability = capability
+    if config.enabled_detectors and config.disabled_detectors:
+        raise click.UsageError("Cannot use both --detectors and --skip-detectors")
 
 
 def _resolve_scope(
@@ -200,6 +225,8 @@ def _execute_scan(
         detectors_dir=config.detectors_dir,
         num_ctx=config.num_ctx,
         model_capability=config.model_capability,
+        enabled_detectors=config.enabled_detectors or None,
+        disabled_detectors=config.disabled_detectors or None,
     )
     if output_path is not None:
         kwargs["output_path"] = output_path
@@ -757,6 +784,9 @@ def serve(
 @click.option("--api-base", default=None, help="API base URL for openai provider")
 @click.option("--embed-model", default=None, help="Embedding model (overrides per-repo config)")
 @click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+@click.option("--detectors", "detector_names", default=None, help="Comma-separated list of detectors to run")
+@click.option("--skip-detectors", "skip_detector_names", default=None, help="Comma-separated list of detectors to skip")
+@click.option("--capability", "capability", default=None, help="Model capability tier: none, basic, standard, advanced")
 def scan_all(
     repo_paths: tuple[str, ...],
     db: str,
@@ -767,6 +797,9 @@ def scan_all(
     api_base: str | None,
     embed_model: str | None,
     output_json: bool,
+    detector_names: str | None,
+    skip_detector_names: str | None,
+    capability: str | None,
 ) -> None:
     """Scan multiple repositories into a shared database.
 
@@ -790,7 +823,10 @@ def scan_all(
             try:
                 config = load_config(repo)
                 _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model,
-                                     provider_name=provider_name, api_base=api_base)
+                                     provider_name=provider_name, api_base=api_base,
+                                     detector_names=detector_names,
+                                     skip_detector_names=skip_detector_names,
+                                     capability=capability)
                 run, findings, _report = _execute_scan(str(repo), conn, config, {}, None)
                 results.append({
                     "repo": str(repo),

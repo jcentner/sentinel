@@ -660,6 +660,55 @@ class TestScanForm:
         assert resp.status_code == 200
         assert "/tmp/test-repo" in resp.text
 
+    def test_scan_form_shows_detectors(self, app: TestClient) -> None:
+        resp = app.get("/scan")
+        assert resp.status_code == 200
+        assert "todo-scanner" in resp.text
+        assert "Detectors" in resp.text
+
+    def test_scan_form_shows_provider_dropdown(self, app: TestClient) -> None:
+        resp = app.get("/scan")
+        assert resp.status_code == 200
+        assert "Provider" in resp.text
+        assert "ollama" in resp.text.lower()
+
+    def test_scan_form_shows_capability_dropdown(self, app: TestClient) -> None:
+        resp = app.get("/scan")
+        assert resp.status_code == 200
+        assert "capability" in resp.text.lower()
+
+
+class TestScanFormValidation:
+    def test_invalid_provider_rejected(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path="/tmp/test-repo")
+        client = TestClient(application)
+        resp = client.post("/scan", data={"provider": "bad-provider"})
+        assert resp.status_code == 400
+        assert "Invalid provider" in resp.text
+
+    def test_invalid_capability_rejected(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path="/tmp/test-repo")
+        client = TestClient(application)
+        resp = client.post("/scan", data={"capability": "turbo"})
+        assert resp.status_code == 400
+        assert "Invalid capability" in resp.text
+
+    def test_invalid_detector_name_rejected(
+        self, seeded_db: tuple[sqlite3.Connection, int, int]
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path="/tmp/test-repo")
+        client = TestClient(application)
+        resp = client.post("/scan", data={"detectors": "../evil"})
+        assert resp.status_code == 400
+        assert "Invalid detector name" in resp.text
+
 
 class TestGitHubPage:
     def test_github_page_empty(self, app: TestClient) -> None:

@@ -4,7 +4,7 @@
 # dataclasses.fields() to return real types, not annotation strings.
 
 import tomllib
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +32,8 @@ class SentinelConfig:
     detectors_dir: str = ""
     num_ctx: int = 2048
     model_capability: str = "basic"  # none, basic, standard, advanced
+    enabled_detectors: list = field(default_factory=list)   # bare list, not list[str] — see _FIELD_TYPES
+    disabled_detectors: list = field(default_factory=list)  # bare list, not list[str] — see _FIELD_TYPES
 
 
 # Expected types for each config field, derived from the dataclass defaults.
@@ -64,6 +66,22 @@ def _validate_config(sentinel: dict[str, Any], config_file: Path) -> None:
         raise ConfigError(
             f"{config_file}: 'model_capability' must be one of "
             f"{sorted(_VALID_CAPABILITIES)}, got {cap!r}"
+        )
+
+    # Validate list-of-string fields
+    for list_key in ("enabled_detectors", "disabled_detectors"):
+        val = sentinel.get(list_key)
+        if val is not None and not all(isinstance(item, str) for item in val):
+            raise ConfigError(
+                f"{config_file}: '{list_key}' must be a list of strings"
+            )
+
+    enabled = sentinel.get("enabled_detectors")
+    disabled = sentinel.get("disabled_detectors")
+    if enabled and disabled:
+        raise ConfigError(
+            f"{config_file}: cannot set both 'enabled_detectors' and "
+            f"'disabled_detectors' — use one or the other"
         )
 
 

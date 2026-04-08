@@ -100,6 +100,20 @@ def get_all_detectors() -> list[Detector]:
     return [cls() for cls in _REGISTRY.values()]
 
 
+def get_detector_info() -> list[dict[str, str]]:
+    """Return metadata for all registered detectors.
+
+    Ensures built-in detectors are loaded first.  Returns a list of
+    dicts with keys: name, description, tier (capability tier value).
+    """
+    from sentinel.core.runner import _ensure_detectors_loaded
+    _ensure_detectors_loaded()
+    return [
+        {"name": d.name, "description": d.description, "tier": d.capability_tier.value}
+        for d in get_all_detectors()
+    ]
+
+
 def get_detector(name: str) -> Detector | None:
     """Get a detector instance by name, or None if not found."""
     cls = _REGISTRY.get(name)
