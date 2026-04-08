@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -308,30 +308,45 @@ def _ollama_response(is_real: bool, severity: str = "medium"):
     )
 
 
+def _make_judge_provider(is_real: bool = True, severity: str = "medium"):
+    """Create a MockProvider configured for integration judge tests."""
+    from tests.mock_provider import MockProvider
+    response = json.dumps({
+        "is_real": is_real,
+        "adjusted_severity": severity,
+        "summary": "Confirmed" if is_real else "False positive",
+        "reasoning": "Test reasoning",
+    })
+    return MockProvider(
+        generate_text=response,
+        generate_token_count=30,
+        generate_duration_ms=500.0,
+        health=True,
+    )
+
+
 class TestJudgeIntegration:
     """Integration tests that exercise the full pipeline including LLM judge.
 
-    Only the Ollama HTTP endpoint is mocked — everything else (detectors,
+    Only the model provider is mocked — everything else (detectors,
     fingerprinting, dedup, context, persistence, report) runs for real.
     """
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
     def test_full_scan_with_judge(
-        self, mock_check, mock_post, test_repo, db_conn, out_dir,
+        self, test_repo, db_conn, out_dir,
     ):
         """run_scan with judge enabled: findings get verdicts and are stored."""
-        mock_check.return_value = True
-        mock_post.return_value = _ollama_response(is_real=True, severity="medium")
+        provider = _make_judge_provider(is_real=True, severity="medium")
 
         _run, findings, report = run_scan(
             str(test_repo), db_conn, skip_judge=False,
+            provider=provider,
             output_path=str(out_dir / "report.md"),
         )
 
         assert len(findings) >= 3
         # Judge should have been called for each finding
-        assert mock_post.call_count == len(findings)
+        assert len(provider.generate_calls) == len(findings)
         # All findings should have judge verdict metadata
         for f in findings:
             assert f.context is not None
@@ -340,17 +355,15 @@ class TestJudgeIntegration:
         # Report should contain judge output
         assert "confirmed" in report.lower() or "Confirmed" in report
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
     def test_judge_fp_reduces_confidence(
-        self, mock_check, mock_post, test_repo, db_conn, out_dir,
+        self, test_repo, db_conn, out_dir,
     ):
         """When judge marks findings as FP, confidence drops and report shows it."""
-        mock_check.return_value = True
-        mock_post.return_value = _ollama_response(is_real=False, severity="low")
+        provider = _make_judge_provider(is_real=False, severity="low")
 
         _run, findings, _report = run_scan(
             str(test_repo), db_conn, skip_judge=False,
+            provider=provider,
             output_path=str(out_dir / "report.md"),
         )
 
@@ -359,17 +372,15 @@ class TestJudgeIntegration:
             assert f.context.get("judge_verdict") == "likely_false_positive"
             assert f.confidence <= 0.3
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
     def test_judge_writes_llm_log(
-        self, mock_check, mock_post, test_repo, db_conn, out_dir,
+        self, test_repo, db_conn, out_dir,
     ):
         """Full pipeline writes LLM log entries for each judged finding."""
-        mock_check.return_value = True
-        mock_post.return_value = _ollama_response(is_real=True)
+        provider = _make_judge_provider(is_real=True)
 
         run, findings, _ = run_scan(
             str(test_repo), db_conn, skip_judge=False,
+            provider=provider,
             output_path=str(out_dir / "report.md"),
         )
 

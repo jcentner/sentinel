@@ -1,38 +1,100 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-07 (Session 22 — VISION-LOCK v4.0: provider abstraction vision)
+> Last updated: Session 23 — Phase 7: Provider Abstraction complete
 
-## Session 22 Summary
+## Session 23 Summary
 
 ### Current Objective
-Vision update: pluggable model provider and capability-tiered detectors.
+Implement Phase 7: Provider Abstraction (ADR-010) — make the pipeline provider-agnostic.
 
 ### What Was Accomplished
 
-**VISION-LOCK v4.0 (provider abstraction + capability tiers):**
-1. ADR-010: Pluggable model provider interface (supersedes ADR-003)
-2. VISION-LOCK v4.0: provider-agnostic design, capability-tiered detectors, opinionated defaults + extensible everything
-3. Strategy updated: local-first reframe, extensibility section, capability tier column in value table
-4. Architecture overview updated: provider protocol references, what-runs-where table
-5. Detector interface updated: capability tier field added to contract
-6. Open questions: OQ-010 (provider protocol surface) added, OQ-009 updated
-7. Glossary: 4 new terms (model provider, provider protocol, capability tier, OpenAI-compatible provider)
-8. Roadmap: Phase 7 (provider abstraction) and Phase 8 (capability-tiered detectors) added
-9. Cross-doc consistency: copilot-instructions, code-review prompt, ADR-001, all stale Ollama refs updated
+**Phase 7: Provider Abstraction — Complete:**
+
+1. **ModelProvider protocol** (`src/sentinel/core/provider.py`):
+   - `@runtime_checkable` Protocol with `generate()`, `embed()`, `check_health()`
+   - `LLMResponse` frozen dataclass for type-safe responses
+   - `create_provider(config)` factory dispatching on `config.provider`
+
+2. **OllamaProvider** (`src/sentinel/core/providers/ollama.py`):
+   - Wraps `/api/generate`, `/api/embed`, `/api/tags`
+   - Extracts all existing Ollama HTTP logic into a single cohesive class
+   - Zero behavior change for existing users
+
+3. **OpenAICompatibleProvider** (`src/sentinel/core/providers/openai_compat.py`):
+   - Wraps `/v1/chat/completions`, `/v1/embeddings`
+   - API key from env var (never in config), startup warning for cloud providers
+   - Supports OpenAI, Azure OpenAI, vLLM, LM Studio, Together, etc.
+
+4. **Config** (`src/sentinel/config.py`): Added `provider`, `api_base`, `api_key_env` fields
+
+5. **All consumers refactored** to use `provider.generate()` / `provider.embed()`:
+   - `judge.py`: removed `model`/`ollama_url` args, added `provider: ModelProvider`
+   - `semantic_drift.py`: uses `provider` from config dict
+   - `docs_drift.py`: uses `provider` from config dict
+   - `context.py`: uses `provider.embed()` instead of `embed_texts()`
+   - `indexer.py`: uses `provider.embed()` instead of `embed_texts()`
+   - `runner.py`: creates/receives provider, wires to all consumers
+   - `cli.py`: `--provider`/`--api-base` options, `create_provider()` in scan/index
+   - `web/app.py`: uses `create_provider()` for scan and eval endpoints
+
+6. **Tests**: 711 passing (680 existing + 31 new provider tests)
+   - New `tests/test_provider.py`: protocol compliance, factory, OllamaProvider, OpenAICompatibleProvider
+   - New `tests/mock_provider.py`: `MockProvider` for test isolation
+   - Updated: test_judge, test_integration, test_embeddings, test_indexer, test_docs_drift, test_semantic_drift, test_web
+
+7. **OQ-010 resolved**: Protocol surface documented
+
+8. **Docs updated**: Phase 7 marked complete, roadmap table updated, OQ-010 resolved
+
+### Verification
+- **Tests**: 711 passed, 3 skipped
+- **Ruff**: All checks passed
+- **Mypy strict**: Success (42 source files)
+- **No production code** imports from `sentinel.core.ollama` anymore (kept for backward compat)
 
 ### Repository State
-- **Tests**: 680 passing (unchanged — docs-only session)
-- **VISION-LOCK**: v4.0
-- **ADR-010**: Accepted
-- **ADR-003**: Superseded by ADR-010
+- **Tests**: 711 passing
+- **VISION-LOCK**: v4.0 (unchanged)
+- **ADR-010**: Implemented
+- **Phase 7**: Complete
+- **OQ-010**: Resolved
+
+### Files Created
+- `src/sentinel/core/provider.py`
+- `src/sentinel/core/providers/__init__.py`
+- `src/sentinel/core/providers/ollama.py`
+- `src/sentinel/core/providers/openai_compat.py`
+- `tests/test_provider.py`
+- `tests/mock_provider.py`
+
+### Files Modified
+- `src/sentinel/config.py`
+- `src/sentinel/core/judge.py`
+- `src/sentinel/core/runner.py`
+- `src/sentinel/core/context.py`
+- `src/sentinel/core/indexer.py`
+- `src/sentinel/cli.py`
+- `src/sentinel/web/app.py`
+- `src/sentinel/detectors/semantic_drift.py`
+- `src/sentinel/detectors/docs_drift.py`
+- `tests/test_judge.py`
+- `tests/test_integration.py`
+- `tests/test_embeddings.py`
+- `tests/test_indexer.py`
+- `tests/test_web.py`
+- `tests/detectors/test_semantic_drift.py`
+- `tests/detectors/test_docs_drift.py`
+- `docs/reference/open-questions.md`
+- `roadmap/phases/phase-7-provider-abstraction.md`
+- `roadmap/README.md`
 
 ### What Remains / Next Priority
 1. **Real-world validation**: Run semantic-drift on a real project and analyze accuracy
 2. **Test-code coherence detector** (OQ-009): Compare tests vs implementations for semantic staleness
 3. Phase 6b: Dead code / unused exports, unused dependencies, stale config / env drift
-4. Phase 7: Provider abstraction (ADR-010)
-5. Phase 8: Capability-tiered detectors
-6. PyPI publication
+4. Phase 8: Capability-tiered detectors (now unblocked by Phase 7)
+5. PyPI publication
 
 ---
 

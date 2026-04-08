@@ -1,4 +1,4 @@
-"""LLM Judge — evaluates findings via Ollama for severity and validity."""
+"""LLM Judge — evaluates findings via a model provider for severity and validity."""
 
 from __future__ import annotations
 
@@ -8,37 +8,35 @@ import sqlite3
 import time
 from typing import Any
 
-from sentinel.core.ollama import check_ollama
+from sentinel.core.provider import ModelProvider
 from sentinel.models import Finding, Severity
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "qwen3.5:4b"
-_DEFAULT_OLLAMA_URL = "http://localhost:11434"
 _TIMEOUT = 60.0
 
 
 def judge_findings(
     findings: list[Finding],
-    model: str = _DEFAULT_MODEL,
-    ollama_url: str = _DEFAULT_OLLAMA_URL,
+    *,
+    provider: ModelProvider,
     conn: sqlite3.Connection | None = None,
     run_id: int | None = None,
     num_ctx: int = 2048,
 ) -> list[Finding]:
     """Run each finding through the LLM judge for evaluation.
 
-    If Ollama is unavailable, returns findings unchanged (graceful degradation).
+    If the provider is unavailable, returns findings unchanged (graceful degradation).
     When *conn* is provided, each LLM interaction is logged to the llm_log table.
     """
     if not findings:
         return findings
 
-    if not check_ollama(ollama_url):
-        logger.warning("Ollama not available — passing through raw findings")
+    if not provider.check_health():
+        logger.warning("Model provider not available — passing through raw findings")
         return findings
 
-    logger.info("Judging %d findings with model=%s", len(findings), model)
+    logger.info("Judging %d findings with %r", len(findings), provider)
     judged: list[Finding] = []
     confirmed = 0
     rejected = 0
@@ -48,7 +46,10 @@ def judge_findings(
         prompt = _build_prompt(f)
         try:
             t0 = time.monotonic()
-            result = _judge_single(f, model, ollama_url, prompt=prompt, conn=conn, run_id=run_id, num_ctx=num_ctx)
+            result = _judge_single(
+                f, provider, prompt=prompt,
+                conn=conn, run_id=run_id, num_ctx=num_ctx,
+            )
             elapsed = time.monotonic() - t0
             total_time += elapsed
             verdict = result.context.get("judge_verdict", "unknown") if result.context else "no_parse"
@@ -64,7 +65,7 @@ def judge_findings(
         except Exception:
             errored += 1
             logger.warning("Judge failed for finding: %s — using raw", f.title)
-            _log_llm_entry(conn, run_id, model, f, purpose="judge",
+            _log_llm_entry(conn, run_id, str(provider), f, purpose="judge",
                            prompt=prompt, verdict="error")
             judged.append(f)
 
@@ -77,8 +78,7 @@ def judge_findings(
 
 def _judge_single(
     finding: Finding,
-    model: str,
-    ollama_url: str,
+    provider: ModelProvider,
     *,
     prompt: str,
     conn: sqlite3.Connection | None = None,
@@ -86,33 +86,19 @@ def _judge_single(
     num_ctx: int = 2048,
 ) -> Finding:
     """Send a single finding to the LLM judge and return enriched finding."""
-    import httpx
-
     logger.debug("Judge prompt for '%s':\n%s", finding.title[:60], prompt)
 
-    resp = httpx.post(
-        f"{ollama_url}/api/generate",
-        json={
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "think": False,  # Disable chain-of-thought (Qwen-specific; ignored by other models)
-            "format": "json",
-            "options": {
-                "temperature": 0.1,
-                "num_predict": 512,
-                "num_ctx": num_ctx,  # Configurable via sentinel.toml. See TD-010.
-            },
-        },
-        timeout=_TIMEOUT,
+    llm_resp = provider.generate(
+        prompt,
+        temperature=0.1,
+        max_tokens=512,
+        num_ctx=num_ctx,
+        json_output=True,
     )
-    resp.raise_for_status()
 
-    data = resp.json()
-    response_text = data.get("response", "")
-    tokens = data.get("eval_count", 0)
-    gen_time_ns = data.get("eval_duration", 0)
-    gen_ms = gen_time_ns / 1e6
+    response_text = llm_resp.text
+    tokens = llm_resp.token_count or 0
+    gen_ms = llm_resp.duration_ms or 0.0
     logger.debug("Judge raw response for '%s' (%d tokens, %.0fms):\n%s",
                  finding.title[:60], tokens, gen_ms, response_text[:500])
 
@@ -149,7 +135,7 @@ def _judge_single(
         logger.debug("Judge returned no parseable judgment for '%s'", finding.title[:60])
 
     _log_llm_entry(
-        conn, run_id, model, finding,
+        conn, run_id, _provider_model(provider), finding,
         purpose="judge",
         prompt=prompt,
         response=response_text,
@@ -160,6 +146,11 @@ def _judge_single(
     )
 
     return finding
+
+
+def _provider_model(provider: ModelProvider) -> str:
+    """Extract model name from a provider for logging."""
+    return getattr(provider, "model", str(provider))
 
 
 def _build_prompt(finding: Finding) -> str:

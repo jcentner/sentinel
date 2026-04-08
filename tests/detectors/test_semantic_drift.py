@@ -351,17 +351,17 @@ class TestDetectorIntegration:
         findings = detector.detect(ctx)
         assert findings == []
 
-    def test_ollama_unavailable_returns_empty(self, detector, tmp_path, monkeypatch):
+    def test_ollama_unavailable_returns_empty(self, detector, tmp_path):
+        """When provider health check fails, detector returns empty."""
+        from tests.mock_provider import MockProvider
+
         readme = tmp_path / "README.md"
         readme.write_text("# Usage\n\nSee `src/sentinel/cli.py` for the CLI entry point.\n")
 
-        from sentinel.detectors import semantic_drift
-
-        monkeypatch.setattr(semantic_drift, "check_ollama", lambda _: False)
-
+        provider = MockProvider(health=False)
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={},
+            config={"provider": provider},
         )
         findings = detector.detect(ctx)
         assert findings == []
@@ -394,7 +394,6 @@ class TestDetectorIntegration:
 
         from sentinel.detectors import semantic_drift
 
-        monkeypatch.setattr(semantic_drift, "check_ollama", lambda _: True)
         monkeypatch.setattr(
             semantic_drift.SemanticDriftDetector,
             "_llm_compare",
@@ -404,9 +403,11 @@ class TestDetectorIntegration:
             }),
         )
 
+        from tests.mock_provider import MockProvider
+        provider = MockProvider(health=True)
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"ollama_url": "http://fake", "model": "test"},
+            config={"provider": provider},
         )
         findings = detector.detect(ctx)
 
@@ -434,16 +435,17 @@ class TestDetectorIntegration:
 
         from sentinel.detectors import semantic_drift
 
-        monkeypatch.setattr(semantic_drift, "check_ollama", lambda _: True)
         monkeypatch.setattr(
             semantic_drift.SemanticDriftDetector,
             "_llm_compare",
             staticmethod(lambda *_args, **_kw: {"needs_review": False, "reason": ""}),
         )
 
+        from tests.mock_provider import MockProvider
+        provider = MockProvider(health=True)
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"ollama_url": "http://fake", "model": "test"},
+            config={"provider": provider},
         )
         findings = detector.detect(ctx)
 
@@ -461,16 +463,17 @@ class TestDetectorIntegration:
 
         from sentinel.detectors import semantic_drift
 
-        monkeypatch.setattr(semantic_drift, "check_ollama", lambda _: True)
         monkeypatch.setattr(
             semantic_drift.SemanticDriftDetector,
             "_llm_compare",
             staticmethod(lambda *_args, **_kw: None),
         )
 
+        from tests.mock_provider import MockProvider
+        provider = MockProvider(health=True)
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"ollama_url": "http://fake", "model": "test"},
+            config={"provider": provider},
         )
         findings = detector.detect(ctx)
 

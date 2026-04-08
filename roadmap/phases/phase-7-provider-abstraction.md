@@ -1,6 +1,7 @@
 # Phase 7: Provider Abstraction
 
-> **Status**: Not Started
+> **Status**: Complete
+> **Completed**: Session 23
 > **Prerequisites**: Phase 6 complete (semantic-drift validated, test-code coherence shipped), Phase 6b in progress or complete
 > **Goal**: Make the pipeline provider-agnostic, not just model-agnostic. Users choose their own model + provider combination via config. See [ADR-010](../../docs/architecture/decisions/010-pluggable-model-provider.md).
 
@@ -75,4 +76,4 @@ Update README with provider configuration examples (Ollama default, Azure OpenAI
 
 ## Open Questions
 
-- **OQ-010**: Exact protocol surface (see [open-questions.md](../../docs/reference/open-questions.md))
+- **OQ-010**: Resolved — see [open-questions.md](../../docs/reference/open-questions.md)

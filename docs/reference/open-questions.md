@@ -42,10 +42,10 @@ Tracked questions that need resolution before or during implementation. Each que
 **Current thinking**: Phase 2. Build as a pluggable detector: SQLFluff for deterministic SQL lint, LLM-assisted prompt for semantic suggestions. Don't build a SQL parser.
 
 ### OQ-010: What is the right ModelProvider protocol surface?
-**Status**: Open
+**Status**: Resolved (→ ADR-010, implementation in `src/sentinel/core/provider.py`)
 **Priority**: High
 **Context**: ADR-010 defines the vision for a pluggable model provider, but the exact protocol surface needs to be finalized during implementation. Key questions: Should `generate()` accept a messages list (OpenAI-style) or a flat prompt string (Ollama-style)? How should streaming be handled (if at all)? Should provider-specific options (e.g., Ollama's `think`, `num_ctx`) pass through as kwargs or a typed options dict? How does `embed()` handle models that don't support embedding (OpenAI text models)?
-**Current thinking**: `generate()` takes a prompt string + system string (lowest common denominator). No streaming for v1 — all consumers currently use non-streaming responses. Provider-specific options via a `provider_options: dict` passthrough. Embedding and generation can use different providers (e.g., Ollama for embeddings, Azure for generation) — but this adds config complexity, so start with a single provider for both.
+**Resolution**: `generate(prompt, *, system, temperature, max_tokens, num_ctx, json_output) → LLMResponse` takes a flat prompt string + optional system string (lowest common denominator). No streaming for v1. Provider-specific options mapped internally by each provider (e.g., Ollama adds `think: False`, `format: "json"`; OpenAI uses `response_format`). `embed(texts) → list[list[float]] | None` returns `None` when embedding is not supported or fails. `check_health() → bool` for connectivity checks. Single provider handles both generation and embedding. Factory function `create_provider(config)` dispatches on `config.provider` field. Two implementations: `OllamaProvider` (default, local) and `OpenAICompatibleProvider` (cloud/remote).
 
 ## Resolved
 

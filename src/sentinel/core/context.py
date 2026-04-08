@@ -8,8 +8,12 @@ import logging
 import sqlite3
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sentinel.models import Evidence, EvidenceType, Finding
+
+if TYPE_CHECKING:
+    from sentinel.core.provider import ModelProvider
 
 logger = logging.getLogger(__name__)
 
@@ -26,23 +30,24 @@ _EMBED_TOP_K = 5
 def gather_context(
     findings: list[Finding],
     repo_root: str,
+    *,
+    provider: ModelProvider | None = None,
     conn: sqlite3.Connection | None = None,
-    embed_model: str = "",
-    ollama_url: str = "http://localhost:11434",
 ) -> list[Finding]:
     """Enrich each finding with surrounding context from the repo.
 
-    If conn and embed_model are provided and an embedding index exists,
-    also adds semantically similar chunks as evidence. Falls back to
-    file-proximity heuristics only when embeddings are unavailable.
+    If conn and provider (with embed support) are provided and an
+    embedding index exists, also adds semantically similar chunks
+    as evidence. Falls back to file-proximity heuristics only when
+    embeddings are unavailable.
     """
     root = Path(repo_root)
-    use_embeddings = bool(conn and embed_model)
+    use_embeddings = bool(conn and provider)
 
     if use_embeddings:
         try:
             from sentinel.store.embeddings import chunk_count
-            assert conn is not None  # guaranteed by use_embeddings check
+            assert conn is not None
             if chunk_count(conn) == 0:
                 logger.info("Embedding index is empty, using heuristic context only")
                 use_embeddings = False
@@ -56,8 +61,9 @@ def gather_context(
             _add_related_files(f, root)
             _add_git_log(f, root)
         if use_embeddings:
-            assert conn is not None  # guaranteed by use_embeddings check
-            _add_embedding_context(f, conn, embed_model, ollama_url)
+            assert conn is not None
+            assert provider is not None
+            _add_embedding_context(f, conn, provider)
     return findings
 
 
@@ -158,16 +164,14 @@ def _add_git_log(finding: Finding, root: Path) -> None:
 def _add_embedding_context(
     finding: Finding,
     conn: sqlite3.Connection,
-    embed_model: str,
-    ollama_url: str,
+    provider: ModelProvider,
 ) -> None:
     """Add semantically similar code chunks as evidence via embeddings."""
-    from sentinel.core.ollama import embed_texts
     from sentinel.store.embeddings import query_similar
 
     # Build a query from the finding's title and description
     query_text = f"{finding.title}\n{finding.description}"
-    vectors = embed_texts([query_text], embed_model, ollama_url)
+    vectors = provider.embed([query_text])
     if not vectors or not vectors[0]:
         return
 

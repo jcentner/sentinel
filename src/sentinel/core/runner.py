@@ -10,6 +10,7 @@ from pathlib import Path
 from sentinel.core.context import gather_context
 from sentinel.core.dedup import assign_fingerprints, deduplicate
 from sentinel.core.judge import judge_findings
+from sentinel.core.provider import ModelProvider
 from sentinel.core.report import generate_report
 from sentinel.detectors.base import Detector, get_all_detectors
 from sentinel.models import DetectorContext, Finding, RunSummary, ScopeType
@@ -61,8 +62,7 @@ def run_scan(
     changed_files: list[str] | None = None,
     target_paths: list[str] | None = None,
     detectors: list[Detector] | None = None,
-    model: str = "qwen3.5:4b",
-    ollama_url: str = "http://localhost:11434",
+    provider: ModelProvider | None = None,
     output_path: str | None = None,
     skip_judge: bool = False,
     embed_model: str = "",
@@ -82,16 +82,16 @@ def run_scan(
     run = create_run(conn, repo_root, scope, commit_sha=commit_sha)
     logger.info("Started run #%d on %s (scope: %s)", run.id, repo_root, scope.value)
 
-    # 2. Build detector context
+    # 2. Build detector context (pass provider to detectors that need LLM)
     ctx = DetectorContext(
         repo_root=repo_root,
         scope=scope,
         changed_files=changed_files,
         target_paths=target_paths,
         config={
-            "ollama_url": ollama_url,
-            "model": model,
-            "skip_llm": skip_judge,
+            "provider": provider,
+            "skip_llm": skip_judge or provider is None,
+            "num_ctx": num_ctx,
         },
         conn=conn,
         run_id=run.id,
@@ -123,12 +123,12 @@ def run_scan(
     deduped = deduplicate(all_findings, conn)
     logger.info("After dedup: %d findings (was %d)", len(deduped), len(all_findings))
 
-    # 5b. Build/update embedding index if embed_model is configured
-    if embed_model:
+    # 5b. Build/update embedding index if embed_model is configured and provider supports embedding
+    if embed_model and provider is not None:
         try:
             from sentinel.core.indexer import build_index
             idx_stats = build_index(
-                repo_root, conn, embed_model, ollama_url=ollama_url,
+                repo_root, conn, provider,
                 chunk_size=embed_chunk_size, chunk_overlap=embed_chunk_overlap,
             )
             logger.info(
@@ -141,19 +141,18 @@ def run_scan(
     # 6. Gather context (with embedding support if configured)
     gather_context(
         deduped, repo_root,
+        provider=provider if embed_model else None,
         conn=conn if embed_model else None,
-        embed_model=embed_model,
-        ollama_url=ollama_url,
     )
 
     # 7. LLM Judge (optional)
-    if not skip_judge:
+    if not skip_judge and provider is not None:
         deduped = judge_findings(
-            deduped, model=model, ollama_url=ollama_url,
+            deduped, provider=provider,
             conn=conn, run_id=run.id, num_ctx=num_ctx,
         )
     else:
-        logger.info("LLM judge skipped (--skip-judge)")
+        logger.info("LLM judge skipped (--skip-judge or no provider)")
 
     # 8. Track finding persistence (occurrence counts)
     fingerprints = [f.fingerprint for f in deduped if f.fingerprint]

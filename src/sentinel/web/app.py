@@ -390,11 +390,13 @@ async def eval_page(request: Request) -> Response:
         gt = load_ground_truth(gt_path)
         mem_conn = get_conn(":memory:")
         try:
+            from sentinel.core.provider import create_provider
+
+            provider = create_provider(config)
             _, findings, _ = run_scan(
                 str(repo),
                 mem_conn,
-                model=config.model,
-                ollama_url=config.ollama_url,
+                provider=provider,
                 skip_judge=True,
                 output_path="/dev/null",
             )
@@ -505,13 +507,14 @@ async def scan_page(request: Request) -> Response:
         config.skip_judge = True
 
     def _do_scan() -> tuple[RunSummary, list[Finding], str]:
+        from sentinel.core.provider import create_provider
+
+        provider = create_provider(config)
         return run_scan(
             str(repo),
             conn,
-            model=config.model,
-            ollama_url=config.ollama_url,
+            provider=provider,
             skip_judge=config.skip_judge,
-            embed_model=config.embed_model,
         )
 
     try:

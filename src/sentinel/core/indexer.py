@@ -1,4 +1,4 @@
-"""Embedding index builder — chunk repo files, embed via Ollama, store in SQLite."""
+"""Embedding index builder — chunk repo files, embed via model provider, store in SQLite."""
 
 from __future__ import annotations
 
@@ -6,9 +6,11 @@ import hashlib
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sentinel.core.ollama import embed_texts
+if TYPE_CHECKING:
+    from sentinel.core.provider import ModelProvider
+
 from sentinel.store.embeddings import (
     delete_file_chunks,
     get_indexed_files,
@@ -115,8 +117,8 @@ def chunk_file(
 def build_index(
     repo_root: str,
     conn: sqlite3.Connection,
-    embed_model: str,
-    ollama_url: str = "http://localhost:11434",
+    provider: ModelProvider,
+    *,
     chunk_size: int = 50,
     chunk_overlap: int = 10,
     batch_size: int = 20,
@@ -187,7 +189,7 @@ def build_index(
         for batch_start in range(0, len(chunks), batch_size):
             batch = chunks[batch_start : batch_start + batch_size]
             texts = [c["content"] for c in batch]
-            vectors = embed_texts(texts, embed_model, ollama_url)
+            vectors = provider.embed(texts)
 
             if vectors is None:
                 logger.warning(
@@ -209,14 +211,16 @@ def build_index(
                 all_embedded_chunks.append(chunk)
         else:
             # All batches succeeded — store chunks
-            n = upsert_chunks(conn, rel_path, all_embedded_chunks, embed_model)
+            n = upsert_chunks(conn, rel_path, all_embedded_chunks,
+                              getattr(provider, 'embed_model', str(provider)))
             fhash = current_files[rel_path][1]
             _set_file_hash(conn, rel_path, fhash)
             stats["files_indexed"] += 1
             stats["chunks_created"] += n
             logger.debug("Indexed %s: %d chunks", rel_path, n)
 
-    set_meta(conn, "embed_model", embed_model)
+    embed_model_name = getattr(provider, "embed_model", str(provider))
+    set_meta(conn, "embed_model", embed_model_name)
     logger.info(
         "Indexing complete: %d files indexed, %d chunks created",
         stats["files_indexed"], stats["chunks_created"],

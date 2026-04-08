@@ -17,8 +17,12 @@ class ConfigError(ValueError):
 class SentinelConfig:
     """Runtime configuration for Sentinel."""
 
+    # Provider selection (see ADR-010)
+    provider: str = "ollama"
     model: str = "qwen3.5:4b"
     ollama_url: str = "http://localhost:11434"
+    api_base: str = ""
+    api_key_env: str = ""
     db_path: str = ".sentinel/sentinel.db"
     output_dir: str = ".sentinel"
     skip_judge: bool = False

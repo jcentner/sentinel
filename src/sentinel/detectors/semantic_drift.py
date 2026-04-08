@@ -22,7 +22,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from sentinel.core.ollama import check_ollama
+from sentinel.core.provider import ModelProvider
 from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
     DetectorContext,
@@ -105,11 +105,13 @@ class SemanticDriftDetector(Detector):
             return []
 
         repo_root = Path(context.repo_root)
-        ollama_url = context.config.get("ollama_url", "http://localhost:11434")
-        model = context.config.get("model", "qwen3.5:4b")
+        provider: ModelProvider | None = context.config.get("provider")
+        if provider is None:
+            logger.debug("No model provider — semantic-drift detector disabled")
+            return []
 
-        if not check_ollama(ollama_url):
-            logger.debug("Ollama unavailable — semantic-drift detector disabled")
+        if not provider.check_health():
+            logger.debug("Model provider unavailable — semantic-drift detector disabled")
             return []
 
         md_files = self._get_key_docs(context, repo_root)
@@ -142,8 +144,7 @@ class SemanticDriftDetector(Detector):
                         rel_path,
                         code_path,
                         code_excerpt,
-                        model,
-                        ollama_url,
+                        provider=provider,
                         num_ctx=context.config.get("num_ctx", 2048),
                         conn=context.conn,
                         run_id=context.run_id,
@@ -247,16 +248,13 @@ class SemanticDriftDetector(Detector):
         doc_path: str,
         code_path: str,
         code_excerpt: str,
-        model: str,
-        ollama_url: str,
         *,
+        provider: ModelProvider,
         num_ctx: int = 2048,
         conn: sqlite3.Connection | None = None,
         run_id: int | None = None,
     ) -> dict[str, Any] | None:
         """Ask the LLM whether a doc section accurately describes the referenced code."""
-        import httpx
-
         doc_text = section_body[:_MAX_DOC_CHARS]
         code_text = code_excerpt[:_MAX_CODE_CHARS]
 
@@ -279,19 +277,12 @@ class SemanticDriftDetector(Detector):
         )
 
         try:
-            resp = httpx.post(
-                f"{ollama_url}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "think": False,
-                    "options": {"temperature": 0.1, "num_predict": 512,
-                               "num_ctx": num_ctx},
-                },
-                timeout=60.0,
+            llm_resp = provider.generate(
+                prompt,
+                temperature=0.1,
+                max_tokens=512,
+                num_ctx=num_ctx,
             )
-            resp.raise_for_status()
         except Exception:
             logger.debug(
                 "LLM call failed for semantic-drift: %s vs %s",
@@ -299,11 +290,9 @@ class SemanticDriftDetector(Detector):
             )
             return None
 
-        data = resp.json()
-        text = data.get("response", "").strip()
-        tokens = data.get("eval_count", 0)
-        gen_time_ns = data.get("eval_duration", 0)
-        gen_ms = gen_time_ns / 1e6
+        text = llm_resp.text.strip()
+        tokens = llm_resp.token_count or 0
+        gen_ms = llm_resp.duration_ms or 0.0
         logger.debug(
             "Semantic-drift LLM response (%d tokens): %s",
             tokens, text[:300],
@@ -330,7 +319,7 @@ class SemanticDriftDetector(Detector):
                     run_id,
                     LLMLogEntry(
                         purpose="semantic-drift-comparison",
-                        model=model,
+                        model=getattr(provider, "model", str(provider)),
                         detector="semantic-drift",
                         finding_title=f'"{section_title}" vs {code_path}',
                         prompt=prompt,

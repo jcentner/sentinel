@@ -1,9 +1,6 @@
-"""Tests for the LLM Judge (mocked Ollama)."""
+"""Tests for the LLM Judge (mocked provider)."""
 
 from __future__ import annotations
-
-import json
-from unittest.mock import MagicMock, patch
 
 from sentinel.core.judge import (
     _build_prompt,
@@ -11,6 +8,7 @@ from sentinel.core.judge import (
     judge_findings,
 )
 from sentinel.models import Evidence, EvidenceType, Finding, Severity
+from tests.mock_provider import make_judge_provider
 
 
 def _make_finding(**kwargs) -> Finding:
@@ -68,101 +66,55 @@ class TestJudgmentParsing:
 
 
 class TestJudgeFindings:
-    @patch("sentinel.core.judge.check_ollama")
-    def test_graceful_degradation(self, mock_check):
-        """When Ollama is unavailable, findings pass through unchanged."""
-        mock_check.return_value = False
+    def test_graceful_degradation(self):
+        """When provider is unavailable, findings pass through unchanged."""
+        provider = make_judge_provider(health=False)
         findings = [_make_finding()]
-        result = judge_findings(findings)
+        result = judge_findings(findings, provider=provider)
         assert len(result) == 1
         assert result[0].severity == Severity.LOW  # Unchanged
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
-    def test_judge_confirms_finding(self, mock_check, mock_post):
-        mock_check.return_value = True
-        mock_post.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "response": json.dumps({
-                    "is_real": True,
-                    "adjusted_severity": "medium",
-                    "summary": "Real issue",
-                    "reasoning": "This TODO is old",
-                }),
-            },
-            raise_for_status=lambda: None,
+    def test_judge_confirms_finding(self):
+        provider = make_judge_provider(
+            is_real=True,
+            adjusted_severity="medium",
         )
         findings = [_make_finding()]
-        result = judge_findings(findings)
+        result = judge_findings(findings, provider=provider)
         assert len(result) == 1
         assert result[0].severity == Severity.MEDIUM
         assert result[0].context["judge_verdict"] == "confirmed"
-        # Verify structured output params sent to Ollama
-        call_json = mock_post.call_args[1]["json"]
-        assert call_json["format"] == "json"
-        assert call_json["options"]["num_ctx"] == 2048
+        # Verify json_output was requested
+        assert provider.generate_calls[0]["json_output"] is True
+        assert provider.generate_calls[0]["num_ctx"] == 2048
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
-    def test_judge_custom_num_ctx(self, mock_check, mock_post):
-        mock_check.return_value = True
-        mock_post.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "response": json.dumps({
-                    "is_real": True,
-                    "adjusted_severity": "medium",
-                    "summary": "Real issue",
-                    "reasoning": "Custom context window",
-                }),
-            },
-            raise_for_status=lambda: None,
-        )
+    def test_judge_custom_num_ctx(self):
+        provider = make_judge_provider(is_real=True, adjusted_severity="medium")
         findings = [_make_finding()]
-        judge_findings(findings, num_ctx=4096)
-        call_json = mock_post.call_args[1]["json"]
-        assert call_json["options"]["num_ctx"] == 4096
+        judge_findings(findings, provider=provider, num_ctx=4096)
+        assert provider.generate_calls[0]["num_ctx"] == 4096
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
-    def test_judge_marks_false_positive(self, mock_check, mock_post):
-        mock_check.return_value = True
-        mock_post.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "response": json.dumps({
-                    "is_real": False,
-                    "adjusted_severity": "low",
-                    "summary": "Not real",
-                    "reasoning": "Test expectation",
-                }),
-            },
-            raise_for_status=lambda: None,
-        )
+    def test_judge_marks_false_positive(self):
+        provider = make_judge_provider(is_real=False, adjusted_severity="low")
         findings = [_make_finding(confidence=0.9)]
-        result = judge_findings(findings)
+        result = judge_findings(findings, provider=provider)
         assert result[0].confidence <= 0.3
         assert result[0].context["judge_verdict"] == "likely_false_positive"
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
-    def test_judge_error_fallback(self, mock_check, mock_post):
-        mock_check.return_value = True
-        mock_post.side_effect = Exception("Connection error")
+    def test_judge_error_fallback(self):
+        provider = make_judge_provider(error=Exception("Connection error"))
         findings = [_make_finding()]
-        result = judge_findings(findings)
+        result = judge_findings(findings, provider=provider)
         # Should return original finding on error
         assert len(result) == 1
         assert result[0].severity == Severity.LOW
 
     def test_empty_findings(self):
-        result = judge_findings([])
+        provider = make_judge_provider()
+        result = judge_findings([], provider=provider)
         assert result == []
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
-    def test_judge_logs_to_db(self, mock_check, mock_post, tmp_path):
+    def test_judge_logs_to_db(self, tmp_path):
         """When conn is provided, judge writes to llm_log table."""
         from sentinel.models import ScopeType
         from sentinel.store.db import get_connection
@@ -172,23 +124,16 @@ class TestJudgeFindings:
         conn = get_connection(tmp_path / "test.db")
         run = create_run(conn, "/repo", ScopeType.FULL)
 
-        mock_check.return_value = True
-        mock_post.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "response": json.dumps({
-                    "is_real": True,
-                    "adjusted_severity": "high",
-                    "summary": "Serious TODO",
-                    "reasoning": "Old and critical",
-                }),
-                "eval_count": 55,
-                "eval_duration": 1_200_000_000,
-            },
-            raise_for_status=lambda: None,
+        provider = make_judge_provider(
+            is_real=True,
+            adjusted_severity="high",
+            summary="Serious TODO",
+            reasoning="Old and critical",
+            token_count=55,
+            duration_ms=1200.0,
         )
         findings = [_make_finding(fingerprint="fp-test-123")]
-        judge_findings(findings, conn=conn, run_id=run.id)
+        judge_findings(findings, provider=provider, conn=conn, run_id=run.id)
 
         rows = get_llm_log_for_run(conn, run.id)
         assert len(rows) == 1
@@ -202,9 +147,7 @@ class TestJudgeFindings:
         assert row["prompt"] != ""
         conn.close()
 
-    @patch("httpx.post")
-    @patch("sentinel.core.judge.check_ollama")
-    def test_judge_error_logs_prompt_to_db(self, mock_check, mock_post, tmp_path):
+    def test_judge_error_logs_prompt_to_db(self, tmp_path):
         """On error, the prompt is still logged to llm_log."""
         from sentinel.models import ScopeType
         from sentinel.store.db import get_connection
@@ -214,10 +157,9 @@ class TestJudgeFindings:
         conn = get_connection(tmp_path / "test.db")
         run = create_run(conn, "/repo", ScopeType.FULL)
 
-        mock_check.return_value = True
-        mock_post.side_effect = Exception("Connection error")
+        provider = make_judge_provider(error=Exception("Connection error"))
         findings = [_make_finding()]
-        judge_findings(findings, conn=conn, run_id=run.id)
+        judge_findings(findings, provider=provider, conn=conn, run_id=run.id)
 
         rows = get_llm_log_for_run(conn, run.id)
         assert len(rows) == 1

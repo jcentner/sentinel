@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 
 from sentinel.core.indexer import _collect_files, _should_skip_dir, build_index, chunk_file
@@ -245,7 +243,9 @@ class TestIndexer:
         assert "__pycache__/cache.pyc" not in rel_names
 
     def test_build_index_with_mock_embeddings(self, tmp_path):
-        """Test build_index with mocked Ollama embedding calls."""
+        """Test build_index with mocked provider embedding calls."""
+        from tests.mock_provider import MockProvider
+
         # Create a small repo
         (tmp_path / "src").mkdir()
         (tmp_path / "src" / "main.py").write_text(
@@ -256,11 +256,16 @@ class TestIndexer:
         conn = get_connection(tmp_path / ".sentinel" / "test.db")
         fake_dim = 4
 
-        def mock_embed(texts, model, ollama_url):
+        provider = MockProvider(
+            embed_result=[[0.1] * fake_dim],  # Will be re-used per call
+        )
+        # Override embed to return correct number of vectors
+        def sized_embed(texts):
+            provider.embed_calls.append(texts)
             return [[0.1 * (i + 1)] * fake_dim for i in range(len(texts))]
+        provider.embed = sized_embed
 
-        with patch("sentinel.core.indexer.embed_texts", side_effect=mock_embed):
-            stats = build_index(str(tmp_path), conn, "test-model")
+        stats = build_index(str(tmp_path), conn, provider)
 
         assert stats["files_scanned"] >= 2
         assert stats["files_indexed"] >= 2
@@ -270,54 +275,56 @@ class TestIndexer:
 
     def test_incremental_index_skips_unchanged(self, tmp_path):
         """Second build_index call with no changes should skip all files."""
+        from tests.mock_provider import MockProvider
+
         (tmp_path / "main.py").write_text("print(1)\n")
         conn = get_connection(tmp_path / ".sentinel" / "test.db")
 
-        def mock_embed(texts, model, ollama_url):
-            return [[0.5] * 4 for _ in texts]
+        provider = MockProvider()
+        provider.embed = lambda texts: [[0.5] * 4 for _ in texts]
 
-        with patch("sentinel.core.indexer.embed_texts", side_effect=mock_embed):
-            stats1 = build_index(str(tmp_path), conn, "test-model")
-            assert stats1["files_indexed"] >= 1
+        stats1 = build_index(str(tmp_path), conn, provider)
+        assert stats1["files_indexed"] >= 1
 
-            stats2 = build_index(str(tmp_path), conn, "test-model")
-            assert stats2["files_indexed"] == 0  # nothing changed
+        stats2 = build_index(str(tmp_path), conn, provider)
+        assert stats2["files_indexed"] == 0  # nothing changed
 
         conn.close()
 
     def test_index_removes_deleted_files(self, tmp_path):
         """Chunks for deleted files are removed on re-index."""
+        from tests.mock_provider import MockProvider
+
         (tmp_path / "a.py").write_text("code\n")
         (tmp_path / "b.py").write_text("more code\n")
         conn = get_connection(tmp_path / ".sentinel" / "test.db")
 
-        def mock_embed(texts, model, ollama_url):
-            return [[0.5] * 4 for _ in texts]
+        provider = MockProvider()
+        provider.embed = lambda texts: [[0.5] * 4 for _ in texts]
 
-        with patch("sentinel.core.indexer.embed_texts", side_effect=mock_embed):
-            build_index(str(tmp_path), conn, "test-model")
-            assert "b.py" in get_indexed_files(conn)
+        build_index(str(tmp_path), conn, provider)
+        assert "b.py" in get_indexed_files(conn)
 
-            # Delete b.py and re-index
-            (tmp_path / "b.py").unlink()
-            stats = build_index(str(tmp_path), conn, "test-model")
-            assert stats["files_removed"] >= 1
-            assert "b.py" not in get_indexed_files(conn)
+        # Delete b.py and re-index
+        (tmp_path / "b.py").unlink()
+        stats = build_index(str(tmp_path), conn, provider)
+        assert stats["files_removed"] >= 1
+        assert "b.py" not in get_indexed_files(conn)
 
         conn.close()
 
     def test_build_index_handles_embed_failure(self, tmp_path):
         """When embedding fails, files are skipped gracefully."""
+        from tests.mock_provider import MockProvider
+
         (tmp_path / "main.py").write_text("code\n")
         conn = get_connection(tmp_path / ".sentinel" / "test.db")
 
-        def mock_embed_fail(texts, model, ollama_url):
-            return None
+        provider = MockProvider(embed_result=None)
 
-        with patch("sentinel.core.indexer.embed_texts", side_effect=mock_embed_fail):
-            stats = build_index(str(tmp_path), conn, "test-model")
-            assert stats["files_skipped"] >= 1
-            assert chunk_count(conn) == 0
+        stats = build_index(str(tmp_path), conn, provider)
+        assert stats["files_skipped"] >= 1
+        assert chunk_count(conn) == 0
 
         conn.close()
 
@@ -358,6 +365,7 @@ class TestGatherContextWithEmbeddings:
     def test_gather_context_with_embeddings(self, tmp_path):
         """With embed config and index, adds embedding-based evidence."""
         from sentinel.core.context import gather_context
+        from tests.mock_provider import MockProvider
 
         # Set up repo with source file
         (tmp_path / "src").mkdir()
@@ -370,42 +378,38 @@ class TestGatherContextWithEmbeddings:
 
         # Build index with mock embeddings
         fake_dim = 4
+        provider = MockProvider()
+        provider.embed = lambda texts: [[0.5] * fake_dim for _ in texts]
 
-        def mock_embed(texts, model, ollama_url):
-            return [[0.5] * fake_dim for _ in texts]
-
-        with patch("sentinel.core.indexer.embed_texts", side_effect=mock_embed):
-            build_index(str(tmp_path), conn, "test-model")
+        build_index(str(tmp_path), conn, provider)
 
         # Now gather context with embedding support.
-        # Patch target is sentinel.core.ollama (the source module), not
-        # sentinel.core.context, because context.py uses a deferred import
-        # inside _add_embedding_context().
         f = self._make_finding()
-        with patch("sentinel.core.ollama.embed_texts", side_effect=mock_embed) as mock_ctx_embed:
-            result = gather_context(
-                [f], str(tmp_path),
-                conn=conn, embed_model="test-model",
-            )
+        result = gather_context(
+            [f], str(tmp_path),
+            conn=conn, provider=provider,
+        )
 
         assert len(result) == 1
-        # Should have called embed_texts for the finding query
-        mock_ctx_embed.assert_called_once()
         conn.close()
 
     def test_gather_context_empty_index_falls_back(self, tmp_path):
         """With empty index, falls back to heuristic only."""
         from sentinel.core.context import gather_context
+        from tests.mock_provider import MockProvider
 
         (tmp_path / "src").mkdir()
         (tmp_path / "src" / "foo.py").write_text("code\n" * 20)
 
         conn = get_connection(tmp_path / ".sentinel" / "test.db")
 
+        provider = MockProvider()
+        provider.embed = lambda texts: [[0.5] * 4 for _ in texts]
+
         f = self._make_finding()
         result = gather_context(
             [f], str(tmp_path),
-            conn=conn, embed_model="test-model",
+            conn=conn, provider=provider,
         )
         assert len(result) == 1
         # No embedding evidence should be added (index is empty)

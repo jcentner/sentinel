@@ -521,13 +521,11 @@ class TestDocCodeDrift:
             "# Proj\n\n```bash\nsentinel scan .\n```\n"
         )
 
-        from sentinel.detectors import docs_drift
-
-        monkeypatch.setattr(docs_drift, "check_ollama", lambda _: False)
+        from tests.mock_provider import MockProvider
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"skip_llm": False},
+            config={"skip_llm": False, "provider": MockProvider(health=False)},
         )
         findings = detector.detect(ctx)
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
@@ -546,8 +544,8 @@ class TestDocCodeDrift:
         )
 
         from sentinel.detectors import docs_drift
+        from tests.mock_provider import MockProvider
 
-        monkeypatch.setattr(docs_drift, "check_ollama", lambda _: True)
         monkeypatch.setattr(
             docs_drift.DocsDriftDetector,
             "_llm_compare",
@@ -559,7 +557,7 @@ class TestDocCodeDrift:
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"skip_llm": False, "model": "test", "ollama_url": "http://fake"},
+            config={"skip_llm": False, "provider": MockProvider(health=True)},
         )
         findings = detector.detect(ctx)
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]
@@ -580,8 +578,8 @@ class TestDocCodeDrift:
         )
 
         from sentinel.detectors import docs_drift
+        from tests.mock_provider import MockProvider
 
-        monkeypatch.setattr(docs_drift, "check_ollama", lambda _: True)
         monkeypatch.setattr(
             docs_drift.DocsDriftDetector,
             "_llm_compare",
@@ -590,7 +588,7 @@ class TestDocCodeDrift:
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
-            config={"skip_llm": False, "model": "test", "ollama_url": "http://fake"},
+            config={"skip_llm": False, "provider": MockProvider(health=True)},
         )
         findings = detector.detect(ctx)
         drift = [f for f in findings if f.context.get("pattern") == "doc-code-drift"]

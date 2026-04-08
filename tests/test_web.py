@@ -528,6 +528,7 @@ class TestScanTrigger:
         mock_config.ollama_url = "http://localhost:11434"
         mock_config.skip_judge = True
         monkeypatch.setattr("sentinel.config.load_config", MagicMock(return_value=mock_config))
+        monkeypatch.setattr("sentinel.core.provider.create_provider", MagicMock(return_value=MagicMock()))
 
         resp = client.post("/scan", follow_redirects=False)
         assert resp.status_code == 303
@@ -554,6 +555,7 @@ class TestScanTrigger:
         mock_config.ollama_url = "http://localhost:11434"
         mock_config.skip_judge = True
         monkeypatch.setattr("sentinel.config.load_config", MagicMock(return_value=mock_config))
+        monkeypatch.setattr("sentinel.core.provider.create_provider", MagicMock(return_value=MagicMock()))
 
         resp = client.post("/scan", headers={"hx-request": "true"})
         assert resp.status_code == 200
@@ -578,6 +580,7 @@ class TestScanTrigger:
         mock_config.ollama_url = "http://localhost:11434"
         mock_config.skip_judge = True
         monkeypatch.setattr("sentinel.config.load_config", MagicMock(return_value=mock_config))
+        monkeypatch.setattr("sentinel.core.provider.create_provider", MagicMock(return_value=MagicMock()))
 
         resp = client.post("/scan", follow_redirects=False)
         assert resp.status_code == 500
@@ -837,6 +840,7 @@ class TestEvalPage:
                 model="test", ollama_url="http://localhost:11434", skip_judge=True
             )),
         )
+        monkeypatch.setattr("sentinel.core.provider.create_provider", MagicMock(return_value=MagicMock()))
         # Create a fake ground truth file in the repo
         gt_file = tmp_path / "ground-truth.toml"
         gt_file.write_text("[sentinel]\n")

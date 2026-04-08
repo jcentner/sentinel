@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import patch
-
 from sentinel.core.indexer import (
     _collect_files,
     _should_skip_dir,
@@ -129,9 +126,13 @@ class TestChunkFile:
 # ── build_index ──────────────────────────────────────────────────────
 
 
-def _mock_embed(texts: list[str], model: str, url: str = "") -> list[list[float]] | None:
-    """Return deterministic fake embeddings."""
-    return [[0.1, 0.2, 0.3] for _ in texts]
+def _make_mock_provider():
+    """Return a MockProvider with deterministic fake embeddings."""
+    from tests.mock_provider import MockProvider
+
+    provider = MockProvider()
+    provider.embed = lambda texts: [[0.1, 0.2, 0.3] for _ in texts]
+    return provider
 
 
 class TestBuildIndex:
@@ -141,8 +142,8 @@ class TestBuildIndex:
         (repo / "a.py").write_text("def f():\n    pass\n")
         (repo / "b.py").write_text("x = 1\n")
 
-        with patch("sentinel.core.indexer.embed_texts", _mock_embed):
-            stats = build_index(str(repo), db_conn, "test-model")
+        provider = _make_mock_provider()
+        stats = build_index(str(repo), db_conn, provider)
 
         assert stats["files_scanned"] == 2
         assert stats["files_indexed"] == 2
@@ -153,9 +154,9 @@ class TestBuildIndex:
         repo.mkdir()
         (repo / "a.py").write_text("code\n")
 
-        with patch("sentinel.core.indexer.embed_texts", _mock_embed):
-            stats1 = build_index(str(repo), db_conn, "test-model")
-            stats2 = build_index(str(repo), db_conn, "test-model")
+        provider = _make_mock_provider()
+        stats1 = build_index(str(repo), db_conn, provider)
+        stats2 = build_index(str(repo), db_conn, provider)
 
         assert stats1["files_indexed"] == 1
         assert stats2["files_indexed"] == 0  # no changes
@@ -165,10 +166,10 @@ class TestBuildIndex:
         repo.mkdir()
         (repo / "a.py").write_text("v1\n")
 
-        with patch("sentinel.core.indexer.embed_texts", _mock_embed):
-            build_index(str(repo), db_conn, "test-model")
-            (repo / "a.py").write_text("v2\n")
-            stats = build_index(str(repo), db_conn, "test-model")
+        provider = _make_mock_provider()
+        build_index(str(repo), db_conn, provider)
+        (repo / "a.py").write_text("v2\n")
+        stats = build_index(str(repo), db_conn, provider)
 
         assert stats["files_indexed"] == 1
 
@@ -178,10 +179,10 @@ class TestBuildIndex:
         (repo / "a.py").write_text("code\n")
         (repo / "b.py").write_text("code\n")
 
-        with patch("sentinel.core.indexer.embed_texts", _mock_embed):
-            build_index(str(repo), db_conn, "test-model")
-            (repo / "b.py").unlink()
-            stats = build_index(str(repo), db_conn, "test-model")
+        provider = _make_mock_provider()
+        build_index(str(repo), db_conn, provider)
+        (repo / "b.py").unlink()
+        stats = build_index(str(repo), db_conn, provider)
 
         assert stats["files_removed"] == 1
 
@@ -190,11 +191,10 @@ class TestBuildIndex:
         repo.mkdir()
         (repo / "a.py").write_text("code\n")
 
-        def fail_embed(*args: Any, **kwargs: Any) -> None:
-            return None
+        from tests.mock_provider import MockProvider
 
-        with patch("sentinel.core.indexer.embed_texts", fail_embed):
-            stats = build_index(str(repo), db_conn, "test-model")
+        provider = MockProvider(embed_result=None)
+        stats = build_index(str(repo), db_conn, provider)
 
         assert stats["files_skipped"] == 1
         assert stats["files_indexed"] == 0
@@ -203,8 +203,8 @@ class TestBuildIndex:
         repo = tmp_path / "repo"
         repo.mkdir()
 
-        with patch("sentinel.core.indexer.embed_texts", _mock_embed):
-            stats = build_index(str(repo), db_conn, "test-model")
+        provider = _make_mock_provider()
+        stats = build_index(str(repo), db_conn, provider)
 
         assert stats["files_scanned"] == 0
         assert stats["files_indexed"] == 0
@@ -215,7 +215,7 @@ class TestBuildIndex:
         repo.mkdir()
         (repo / "binary.py").write_bytes(b"x = 1\n\x80\x81\x82\n")
 
-        with patch("sentinel.core.indexer.embed_texts", _mock_embed):
-            stats = build_index(str(repo), db_conn, "test-model")
+        provider = _make_mock_provider()
+        stats = build_index(str(repo), db_conn, provider)
 
         assert stats["files_indexed"] == 1

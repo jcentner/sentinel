@@ -46,8 +46,10 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
 
 @main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
-@click.option("--model", default=None, help="Ollama model name")
+@click.option("--model", default=None, help="Model name")
 @click.option("--ollama-url", default=None, help="Ollama API URL")
+@click.option("--provider", "provider_name", default=None, help="Model provider: ollama (default) or openai")
+@click.option("--api-base", default=None, help="API base URL for openai provider")
 @click.option("--output", "-o", default=None, help="Report output path")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
 @click.option("--db", default=None, help="Database path")
@@ -55,13 +57,15 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     "--incremental", is_flag=True,
     help="Only scan files changed since the last completed run",
 )
-@click.option("--embed-model", default=None, help="Ollama embedding model (enables semantic context)")
+@click.option("--embed-model", default=None, help="Embedding model (enables semantic context)")
 @click.option("--target", "-t", multiple=True, help="Scan only specific paths (repeatable)")
 @click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
 def scan(
     repo_path: str,
     model: str | None,
     ollama_url: str | None,
+    provider_name: str | None,
+    api_base: str | None,
     output: str | None,
     skip_judge: bool,
     db: str | None,
@@ -76,7 +80,8 @@ def scan(
 
     repo = Path(repo_path).resolve()
     config = load_config(repo)
-    _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model)
+    _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model,
+                         provider_name=provider_name, api_base=api_base)
 
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
@@ -119,12 +124,19 @@ def _apply_cli_overrides(
     ollama_url: str | None,
     skip_judge: bool,
     embed_model: str | None,
+    *,
+    provider_name: str | None = None,
+    api_base: str | None = None,
 ) -> None:
     """Apply CLI flag overrides to a loaded config."""
+    if provider_name:
+        config.provider = provider_name
     if model:
         config.model = model
     if ollama_url:
         config.ollama_url = ollama_url
+    if api_base:
+        config.api_base = api_base
     if skip_judge:
         config.skip_judge = True
     if embed_model:
@@ -166,11 +178,21 @@ def _execute_scan(
     output_path: str | None,
 ) -> Any:
     """Execute the scan with resolved config and scope."""
+    from sentinel.core.provider import create_provider
     from sentinel.core.runner import run_scan
 
+    # Create the model provider from config (None if judge is skipped)
+    provider = None
+    if not config.skip_judge:
+        try:
+            provider = create_provider(config)
+        except ValueError as exc:
+            logging.getLogger(__name__).warning(
+                "Could not create model provider: %s — running without LLM", exc,
+            )
+
     kwargs: dict[str, Any] = dict(
-        model=config.model,
-        ollama_url=config.ollama_url,
+        provider=provider,
         skip_judge=config.skip_judge,
         embed_model=config.embed_model,
         embed_chunk_size=config.embed_chunk_size,
@@ -471,7 +493,7 @@ def history(repo: str, db: str | None, limit: int, output_json: bool) -> None:
 @main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option("--embed-model", default=None,
-              help="Ollama embedding model (default: from config or nomic-embed-text)")
+              help="Embedding model (default: from config or nomic-embed-text)")
 @click.option("--ollama-url", default=None, help="Ollama API URL")
 @click.option("--db", default=None, help="Database path")
 @click.option("--clear", is_flag=True, help="Clear existing index before rebuilding")
@@ -484,11 +506,12 @@ def index(
 ) -> None:
     """Build or update the embedding index for semantic context.
 
-    Chunks repo files and embeds them via Ollama for use during scan.
+    Chunks repo files and embeds them via model provider for use during scan.
     Only re-embeds files that have changed since the last index build.
     """
     from sentinel.config import load_config
     from sentinel.core.indexer import build_index
+    from sentinel.core.provider import create_provider
     from sentinel.store.db import get_connection
     from sentinel.store.embeddings import chunk_count, clear_all_chunks
 
@@ -500,19 +523,21 @@ def index(
 
     # Resolve embed model: CLI flag > config > default
     resolved_model = embed_model or config.embed_model or "nomic-embed-text"
+    config.embed_model = resolved_model
 
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
 
     try:
+        provider = create_provider(config)
+
         if clear:
             cleared = clear_all_chunks(conn)
             click.echo(f"Cleared {cleared} existing chunks")
 
         click.echo(f"Building embedding index with model '{resolved_model}'...")
         stats = build_index(
-            str(repo), conn, resolved_model,
-            ollama_url=config.ollama_url,
+            str(repo), conn, provider,
             chunk_size=config.embed_chunk_size,
             chunk_overlap=config.embed_chunk_overlap,
         )
@@ -725,9 +750,11 @@ def serve(
 @click.argument("repo_paths", nargs=-1, required=True, type=click.Path(exists=True, file_okay=False))
 @click.option("--db", required=True, help="Shared database path for all repos")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
-@click.option("--model", default=None, help="Ollama model name (overrides per-repo config)")
+@click.option("--model", default=None, help="Model name (overrides per-repo config)")
 @click.option("--ollama-url", default=None, help="Ollama API URL (overrides per-repo config)")
-@click.option("--embed-model", default=None, help="Ollama embedding model (overrides per-repo config)")
+@click.option("--provider", "provider_name", default=None, help="Model provider (overrides per-repo config)")
+@click.option("--api-base", default=None, help="API base URL for openai provider")
+@click.option("--embed-model", default=None, help="Embedding model (overrides per-repo config)")
 @click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
 def scan_all(
     repo_paths: tuple[str, ...],
@@ -735,6 +762,8 @@ def scan_all(
     skip_judge: bool,
     model: str | None,
     ollama_url: str | None,
+    provider_name: str | None,
+    api_base: str | None,
     embed_model: str | None,
     output_json: bool,
 ) -> None:
@@ -759,7 +788,8 @@ def scan_all(
             repo = Path(repo_path).resolve()
             try:
                 config = load_config(repo)
-                _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model)
+                _apply_cli_overrides(config, model, ollama_url, skip_judge, embed_model,
+                                     provider_name=provider_name, api_base=api_base)
                 run, findings, _report = _execute_scan(str(repo), conn, config, {}, None)
                 results.append({
                     "repo": str(repo),
@@ -802,10 +832,19 @@ _INIT_TEMPLATE = """\
 # See: https://github.com/jakce/sentinel
 
 [sentinel]
-# Ollama model for LLM judge (skip_judge = true to run without)
+# Model provider: "ollama" (default, local) or "openai" (OpenAI-compatible API)
+provider = "ollama"
+
+# LLM model for judge + detectors (skip_judge = true to run without)
 model = "qwen3.5:4b"
 ollama_url = "http://localhost:11434"
 skip_judge = false
+
+# For OpenAI-compatible providers (Azure OpenAI, OpenAI, vLLM, LM Studio):
+# provider = "openai"
+# model = "gpt-5.4-nano"
+# api_base = "https://api.openai.com"
+# api_key_env = "OPENAI_API_KEY"  # reads from this environment variable
 
 # Embedding model for semantic context (leave empty to disable)
 # embed_model = "nomic-embed-text"
@@ -896,7 +935,7 @@ def doctor(output_json: bool) -> None:
         else:
             results.append({"tool": name, "status": "missing", "version": "", "description": description})
 
-    # Check Ollama
+    # Check Ollama (as default provider)
     try:
         import httpx
         resp = httpx.get("http://localhost:11434/api/tags", timeout=3)
@@ -905,14 +944,14 @@ def doctor(output_json: bool) -> None:
             "tool": "ollama",
             "status": "ok",
             "version": f"{len(models)} model(s): {', '.join(models[:5])}",
-            "description": "LLM inference (judge + embeddings)",
+            "description": "Local LLM provider (default)",
         })
     except Exception:
         results.append({
             "tool": "ollama",
             "status": "missing",
             "version": "",
-            "description": "LLM inference (judge + embeddings) — optional",
+            "description": "Local LLM provider (default) — optional if using openai provider",
         })
 
     # Check optional Python packages
