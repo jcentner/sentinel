@@ -144,9 +144,9 @@ def _build_synthesis_prompt(findings: list[Finding], label: str) -> str:
     for i, f in enumerate(findings, 1):
         evidence_str = ""
         if f.evidence:
-            ev = f.evidence[0]
-            content = ev.content[:300] if ev.content else ""
-            evidence_str = f"\n  Evidence: {ev.source}: {content}"
+            for ev in f.evidence[:3]:
+                content = ev.content[:300] if ev.content else ""
+                evidence_str += f"\n  Evidence: {ev.source}: {content}"
 
         parts.append(
             f"{i}. [{f.severity.value}] {f.title}\n"
@@ -244,11 +244,20 @@ def _parse_synthesis(text: str) -> SynthesisResult | None:
     if not root_cause:
         return None
 
+    fps = data.get("redundant_fingerprints", [])
+    if not isinstance(fps, list):
+        fps = []
+
+    try:
+        confidence = float(data.get("confidence", 0.7))
+    except (TypeError, ValueError):
+        confidence = 0.7
+
     return SynthesisResult(
         root_cause=root_cause,
         recommended_action=data.get("recommended_action", ""),
-        redundant_fingerprints=data.get("redundant_fingerprints", []),
-        confidence=float(data.get("confidence", 0.7)),
+        redundant_fingerprints=fps,
+        confidence=confidence,
     )
 
 
@@ -265,20 +274,20 @@ def _log_synthesis(
 ) -> None:
     """Log synthesis LLM interaction to the llm_log table."""
     try:
-        from sentinel.store.llm_log import insert_llm_log
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
 
-        insert_llm_log(conn, {
-            "run_id": run_id,
-            "provider": provider_name,
-            "model": "",
-            "purpose": "synthesis",
-            "finding_title": f"cluster:{len(findings)} findings",
-            "finding_fingerprint": findings[0].fingerprint or "" if findings else "",
-            "prompt_text": prompt[:4000],
-            "response_text": response[:4000],
-            "token_count": tokens,
-            "duration_ms": duration_ms,
-            "verdict": "synthesized",
-        })
+        entry = LLMLogEntry(
+            purpose="synthesis",
+            model=provider_name,
+            detector="synthesis",
+            finding_fingerprint=findings[0].fingerprint if findings else None,
+            finding_title=f"cluster:{len(findings)} findings",
+            prompt=prompt[:4000],
+            response=response[:4000],
+            tokens_generated=tokens,
+            generation_ms=duration_ms,
+            verdict="synthesized",
+        )
+        insert_llm_log(conn, run_id, entry)
     except Exception:
-        logger.debug("Failed to log synthesis entry", exc_info=True)
+        logger.warning("Failed to log synthesis entry", exc_info=True)

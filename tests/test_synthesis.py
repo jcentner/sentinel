@@ -70,6 +70,16 @@ class TestParseSynthesis:
         assert result.redundant_fingerprints == []
         assert result.confidence == 0.7
 
+    def test_non_numeric_confidence_defaults(self):
+        result = _parse_synthesis('{"root_cause": "test", "confidence": "high"}')
+        assert result is not None
+        assert result.confidence == 0.7
+
+    def test_non_list_redundant_fingerprints_defaults(self):
+        result = _parse_synthesis('{"root_cause": "test", "redundant_fingerprints": "fp1, fp2"}')
+        assert result is not None
+        assert result.redundant_fingerprints == []
+
 
 class TestBuildSynthesisPrompt:
     def test_includes_findings(self):
@@ -165,6 +175,8 @@ class TestSynthesizeClusters:
             findings, provider=provider, min_cluster_size=3,
         )
         assert len(result) == 3
+        for f in result:
+            assert f.context is None or "synthesis" not in (f.context or {})
 
 
 class _MockProvider:

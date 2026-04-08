@@ -98,6 +98,27 @@ class TestReportGeneration:
         report = generate_report([f], _make_run())
         assert "This is a real issue" in report
 
+    def test_synthesis_redundant_badge(self):
+        f = _make_finding(
+            context={"synthesis": {"redundant": True, "root_cause": "x", "recommended_action": "y"}}
+        )
+        report = generate_report([f], _make_run())
+        assert "🔄 redundant" in report
+
+    def test_synthesis_root_cause_in_evidence(self):
+        f = _make_finding(
+            context={"synthesis": {"root_cause": "Shared config drift", "recommended_action": "Update base config"}}
+        )
+        report = generate_report([f], _make_run())
+        assert "**Root cause**: Shared config drift" in report
+        assert "**Action**: Update base config" in report
+
+    def test_synthesis_absent_no_crash(self):
+        """Findings without synthesis context render normally."""
+        f = _make_finding(context={"judge": {"summary": "ok"}})
+        report = generate_report([f], _make_run())
+        assert "Root cause" not in report
+
     def test_write_to_file(self, tmp_path):
         out = tmp_path / "report.md"
         report = generate_report([_make_finding()], _make_run(), output_path=out)

@@ -200,19 +200,15 @@ def run_scan(
 
     # 7b. Finding cluster synthesis (requires standard+ capability)
     if not skip_judge and provider is not None:
-        try:
-            synth_cap = CapabilityTier(model_capability)
-        except ValueError:
-            synth_cap = CapabilityTier.BASIC
-        if _TIER_ORDER.get(synth_cap, 0) >= _TIER_ORDER[CapabilityTier.STANDARD]:
+        if _TIER_ORDER.get(model_cap, 0) >= _TIER_ORDER[CapabilityTier.STANDARD]:
             from sentinel.core.synthesis import synthesize_clusters
-            logger.info("Running finding cluster synthesis (capability: %s)", synth_cap.value)
+            logger.info("Running finding cluster synthesis (capability: %s)", model_cap.value)
             deduped = synthesize_clusters(
                 deduped, provider=provider,
                 conn=conn, run_id=run.id, num_ctx=num_ctx,
             )
         else:
-            logger.info("Cluster synthesis skipped (requires standard+ capability, have %s)", model_capability)
+            logger.info("Cluster synthesis skipped (requires standard+ capability, have %s)", model_cap.value)
 
     # 8. Track finding persistence (occurrence counts)
     fingerprints = [f.fingerprint for f in deduped if f.fingerprint]
