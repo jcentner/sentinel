@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 3.1
+> **Version**: 4.0
 > **Updated**: 2026-04-07
-> **Supersedes**: v3.0 (2026-04-07)
+> **Supersedes**: v3.1 (2026-04-07)
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -15,7 +15,7 @@ The hardest problems to catch during fast development — especially AI-assisted
 
 ## Target User
 
-A developer on Windows 11 + WSL 2 Ubuntu with 8 GB VRAM GPUs, comfortable running local models via Ollama, working across multiple projects including a primary role and consulting/client engagements. Privacy matters — client code must never leave the machine.
+A developer on Windows 11 + WSL 2 Ubuntu with 8 GB VRAM GPUs, comfortable running local models via Ollama or connecting to cloud model APIs, working across multiple projects including a primary role and consulting/client engagements. Privacy matters — client code must never leave the machine unless the user explicitly opts into a cloud provider.
 
 ## Core Concept
 
@@ -28,6 +28,8 @@ Both kinds of findings flow through a common pipeline: fingerprinting, deduplica
 
 The LLM serves two roles: (a) as a **judge** that filters and re-prioritizes detector output, and (b) as an **analyst** that directly compares artifacts for semantic drift. Both roles are shipped: the judge evaluates all findings; the semantic-drift detector uses the LLM to compare doc sections against code.
 
+The model provider is **pluggable**: Ollama (local) is the default, but users can configure any OpenAI-compatible provider (Azure OpenAI, OpenAI direct, vLLM, LM Studio, etc.). More powerful models unlock deeper analysis — structured explanations instead of binary signals, subtle intent comparison, detailed reasoning — through **capability-tiered detectors** that declare what model class they need. The pipeline is the product; the model and provider are configuration.
+
 ## Explicit Non-Goals
 
 1. **Not a code fixer**: Does not implement fixes, suggest patches, or plan refactors.
@@ -35,7 +37,7 @@ The LLM serves two roles: (a) as a **judge** that filters and re-prioritizes det
 3. **Not autonomous**: Does not take external actions without explicit human approval.
 4. **Not a PR reviewer**: Not triggered per-PR or per-diff (though it may run incrementally on changed files).
 5. **Not a Copilot replacement**: Complements interactive coding tools; does not compete with them.
-6. **Not a cloud service**: All processing is local except the optional GitHub issue creation API call.
+6. **Not a cloud service**: Sentinel is not a hosted product. Processing is local by default. Users who configure a cloud model provider choose to send code excerpts to that provider's API — that is their decision, not Sentinel's default behavior.
 7. **Not a CI/CD gate**: It is a background advisor, not a blocker.
 
 ## Product Constraints
@@ -49,15 +51,16 @@ The LLM serves two roles: (a) as a **judge** that filters and re-prioritizes det
 | Deduplication | State store tracks fingerprinted findings to avoid repeat noise across runs |
 | Dual interface | CLI for scripting and AI agent integration; web UI for human triage. Feature parity between them. |
 | Modular by default | Users install only the dependencies their projects need. Developers and agents can add detectors, language support, or integrations independently without touching core code. |
+| Opinionated defaults, extensible everything | Works out of the box with Ollama and sensible defaults. Every major axis — model provider, detector set, capability tier — is configurable for users who want different tradeoffs. |
 
 ## Technical Constraints
 
 | Constraint | Description |
 |-----------|-------------|
-| Local-first execution | All inference, embedding, state storage, and report generation on the user's machine |
-| 8 GB VRAM budget | Models must fit ~4B parameters at Q4_K_M quantization |
-| Ollama as model interface | All model interaction through Ollama API; model names are config, not code |
-| Model-agnostic prompts | Prompts target general instruction-following, not model-specific features |
+| Local-first execution | All inference, embedding, state storage, and report generation on the user's machine by default. Cloud model providers are an explicit opt-in. |
+| Pluggable model provider | All model interaction through a `ModelProvider` protocol. Ollama is the default. OpenAI-compatible providers (Azure OpenAI, OpenAI, vLLM, LM Studio) are supported via config. Provider and model are config, not code. See ADR-010. |
+| 8 GB VRAM budget (local) | Local models must fit ~4B parameters at Q4_K_M quantization. Users with cloud providers or larger GPUs are not bound by this. |
+| Model-agnostic prompts | Prompts target general instruction-following, not model-specific or provider-specific features |
 | SQLite state store | Persistent state; embedded, zero-deployment, single-file |
 | Python implementation | Chosen for ML/NLP ecosystem, tree-sitter bindings, native sqlite3 |
 | Deterministic-first signals | For issues detectable by static analysis or heuristics, deterministic detectors are primary and the LLM is a judgment layer. For cross-artifact semantic issues (docs vs code, test vs implementation), the LLM is the primary signal source with deterministic evidence gathering. |
@@ -78,8 +81,8 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 - **10 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), git churn hotspots, and TODO/FIXME scanning
 - **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
 - **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
-- **Embedding-based context gathering**: opt-in via Ollama, falls back to file-proximity heuristics
-- **LLM judge**: structured judgment via Ollama with JSON output. System degrades gracefully (raw findings only) when no model is running
+- **Embedding-based context gathering**: opt-in via configured provider (default: Ollama), falls back to file-proximity heuristics
+- **LLM judge**: structured judgment via configured provider (default: Ollama) with JSON output. System degrades gracefully (raw findings only) when no model is running
 - **Finding fingerprinting**: content-hash deduplication, target-aware fingerprinting for docs-drift (same missing file referenced from multiple docs deduplicates correctly), suppression persistence, occurrence tracking
 - **Two-pass clustering**: pattern clustering (same detector + normalized title) then directory clustering (3+ findings in shared parent)
 - **Morning report**: markdown output, severity-grouped, clustered, with occurrence badges
@@ -105,16 +108,19 @@ CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with 
 ### Detector Value Assessment (honest)
 Based on real-world validation, the current detectors fall into three tiers:
 
-| Tier | Detectors | Value |
-|------|-----------|-------|
-| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift binary signal is high-value. |
-| Medium | complexity | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
-| Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
-| Mixed | git-hotspots | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
-| Planned | test-code coherence | Compare tests against implementation for semantic staleness. Not yet implemented. |
-| Mixed | dep-audit | Genuinely useful for CVE detection if user doesn't already run audit tools. Limited to Python with root-level project markers. |
+| Tier | Detectors | Capability Tier | Value |
+|------|-----------|----------------|-------|
+| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code) | basic (4B) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift binary signal is high-value. |
+| Medium | complexity | none (deterministic) | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
+| Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | none (deterministic) | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
+| Mixed | git-hotspots | none (deterministic) | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
+| Planned | test-code coherence (basic) | basic (4B) | Binary "test may be stale" signal. Not yet implemented. |
+| Planned | enhanced test-code coherence | standard (9B+) | Structured analysis: *what* the test misses and *why* it's stale. Not yet implemented. |
+| Planned | detailed docs-drift explanations | standard (9B+) | Explain *how* docs are wrong, not just *that* they need review. Not yet implemented. |
+| Planned | deep semantic analysis | advanced (frontier) | Subtle intent comparison, architecture-level drift. Not yet implemented. |
+| Mixed | dep-audit | none (deterministic) | Genuinely useful for CVE detection if user doesn't already run audit tools. Limited to Python with root-level project markers. |
 
-The current detectors are predominantly **surface-level structural checks**. The higher-value analysis — semantic comparison of docs vs code, tests vs implementation, config vs usage — is identified but not yet implemented.
+The **capability tier** column shows what model class a detector needs. Detectors with higher capability tiers are only useful when a sufficiently powerful model is configured. Users choose their own ceiling.
 
 ## Success Criteria
 
@@ -147,18 +153,19 @@ The current detectors are predominantly **surface-level structural checks**. The
 These hold across all versions and must not be violated:
 
 1. **Detectors are pluggable**: every detector produces `Finding` objects through the same interface. Adding a detector never requires changing the pipeline. Custom detectors can be loaded from an external directory.
-2. **LLM is replaceable**: changing the model is a config change. The pipeline works without any model running.
+2. **LLM is replaceable**: changing the model *and provider* is a config change. The pipeline works without any model running.
 3. **State is persistent**: every run reads from and writes to the SQLite state store.
 4. **Evidence is mandatory**: a finding without evidence is invalid.
 5. **Human approval gates external actions**: no GitHub API calls without explicit user confirmation.
 6. **Single repo per run**: each run targets one repository.
-7. **Parallel extensibility**: new detectors and language integrations are isolated modules. Multiple developers or agents can work on different language support packages simultaneously without merge conflicts in core code.
+7. **Parallel extensibility**: new detectors, language integrations, and model providers are isolated modules. Multiple developers or agents can work on different components simultaneously without merge conflicts in core code.
+8. **Privacy is a user choice**: local-first by default. Code never leaves the machine unless the user explicitly configures a cloud provider.
 
 ## Where We're Going
 
 These are the next areas of investment, roughly priority-ordered. Each connects to a gap identified through real-world validation.
 
-### Phase 5: Cross-artifact LLM detectors — Next priority
+### Phase 6: Cross-artifact LLM detectors — Next priority
 
 The highest-leverage improvement is using the LLM to do what deterministic detectors can't: compare two related artifacts and identify semantic inconsistency. These detectors feed the LLM focused, bounded inputs (one doc section + one code function) and ask specific comparison questions.
 
@@ -168,7 +175,7 @@ The highest-leverage improvement is using the LLM to do what deterministic detec
 
 **The key product insight**: For both of these, even a simple binary signal — "this doc section needs review" or "this test may be stale" — is high value. The developer doesn't need the LLM to explain *how* the docs are wrong or *what* to fix. Identifying *that* something is out of sync is the hard part. A 4B model can deliver that binary triage signal reliably; detailed explanations are a bonus, not a requirement.
 
-### Phase 5b: High-value deterministic detectors
+### Phase 6b: High-value deterministic detectors
 
 Detectors that find things existing dev tools don't, without needing the LLM:
 
@@ -186,7 +193,33 @@ Detectors that find things existing dev tools don't, without needing the LLM:
 - **CLI as AI-agent interface**: `--json-output`, quiet mode, predictable exit codes.
 - **Eval metrics dashboard**: Persistent eval results, trend charts, history.
 - **Model benchmarking**: 4B recommended for 8GB VRAM. Documented.
-- **Packaging**: CI/CD, wheel, CONTRIBUTING.md. *Remaining*: PyPI publish.
+- **Packaging**: CI/CD, wheel, CONTRIBUTING.md.
+
+### Phase 7: Provider abstraction — After Phase 6/6b
+
+Extract a `ModelProvider` protocol so the pipeline is provider-agnostic, not just model-agnostic. See ADR-010.
+
+- **`OllamaProvider`**: Current behavior extracted. Remains the zero-config default.
+- **`OpenAICompatibleProvider`**: Covers Azure OpenAI, OpenAI direct, and any OpenAI-compatible endpoint (vLLM, LM Studio, Together, etc.).
+- **Config**: `provider = "ollama"` (default) or `provider = "openai"` with `api_base` and `api_key_env`.
+- Judge, semantic-drift, and docs-drift consolidate behind `provider.generate()` instead of raw `httpx.post` to Ollama.
+- Embedding calls consolidate behind `provider.embed()`.
+
+### Phase 8: Capability-tiered detectors — After Phase 7
+
+With provider abstraction in place, build detectors that leverage more powerful models:
+
+| Capability Tier | Model Class | New Detectors Enabled |
+|-----------------|-------------|----------------------|
+| `basic` (4B+) | qwen3.5:4b | Already shipped: judge, semantic-drift binary signal |
+| `standard` (9B+ or small cloud) | qwen3:9b, Haiku 4.5 | Enhanced test-code coherence with reasoning, detailed docs-drift explanations |
+| `advanced` (frontier cloud) | GPT-5.4-nano, GLM-5 | Deep intent comparison, architecture-level drift, subtle semantic analysis |
+
+Capability tiers are **informational, not enforced** — the system warns if a detector's declared tier exceeds the configured model's expected capability, but does not block execution.
+
+### PyPI publication — After Phase 8
+
+Publish to PyPI. Packaging is ready (wheel, CI/CD, CONTRIBUTING.md). Needs credentials and final release workflow.
 
 ## Out of Scope (permanent)
 
@@ -195,7 +228,7 @@ These are explicitly excluded from the project's vision, not deferred:
 - Implementing code fixes or generating patches
 - Making architecture recommendations
 - Opening pull requests
-- Cloud-hosted execution
+- Cloud-hosted execution (Sentinel is not a hosted service; cloud *model providers* are supported, but Sentinel itself runs locally)
 - Real-time / in-editor integration
 - Built-in scheduling (use system cron/systemd timers)
 
@@ -208,9 +241,25 @@ These are explicitly excluded from the project's vision, not deferred:
 | FP rate too high erodes trust | Medium | High | Deterministic-first for structural issues; suppression mechanism; 88% confirmation rate achieved through iterative FP reduction |
 | Most detectors duplicate existing dev tooling | **Observed** | Medium | Accepted for now — lint/complexity/todo detectors provide value for repos without CI linting. Focus new investment on cross-artifact analysis that nothing else does. |
 | Fingerprinting breaks on file renames | Medium | Low | Accept; add similar-finding heuristic later |
-| Ollama dependency creates friction | Low | Low | Degrade gracefully; document setup clearly |
+| Ollama dependency creates friction | Low | Low | Resolved by ADR-010 — provider is pluggable, Ollama is just the default |
+| Provider proliferation dilutes focus | Medium | Medium | Ship exactly two providers (Ollama, OpenAI-compatible). OpenAI-compatible covers Azure, OpenAI, vLLM, LM Studio. No bespoke integrations. Entry-point plugin system deferred unless a third provider type emerges. |
+| Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.0 (2026-04-07)
+Provider abstraction and capability-tiered detector vision.
+- **Core concept** updated: model provider is pluggable (Ollama default, OpenAI-compatible supported). More powerful models unlock deeper analysis through capability-tiered detectors.
+- **Technical constraints** updated: "Ollama as model interface" replaced with "Pluggable model provider" (ADR-010). VRAM budget scoped to local models. Provider and model are config, not code.
+- **Product constraints** updated: added "Opinionated defaults, extensible everything" principle.
+- **Non-goals** clarified: "Not a cloud service" refined — Sentinel runs locally, but cloud model providers are a user choice.
+- **Architecture invariants** updated: LLM replaceable now covers provider + model. New invariant #8: privacy is a user choice. Parallel extensibility includes model providers.
+- **Detector Value Assessment** updated: capability tier column added. Planned detectors now show which model class enables them.
+- **Where We're Going** updated: Phase 7 (provider abstraction) and Phase 8 (capability-tiered detectors) added after existing phases. PyPI publication moved to after Phase 8. Existing Phase 6/6b items unchanged.
+- **Out of Scope** clarified: cloud-hosted execution distinguished from cloud model providers.
+- **Risks** updated: Ollama friction resolved (ADR-010). New risks: provider proliferation, privacy story nuance.
+- ADR-003 superseded by ADR-010.
+- Cross-doc updates: copilot-instructions.md, code-review.prompt.md, detector-interface.md, architecture overview, strategy, open-questions (OQ-010 added, OQ-009 updated), glossary (4 new terms), roadmap README and phase-6 plan, ADR-001 note added.
 
 ### v3.1 (2026-04-07)
 Semantic docs-drift detector shipped (Phase 5 Slice 1).

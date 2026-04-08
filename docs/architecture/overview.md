@@ -17,7 +17,7 @@
 │                                               ▼                  │
 │  ┌──────────────────┐    ┌──────────────┐    ┌──────────────┐   │
 │  │  Context Gatherer │◀──│  Deduped      │───▶│  LLM Judge    │   │
-│  │  (heuristic +     │   │  Findings     │   │  (Ollama)     │   │
+│  │  (heuristic +     │   │  Findings     │   │  (Provider)   │   │
 │  │   embeddings)     │   └──────────────┘    └──────────────┘   │
 │  └──────────────────┘                               │            │
 │                                                     ▼            │
@@ -52,7 +52,7 @@ Detectors produce raw candidate findings. They come in three tiers:
 
 **Tier 2 — Heuristic**: Git-history hotspots (commit frequency analysis), cyclomatic complexity / function length analysis. Also model-free.
 
-**Tier 3 — LLM-assisted**: Docs-drift doc-code comparison and semantic docs-drift section-vs-code comparison via Ollama. The semantic-drift detector compares documentation sections (heading-delimited) against the source code they reference, producing a binary "needs review" / "in sync" signal. Planned: test-code coherence analysis comparing tests against the implementations they validate.
+**Tier 3 — LLM-assisted**: Docs-drift doc-code comparison and semantic docs-drift section-vs-code comparison via the configured model provider (default: Ollama). The semantic-drift detector compares documentation sections (heading-delimited) against the source code they reference, producing a binary "needs review" / "in sync" signal. Planned: test-code coherence analysis comparing tests against the implementations they validate.
 
 The architecture is **mostly Tier 1 + 2 today, with the LLM as the judgment/summarization layer**. The next strategic investment is Tier 3 cross-artifact detectors where the LLM is the primary analyst.
 
@@ -60,7 +60,7 @@ Every detector produces a `Finding` conforming to the [Detector Interface](detec
 
 **Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `go-linter` (T1), `rust-clippy` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
 
-**Value assessment**: Based on real-world validation, the highest-value shipped detectors are docs-drift (97% accuracy catching broken links and stale paths) and semantic-drift (LLM-powered prose-vs-code comparison). Lint/complexity/todo detectors largely duplicate existing dev tooling. The highest-leverage planned detector is test-code coherence — cross-artifact analysis that no existing tool provides. See [VISION-LOCK.md](../vision/VISION-LOCK.md) for the full detector value tier table.
+**Value assessment**: Based on real-world validation, the highest-value shipped detectors are docs-drift (97% accuracy catching broken links and stale paths) and semantic-drift (LLM-powered prose-vs-code comparison). Lint/complexity/todo detectors largely duplicate existing dev tooling. The highest-leverage planned detectors are test-code coherence and capability-tiered variants that leverage more powerful models for structured analysis. Detectors declare a **capability tier** (`basic`, `standard`, `advanced`) indicating the model class they need. See [VISION-LOCK.md](../vision/VISION-LOCK.md) for the full detector value tier table.
 
 ### 2. Fingerprint Assignment
 
@@ -83,7 +83,7 @@ For each candidate finding, retrieves supporting context using two strategies:
 - Recent git log for the affected file
 
 **Embedding-based semantic context** (opt-in via `embed_model` config):
-- Repo files are chunked (50-line windows with 10-line overlap) and embedded via Ollama `/api/embed`
+- Repo files are chunked (50-line windows with 10-line overlap) and embedded via `provider.embed()`
 - Embeddings stored as float32 BLOBs in the SQLite `chunks` table
 - For each finding, the title + description are embedded and compared against all chunks via cosine similarity
 - Top-5 most relevant chunks (above similarity threshold 0.3) added as additional evidence
@@ -94,14 +94,16 @@ See ADR-009 for full architecture decisions.
 
 ### 5. LLM Judge
 
-A small local model (via Ollama) that receives each finding + its gathered context and answers:
+A model (via the configured provider — default: Ollama) that receives each finding + its gathered context and answers:
 - Is this likely real?
 - What evidence supports it?
 - How severe is it?
 
 This is a structured judgment task, not open-ended generation. The model doesn't invent findings — it evaluates candidates produced by deterministic/heuristic detectors. The judge is optional and can be skipped with `--skip-judge`.
 
-**Second role — Analyst** (partially shipped): For cross-artifact detectors, the LLM also serves as the primary signal source. The semantic-drift detector receives a doc section + the code it describes and produces a binary triage signal: "in sync" or "needs review". Even without detailed explanations, this binary signal is the core product value. Planned: test-code coherence using the same pattern.
+All LLM interaction goes through a **`ModelProvider` protocol** (see [ADR-010](decisions/010-pluggable-model-provider.md)). The default provider is Ollama (local). Users can configure any OpenAI-compatible provider (Azure OpenAI, OpenAI, vLLM, LM Studio) via `sentinel.toml`. The judge and all LLM-assisted detectors call `provider.generate()` rather than making raw HTTP requests to a specific backend.
+
+**Second role — Analyst** (partially shipped): For cross-artifact detectors, the LLM also serves as the primary signal source. The semantic-drift detector receives a doc section + the code it describes and produces a binary triage signal: "in sync" or "needs review". Even without detailed explanations, this binary signal is the core product value. Planned: test-code coherence using the same pattern. More powerful models (via cloud providers or larger local GPUs) can deliver structured analysis — explaining *what* is wrong, not just *that* something is wrong — through capability-tiered detectors.
 
 ### 6. Persistence Tracker
 
@@ -172,12 +174,12 @@ Optional browser-based review and management interface (`sentinel serve <repo>`)
 | Component | Runs on | Resource profile |
 |-----------|---------|-----------------|
 | Detectors | CPU | Lightweight — linters, grep, subprocess |
-| Context Gatherer | CPU + GPU (optional) | File reads, git log commands, Ollama embed API (when embeddings enabled) |
-| LLM Judge | GPU (8 GB VRAM) | Qwen3.5 4B Q4_K_M via Ollama (~2.8 GB) |
+| Context Gatherer | CPU + GPU (optional) | File reads, git log commands, `provider.embed()` (when embeddings enabled) |
+| LLM Judge | GPU or cloud API | Local: Qwen3.5 4B Q4_K_M via Ollama (~2.8 GB). Cloud: any OpenAI-compatible endpoint. |
 | State Store | Disk | SQLite, negligible |
 | Report | CPU | Markdown generation |
 
-Embeddings are implemented via Ollama's `/api/embed` endpoint (ADR-009). Reranker models are not yet implemented.
+All model interaction goes through the `ModelProvider` protocol ([ADR-010](decisions/010-pluggable-model-provider.md)). Embeddings use `provider.embed()`. Reranker models are not yet implemented.
 
 ## Trigger modes
 

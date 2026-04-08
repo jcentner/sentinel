@@ -1,8 +1,10 @@
 # ADR-003: Model-agnostic design via Ollama
 
-**Status**: Accepted
+**Status**: Superseded by [ADR-010](010-pluggable-model-provider.md)
 **Date**: 2026-03-28
 **Deciders**: Project founder
+
+> **Note**: This ADR's core insight — the value is in the pipeline, not the model — still holds. ADR-010 extends model-agnosticism to provider-agnosticism: not just swappable models within Ollama, but swappable providers (Ollama, OpenAI-compatible, etc.).
 
 ## Context
 

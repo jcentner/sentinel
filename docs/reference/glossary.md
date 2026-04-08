@@ -11,8 +11,12 @@ Key terms used throughout the Sentinel documentation and codebase.
 | **Docs drift** | An inconsistency between documentation and code, configuration, or other documentation. |
 | **Fingerprint** | A stable hash identifying a unique finding for deduplication across runs. |
 | **Suppression** | A user decision to mark a finding as a false positive, preventing it from appearing in future reports. |
-| **LLM Judge** | The local model (via Ollama) that evaluates candidate findings in context and decides severity, confidence, and issue-worthiness. |
+| **LLM Judge** | The model (via a configured provider) that evaluates candidate findings in context and decides severity, confidence, and issue-worthiness. |
 | **Context Gatherer** | The retrieval component that pulls relevant code, docs, and history for each finding before LLM judgment. |
+| **Model provider** | An implementation of the `ModelProvider` protocol that handles all model interaction (generation, embedding, health checks). Shipped providers: `OllamaProvider` (default, local) and `OpenAICompatibleProvider` (Azure OpenAI, OpenAI, vLLM, LM Studio). See ADR-010. |
+| **Provider protocol** | The `ModelProvider` Python protocol defining `generate()`, `embed()`, and `check_health()`. All LLM consumers call the protocol, not a specific backend. |
+| **Capability tier** | A label (`basic`, `standard`, `advanced`) on a detector indicating the minimum model class it needs. `basic` = 4B+ local, `standard` = 9B+ or small cloud, `advanced` = frontier cloud. Informational, not enforced. |
+| **OpenAI-compatible provider** | Any API endpoint that implements the OpenAI `/v1/chat/completions` and `/v1/embeddings` contract. Covers OpenAI direct, Azure OpenAI, vLLM, LM Studio, Together, etc. |
 | **Tier 1 detector** | Deterministic detector: lint, test, grep, dependency audit. Cheap and reliable. Includes lint-runner (ruff/Python), eslint-runner (ESLint/Biome for JS/TS), go-linter (golangci-lint for Go), rust-clippy (cargo clippy for Rust), todo-scanner, and dep-audit. |
 | **Tier 2 detector** | Heuristic detector: git hotspots, churn, complexity. Model-free, statistical. |
 | **Tier 3 detector** | LLM-assisted detector: model reads code + context and judges. Higher value but higher false positive rate. |

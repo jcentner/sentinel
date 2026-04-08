@@ -1,82 +1,38 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-07 (Session 21 — Phase 5 semantic docs-drift detector)
+> Last updated: 2026-04-07 (Session 22 — VISION-LOCK v4.0: provider abstraction vision)
 
-## Session 21 Summary
+## Session 22 Summary
 
 ### Current Objective
-Build the first Phase 5 cross-artifact LLM detector: semantic docs-drift.
+Vision update: pluggable model provider and capability-tiered detectors.
 
 ### What Was Accomplished
 
-**Slice 1 — Semantic docs-drift detector (commit 7b1a2b8):**
-1. New detector `semantic-drift` in `src/sentinel/detectors/semantic_drift.py`
-2. Strategy: heading-based section chunking + name-matching pairing
-3. Python `ast` module for function/class signature extraction; regex for other languages
-4. Binary LLM output: `needs_review` / `in_sync` — focused prompt for 4B models
-5. Respects `skip_llm`, degrades gracefully without Ollama, logs LLM interactions
-6. Handles incremental/targeted/full scan scopes
-7. Configurable `num_ctx` threaded through from config
-8. 50 new tests covering: section parsing, reference extraction (backtick paths, prose paths, markdown links), symbol extraction, symbol-to-file matching, Python AST extraction, code excerpt for various languages, integration mocks (drift found, in sync, parse failure), scope handling (targeted, incremental, full), key doc discovery
-9. Registered in runner's `_ensure_detectors_loaded()`
-10. OQ-008 resolved: heading-based chunking + name-matching chosen
-11. Phase 5 implementation plan created
-
-**Slice 2 — Documentation updates (commit 5c733fc):**
-1. VISION-LOCK v3.1: 10 detectors, LLM analyst role partially shipped, semantic docs-drift marked as shipped
-2. Architecture overview: Tier 3 and value assessment updated
-3. README: detector count 9→10, semantic-drift mentioned
-4. Roadmap: Phase 6 (Semantic Detectors) added as In Progress
-5. Glossary: semantic drift and section pairing terms added
-6. CONTRIBUTING.md: semantic_drift.py added to source tree
-7. detector-interface.md: semantic-drift entry added
-
-**Reviewer subagent run before commit with all HIGH/MEDIUM findings addressed:**
-- HIGH: Incremental scope handling added (was missing)
-- HIGH: `num_ctx` configurable, threaded through as parameter
-- HIGH: OQ-008 resolved
-- MEDIUM: detector-interface.md updated
-- MEDIUM: VISION-LOCK v3.1 with correct detector count
-- MEDIUM: `conn` typing fixed to `sqlite3.Connection | None`
-- MEDIUM: Shallow scan design intent documented in code comment
-- LOW: Keyword filter expanded for cross-language coverage
-- LOW: `num_predict` matched to 512 (consistent with docs-drift)
-- LOW: `QUICKSTART.MD` and `SETUP.MD` added to key docs set
-
-### Test Results
-```
-680 passed, 3 skipped
-ruff check: All checks passed
-mypy strict: no issues found
-```
+**VISION-LOCK v4.0 (provider abstraction + capability tiers):**
+1. ADR-010: Pluggable model provider interface (supersedes ADR-003)
+2. VISION-LOCK v4.0: provider-agnostic design, capability-tiered detectors, opinionated defaults + extensible everything
+3. Strategy updated: local-first reframe, extensibility section, capability tier column in value table
+4. Architecture overview updated: provider protocol references, what-runs-where table
+5. Detector interface updated: capability tier field added to contract
+6. Open questions: OQ-010 (provider protocol surface) added, OQ-009 updated
+7. Glossary: 4 new terms (model provider, provider protocol, capability tier, OpenAI-compatible provider)
+8. Roadmap: Phase 7 (provider abstraction) and Phase 8 (capability-tiered detectors) added
+9. Cross-doc consistency: copilot-instructions, code-review prompt, ADR-001, all stale Ollama refs updated
 
 ### Repository State
-- **Tests**: 680 passing (was 626)
-- **Detectors**: 10 (was 9) — new: semantic-drift
-- **Commits this session**: 2 (7b1a2b8, 5c733fc)
-- **VISION-LOCK**: v3.1
-- **OQ-008**: Resolved
+- **Tests**: 680 passing (unchanged — docs-only session)
+- **VISION-LOCK**: v4.0
+- **ADR-010**: Accepted
+- **ADR-003**: Superseded by ADR-010
 
 ### What Remains / Next Priority
-1. **Real-world validation**: Run semantic-drift on a real project (~/wyoclear) and analyze accuracy
-2. **Test-code coherence detector** (OQ-009): Compare tests against implementations
-3. Phase 5b: Dead code / unused exports detector (tree-sitter)
-4. Phase 5b: Unused dependencies detector
-5. Phase 5b: Stale config / env drift detector
-6. Real-world validation on Go/Rust repos
-7. PyPI publication (needs credentials)
-
-### Decisions Made This Session
-- Separate detector from docs-drift: semantic comparison of prose sections is fundamentally different from broken link detection
-- No tree-sitter for v1: Python `ast` + regex heuristics are sufficient for initial implementation
-- Binary output format: "needs_review" / "in_sync" is more reliable at 4B than requiring detailed explanations
-- Heading-based chunking over sentence-level: headings are natural section boundaries, avoid NLP complexity
-- Key docs shallow scan is intentional: only root and docs/ to bound LLM cost
-
-### Lessons Learned
-- Reviewer subagent caught 10 issues before commit; the most important were missing incremental scope handling and unconfigurable num_ctx
-- Mocking at the `_llm_compare` level (using monkeypatch on the static method) is more robust than mocking `httpx` for lazily-imported modules
-- The `ast` module provides excellent Python signature extraction without external dependencies
+1. **Real-world validation**: Run semantic-drift on a real project and analyze accuracy
+2. **Test-code coherence detector** (OQ-009): Compare tests vs implementations for semantic staleness
+3. Phase 6b: Dead code / unused exports, unused dependencies, stale config / env drift
+4. Phase 7: Provider abstraction (ADR-010)
+5. Phase 8: Capability-tiered detectors
+6. PyPI publication
 
 ---
 

@@ -6,20 +6,23 @@ You are working on **Local Repo Sentinel**, a local evidence-backed repository i
 
 - **What it does**: Scans repos on a schedule, runs deterministic detectors + LLM judgment, produces a morning report of findings, creates GitHub issues after human approval.
 - **What it does NOT do**: Implement fixes, make architecture plans, open PRs, act autonomously.
-- **Target environment**: Windows 11 + WSL 2 Ubuntu, 8 GB VRAM GPUs, Ollama for local models.
+- **Target environment**: Windows 11 + WSL 2 Ubuntu, 8 GB VRAM GPUs, Ollama for local models (default provider).
 - **Implementation language**: Python (see ADR-007).
-- **Primary LLM**: Qwen3.5 4B via Ollama (but design is model-agnostic — see ADR-003).
+- **Primary LLM**: Qwen3.5 4B via Ollama (default provider — design is provider-agnostic, see ADR-010).
 
 ## Key Architecture Decisions
 
 Before making design choices, check existing [ADRs](docs/architecture/decisions/). Key decisions already made:
-- ADR-001: Local-first execution (no cloud API calls except optional GitHub issue creation)
+- ADR-001: Local-first execution (no cloud API calls except optional GitHub issue creation and opt-in cloud model providers)
 - ADR-002: Deterministic detectors as primary signal, LLM as judgment layer
-- ADR-003: Model-agnostic via Ollama
+- ADR-003: Model-agnostic via Ollama (superseded by ADR-010)
 - ADR-004: SQLite persistent state from day one
 - ADR-005: Docs-drift as a first-class detector category
 - ADR-006: GitHub Copilot agent mode as primary dev tool
 - ADR-007: Python as implementation language
+- ADR-008: Evaluation criteria defined before implementation
+- ADR-009: Embedding-based context gatherer
+- ADR-010: Pluggable model provider interface (Ollama default, OpenAI-compatible supported)
 
 ## Documentation
 

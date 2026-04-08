@@ -1,4 +1,4 @@
-# Phase 5: Cross-Artifact Semantic Detectors
+# Phase 6: Cross-Artifact Semantic Detectors
 
 > **Status**: In Progress
 > **Prerequisites**: Phase 4 complete, VISION-LOCK v3.0, OQ-008 open

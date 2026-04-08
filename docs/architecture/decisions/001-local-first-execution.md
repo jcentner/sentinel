@@ -30,6 +30,7 @@ Sentinel runs entirely locally. All model inference, embedding, reranking, state
 
 **Neutral**:
 - Architecture should still support a "remote inference" mode in the future (e.g., calling a hosted API instead of Ollama), but this is not a priority
+- → See [ADR-010](010-pluggable-model-provider.md) for the provider abstraction that enables remote inference as an opt-in.
 
 ## Alternatives considered
 

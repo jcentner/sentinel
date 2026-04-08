@@ -25,8 +25,8 @@ Tracked questions that need resolution before or during implementation. Each que
 ### OQ-009: Can a 4B model reliably deliver test-code coherence signals?
 **Status**: Open
 **Priority**: Medium
-**Context**: Test-code coherence requires the LLM to understand implementation intent and whether a test meaningfully validates it. This is harder than docs-drift (which is mostly string comparison). A 4B model may not have enough capacity. The 9B model fits in 8 GB VRAM but is slower.
-**Current thinking**: Try 4B first with carefully constrained prompts (one test function + one implementation function, binary output). If precision is too low, fall back to 9B or reduce scope to "test file exists but doesn't import the function it claims to test" (partially deterministic).
+**Context**: Test-code coherence requires the LLM to understand implementation intent and whether a test meaningfully validates it. This is harder than docs-drift (which is mostly string comparison). A 4B model may not have enough capacity. The 9B model fits in 8 GB VRAM but is slower. With provider abstraction (ADR-010), cloud models (Haiku 4.5, GPT-5.4-nano) are also available as alternatives — the `standard` capability tier may be the right starting point for this detector.
+**Current thinking**: Try 4B first with carefully constrained prompts (one test function + one implementation function, binary output). If precision is too low, fall back to 9B or cloud provider. A `standard`-tier variant with structured explanations can be built after Phase 7 (provider abstraction).
 
 ### OQ-005: Should Sentinel support multi-repo in MVP?
 **Status**: Resolved
@@ -40,6 +40,12 @@ Tracked questions that need resolution before or during implementation. Each que
 **Priority**: Low
 **Context**: Detecting queries that should use CTEs, N+1 patterns, etc. SQLFluff handles SQL style linting. Semantic anti-patterns (CTE suggestions, cross-file N+1) require understanding intent.
 **Current thinking**: Phase 2. Build as a pluggable detector: SQLFluff for deterministic SQL lint, LLM-assisted prompt for semantic suggestions. Don't build a SQL parser.
+
+### OQ-010: What is the right ModelProvider protocol surface?
+**Status**: Open
+**Priority**: High
+**Context**: ADR-010 defines the vision for a pluggable model provider, but the exact protocol surface needs to be finalized during implementation. Key questions: Should `generate()` accept a messages list (OpenAI-style) or a flat prompt string (Ollama-style)? How should streaming be handled (if at all)? Should provider-specific options (e.g., Ollama's `think`, `num_ctx`) pass through as kwargs or a typed options dict? How does `embed()` handle models that don't support embedding (OpenAI text models)?
+**Current thinking**: `generate()` takes a prompt string + system string (lowest common denominator). No streaming for v1 — all consumers currently use non-streaming responses. Provider-specific options via a `provider_options: dict` passthrough. Embedding and generation can use different providers (e.g., Ollama for embeddings, Azure for generation) — but this adds config complexity, so start with a single provider for both.
 
 ## Resolved
 

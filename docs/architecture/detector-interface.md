@@ -1,6 +1,6 @@
 # Detector Interface Specification
 
-> **Status**: Active — reflects implementation as of 2026-04-05.
+> **Status**: Active — reflects implementation as of 2026-04-07.
 
 ## Design principle
 
@@ -63,6 +63,7 @@ interface Detector:
   description: string
   tier:        "deterministic" | "heuristic" | "llm-assisted"
   categories:  string[]           # Which categories it can produce
+  capability:  "basic" | "standard" | "advanced"  # Min model tier needed (informational, see ADR-010)
   
   detect(context: DetectorContext) -> Finding[]
 ```
@@ -103,7 +104,7 @@ The docs-drift detector has three detection modes:
 
 1. **Stale reference detection** (deterministic): Broken markdown links and missing inline code paths, with dual resolution (doc-relative and repo-root-relative).
 2. **Dependency drift** (deterministic): Compares `pip install`/`npm install` commands in key docs (README, CONTRIBUTING, INSTALL) against `pyproject.toml`/`requirements.txt`/`package.json`.
-3. **Doc-code comparison** (LLM-assisted, optional): Uses Ollama to compare code blocks in key docs against actual source files. Gracefully degrades when Ollama is unavailable.
+3. **Doc-code comparison** (LLM-assisted, optional): Uses the configured model provider (default: Ollama) to compare code blocks in key docs against actual source files. Gracefully degrades when no model is available.
 
 The tier is `LLM_ASSISTED` because the LLM comparison is available, but the primary signal comes from deterministic checks (modes 1 and 2). LLM comparison is limited to key documentation files to bound cost per scan.
 

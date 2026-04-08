@@ -32,18 +32,19 @@ What other options were evaluated and why were they rejected?
 |-----|-------|--------|------|
 | [001](001-local-first-execution.md) | Local-first execution model | Accepted | 2026-03-28 |
 | [002](002-deterministic-detectors-first.md) | Deterministic detectors as primary signal source | Accepted | 2026-03-28 |
-| [003](003-model-agnostic-via-ollama.md) | Model-agnostic design via Ollama | Accepted | 2026-03-28 |
+| [003](003-model-agnostic-via-ollama.md) | Model-agnostic design via Ollama | Superseded by ADR-010 | 2026-03-28 |
 | [004](004-sqlite-state-from-day-one.md) | SQLite persistent state from day one | Accepted | 2026-03-28 |
 | [005](005-docs-drift-first-class-detector.md) | Docs-drift as a first-class detector category | Accepted | 2026-03-28 |
 | [006](006-copilot-agent-primary-dev-tool.md) | GitHub Copilot agent mode as primary development tool | Accepted | 2026-03-28 |
 | [007](007-python-implementation-language.md) | Python as implementation language | Accepted | 2026-04-03 |
 | [008](008-evaluation-criteria.md) | Evaluation criteria defined before implementation | Accepted | 2026-04-04 |
 | [009](009-embedding-context-gatherer.md) | Embedding-based context gatherer | Accepted | 2026-04-05 |
+| [010](010-pluggable-model-provider.md) | Pluggable model provider interface | Accepted | 2026-04-07 |
 
 ## Creating a new ADR
 
 1. Copy the template above
-2. Number sequentially (next: 010)
+2. Number sequentially (next: 011)
 3. Create `NNN-short-kebab-title.md`
 4. Add to the index table above
 5. Record the decision in the commit that implements it where possible

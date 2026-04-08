@@ -15,6 +15,8 @@ Local Repo Sentinel development follows a phased approach. Each phase has a plan
 | 4 | Extended Detectors | **Complete** | Git-hotspots, complexity, eslint-runner, go-linter, rust-clippy |
 | 5 | GitHub Integration | **Complete** | Issue creation from approved findings |
 | 6 | Semantic Detectors | **In Progress** | Cross-artifact LLM detectors: semantic docs-drift, test-code coherence |
+| 7 | Provider Abstraction | Not Started | Pluggable model provider protocol (ADR-010): Ollama default, OpenAI-compatible |
+| 8 | Capability-Tiered Detectors | Not Started | Enhanced detectors leveraging more powerful models |
 
 ## Phase details
 

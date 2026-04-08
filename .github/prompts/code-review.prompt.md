@@ -23,7 +23,7 @@ Review recent changes. If a specific scope is provided, focus there: **${input:r
 ### 1. Architecture Compliance
 - Do changes align with existing ADRs?
 - Is the detector interface followed correctly?
-- Is the model interaction going through Ollama as specified (ADR-003)?
+- Is the model interaction going through the `ModelProvider` protocol as specified (ADR-010)?
 - Is state managed via SQLite (ADR-004)?
 
 ### 2. Code Quality
