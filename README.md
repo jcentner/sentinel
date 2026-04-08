@@ -6,15 +6,20 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 
 ## What it does
 
-- Runs 10 detectors: TODO/FIXME scanner, Python linter (ruff), JS/TS linter (ESLint/Biome), Go linter (golangci-lint), Rust linter (cargo clippy), dependency audit (pip-audit), docs-drift checker, semantic docs-drift (LLM-powered prose vs code comparison), git churn hotspots, cyclomatic complexity
+- Runs **14 detectors**: TODO/FIXME scanner, Python linter (ruff), JS/TS linter (ESLint/Biome), Go linter (golangci-lint), Rust linter (cargo clippy), dependency audit (pip-audit), docs-drift checker, semantic docs-drift (LLM prose vs code comparison), git churn hotspots, cyclomatic complexity, test-code coherence (LLM), stale env config drift, unused dependency detection, dead code / unused exports
 - Gathers contextual evidence per finding (surrounding code, git history, related tests, semantic code search via embeddings)
-- Uses a local LLM via Ollama as a judgment/summarization layer (optional — degrades gracefully)
+- Uses a pluggable LLM provider as a judgment/summarization layer (Ollama local, Azure, OpenAI-compatible — optional, degrades gracefully)
 - Fingerprints and deduplicates findings across runs via SQLite
 - Tracks finding persistence across runs (recurring findings get higher visibility)
 - Produces a scannable markdown morning report grouped by severity
 - Clusters related findings by root-cause pattern and directory to reduce noise
+- **Finding cluster synthesis**: LLM-powered root-cause analysis collapses related findings into actionable items (standard+ capability)
 - Supports suppressing false positives and approving findings for GitHub issue creation
 - Creates GitHub issues from approved findings (with deduplication and dry-run mode)
+- **Detector configurability**: enable/disable detectors via config, CLI (`--detectors`, `--skip-detectors`), or web UI
+- **Plugin system**: third-party detectors installable via `pip install` (entry-points discovery, ADR-012)
+- **Capability-tiered detectors**: detectors declare minimum model requirements; richer analysis with more powerful models
+- **Setup flow**: `sentinel init --profile minimal|standard|full` guides detector and model selection
 
 ## What it explicitly does not do
 
@@ -29,7 +34,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 10 detectors (Python, JS/TS, Go, Rust, deps, docs, semantic-drift, git) + custom detector plugin system, LLM judge, docs-drift detection, semantic docs-drift (LLM compares doc sections vs code), finding persistence, git churn hotspots, complexity analysis, embedding-based semantic context, GitHub issue creation, finding annotations, multi-repo scanning, and `--json-output` on all commands for machine-readable CLI output. 680 tests, 100% precision/recall on ground truth, real-world validated. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 14 detectors (Python, JS/TS, Go, Rust, deps, docs, semantic-drift, test-coherence, git, complexity, dead-code, stale-env, unused-deps) with pluggable model providers (Ollama, OpenAI-compatible, Azure), capability-tiered enhanced analysis, finding cluster synthesis, entry-points plugin system, detector configurability, LLM judge, finding persistence, embedding-based semantic context, GitHub issue creation, web UI triage dashboard, multi-repo scanning, and `--json-output` for machine-readable output. 923 tests. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
@@ -37,7 +42,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 - Python 3.11+
 - Git
-- [Ollama](https://ollama.com/) (optional, for LLM judgment layer)
+- [Ollama](https://ollama.com/) (optional — for local LLM judgment; Azure/OpenAI providers also supported)
 
 ### Installation
 
@@ -55,7 +60,10 @@ The `[detectors]` extra installs ruff and pip-audit for full detector coverage.
 **Initialize a new repo for Sentinel:**
 
 ```bash
-sentinel init /path/to/repo
+sentinel init /path/to/repo                    # all detectors, basic capability
+sentinel init /path/to/repo --profile minimal  # heuristic-only, no LLM needed
+sentinel init /path/to/repo --profile full     # all detectors, enhanced analysis
+sentinel init /path/to/repo --list-detectors   # show available detectors
 ```
 
 This creates a `sentinel.toml` with documented defaults, a `.sentinel/` directory, and adds it to `.gitignore`.
@@ -166,13 +174,18 @@ sentinel doctor --json-output   # machine-readable
 
 | Option | Description |
 |--------|-------------|
-| `--model TEXT` | Ollama model name (default: `qwen3.5:4b`) |
+| `--model TEXT` | Model name (default: `qwen3.5:4b`) |
+| `--provider TEXT` | Model provider: `ollama`, `openai`, or `azure` |
+| `--api-base TEXT` | API base URL for openai/azure providers |
 | `--ollama-url TEXT` | Ollama API URL (default: `http://localhost:11434`) |
 | `-o, --output TEXT` | Custom report output path |
 | `--skip-judge` | Skip LLM judge, use raw detector findings |
+| `--capability TEXT` | Model capability tier: `none`, `basic`, `standard`, `advanced` |
 | `--incremental` | Only scan files changed since the last completed run |
-| `--embed-model TEXT` | Ollama embedding model for semantic context (e.g. `nomic-embed-text`) |
+| `--embed-model TEXT` | Embedding model for semantic context (e.g. `nomic-embed-text`) |
 | `--target, -t TEXT` | Scan only specific paths (repeatable) |
+| `--detectors TEXT` | Comma-separated list of detectors to enable |
+| `--skip-detectors TEXT` | Comma-separated list of detectors to skip |
 | `-q, --quiet` | Suppress all output except errors |
 | `--json-output` | Output results as JSON (machine-readable) |
 | `--db TEXT` | Custom database path |
@@ -203,7 +216,7 @@ sentinel create-issues
 
 ### Machine-Readable Output
 
-All key commands support `--json-output` for use by AI agents and scripts:
+Most commands support `--json-output` for use by AI agents and scripts:
 
 ```bash
 # JSON scan results (findings + run metadata)
@@ -226,7 +239,7 @@ sentinel suppress 42 -r "False positive" --json-output
 sentinel approve 42 --json-output
 ```
 
-Exit codes: `0` = success, `1` = error or eval below threshold.
+Exit codes: `0` = success, `1` = error, `2` = partial failure (scan-all).
 
 ### Configuration
 
@@ -234,15 +247,25 @@ Create a `sentinel.toml` in your repo root to customize behavior:
 
 ```toml
 [sentinel]
-model = "qwen3.5:4b"          # Ollama model name
+provider = "ollama"            # "ollama", "openai", or "azure"
+model = "qwen3.5:4b"          # Model name
 ollama_url = "http://localhost:11434"
 skip_judge = false             # true to skip LLM judgment
+model_capability = "basic"     # none, basic, standard, advanced
 db_path = ".sentinel/sentinel.db"
 output_dir = ".sentinel"
-embed_model = ""               # Ollama embedding model (e.g. "nomic-embed-text")
-embed_chunk_size = 50          # lines per chunk for embedding
-embed_chunk_overlap = 10       # overlap lines between chunks
-detectors_dir = ""             # path to directory with custom detector .py files
+embed_model = ""               # Embedding model (e.g. "nomic-embed-text")
+detectors_dir = ""             # Custom detector .py files directory
+# num_ctx = 2048               # LLM context window size
+
+# For OpenAI-compatible providers (Azure OpenAI, OpenAI, vLLM, LM Studio):
+# provider = "openai"
+# api_base = "https://api.openai.com"
+# api_key_env = "OPENAI_API_KEY"  # env var containing the API key
+
+# Detector selection (optional — defaults to all):
+# enabled_detectors = ["todo-scanner", "lint-runner", "docs-drift"]
+# disabled_detectors = ["dead-code"]
 ```
 
 ### Custom Detectors
