@@ -1,6 +1,72 @@
 # Current State — Sentinel
 
-> Last updated: Session 25 — Real-world validation of semantic detectors
+> Last updated: Session 26 — Azure AI Foundry provider
+
+## Session 26 Summary
+
+### Current Objective
+Add native Azure AI Foundry provider with Entra ID authentication, enabling Sentinel to run on systems without local GPU/Ollama using Azure-hosted models.
+
+### What Was Accomplished
+
+**AzureProvider implementation:**
+- New `src/sentinel/core/providers/azure.py` — full `ModelProvider` implementation
+- Entra ID bearer token auth via `az account get-access-token` (no API keys needed)
+- Token caching with auto-refresh before expiry
+- Uses `max_completion_tokens` (not deprecated `max_tokens`) for Azure model compatibility
+- Auto-appends `/openai` to `.services.ai.azure.com` endpoints
+- Targets Azure AI Foundry v1 API: `/openai/v1/chat/completions` and `/openai/v1/embeddings`
+
+**Factory and config updates:**
+- `create_provider()` now handles `provider = "azure"`
+- CLI `--provider` help text updated to include `azure`
+- Privacy warning logged on Azure provider creation (same as openai)
+
+**Tests:**
+- 19 new tests in `tests/test_provider.py::TestAzureProvider`
+- Protocol compliance, factory creation, URL building, token acquisition/caching/refresh/failure, generate, embed, health check
+- Full suite: 767 passed, 3 skipped
+
+**Live validation with Azure AI Foundry (gpt-5.4-nano):**
+- Health check: ✅
+- Generate (plain text): ✅
+- Generate (JSON mode): ✅
+- Targeted scan with LLM judge (17 findings): ✅ — 9 confirmed, 8 FP, judge completed in 64s
+- Semantic detectors (test-coherence) via Azure: ✅ — 6 findings produced
+
+### Decisions Made
+- Azure provider uses Entra ID exclusively (no API key support) since the target resource has `disableLocalAuth = true`
+- Uses `max_completion_tokens` parameter which is the non-deprecated path for newer Azure/OpenAI models
+- Kept as a separate provider (not folded into OpenAICompatibleProvider) because auth mechanism is fundamentally different (subprocess token acquisition vs static API key)
+
+### Verification
+- **Tests**: 767 passed, 3 skipped
+- **Live**: Full scan+judge pipeline verified against Azure AI Foundry gpt-5.4-nano
+- **Docs**: ADR-010, VISION-LOCK updated
+
+### Repository State
+- **Tests**: 767 passing
+- **VISION-LOCK**: v4.1 (updated provider list)
+- **Providers**: 3 shipped (ollama, openai, azure)
+
+### Files Created
+- `src/sentinel/core/providers/azure.py`
+
+### Files Modified
+- `src/sentinel/core/provider.py` — factory now handles "azure"
+- `src/sentinel/cli.py` — --provider help text
+- `tests/test_provider.py` — 19 new Azure tests
+- `docs/architecture/decisions/010-pluggable-model-provider.md` — Azure provider documented
+- `docs/vision/VISION-LOCK.md` — updated provider list
+
+### What Remains / Next Priority
+1. **Phase 6b**: Dead code / unused exports, unused dependencies, stale config / env drift (deterministic detectors)
+2. **Phase 8**: Capability-tiered detectors (leverage gpt-5.4-nano/mini for deeper analysis)
+3. **Prompt tuning**: Improve test-coherence and semantic-drift prompts — now testable with cloud models
+4. **Embedding via Azure**: Test `text-embedding-3-small` deployment for semantic context
+5. **PyPI publication**
+
+---
 
 ## Session 25 Summary
 

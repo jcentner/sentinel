@@ -39,7 +39,8 @@ class ModelProvider(Protocol):
 ### Shipped providers
 
 - **`OllamaProvider`** (default): Current behavior extracted. Calls `/api/generate` and `/api/embed`. Zero-config for existing users.
-- **`OpenAICompatibleProvider`**: Covers OpenAI direct, Azure OpenAI, and any OpenAI-compatible endpoint (vLLM, LM Studio, Together, etc.). Uses the standard `/v1/chat/completions` and `/v1/embeddings` endpoints.
+- **`OpenAICompatibleProvider`**: Covers OpenAI direct and any OpenAI-compatible endpoint (vLLM, LM Studio, Together, etc.). Uses the standard `/v1/chat/completions` and `/v1/embeddings` endpoints. API key via environment variable.
+- **`AzureProvider`**: Azure AI Foundry. Uses Entra ID (Azure AD) bearer tokens acquired via `az account get-access-token`. Targets the `/openai/v1/chat/completions` and `/openai/v1/embeddings` endpoints. Uses `max_completion_tokens` (not `max_tokens`) for compatibility with newer Azure models. No API key needed — authentication is handled by the Azure CLI.
 
 ### Configuration
 
@@ -49,14 +50,21 @@ provider = "ollama"
 model = "qwen3.5:4b"
 ollama_url = "http://localhost:11434"
 
-# Azure OpenAI example
+# OpenAI-compatible provider (API key in env var)
 provider = "openai"
 model = "gpt-5.4-nano"
-api_base = "https://my-resource.openai.azure.com/openai/deployments/gpt-5.4-nano"
-api_key_env = "AZURE_OPENAI_API_KEY"  # reads from environment variable
+api_base = "https://api.openai.com"
+api_key_env = "OPENAI_API_KEY"
+
+# Azure AI Foundry (Entra ID auth via az CLI)
+provider = "azure"
+model = "gpt-5.4-nano"
+api_base = "https://my-resource.services.ai.azure.com"
 ```
 
-API keys are **never** stored in config files. The `api_key_env` field names the environment variable to read. This follows the same pattern as the existing GitHub token (`GITHUB_TOKEN` env var).
+For `openai` provider, API keys are **never** stored in config files. The `api_key_env` field names the environment variable to read.
+
+For `azure` provider, no API key is needed. Authentication uses Entra ID tokens from `az account get-access-token --resource https://cognitiveservices.azure.com`. Tokens are cached and auto-refreshed.
 
 ### Capability tiers
 

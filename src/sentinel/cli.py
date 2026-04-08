@@ -48,7 +48,7 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option("--model", default=None, help="Model name")
 @click.option("--ollama-url", default=None, help="Ollama API URL")
-@click.option("--provider", "provider_name", default=None, help="Model provider: ollama (default) or openai")
+@click.option("--provider", "provider_name", default=None, help="Model provider: ollama (default), openai, or azure")
 @click.option("--api-base", default=None, help="API base URL for openai provider")
 @click.option("--output", "-o", default=None, help="Report output path")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")

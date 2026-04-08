@@ -58,7 +58,7 @@ The model provider is **pluggable**: Ollama (local) is the default, but users ca
 | Constraint | Description |
 |-----------|-------------|
 | Local-first execution | All inference, embedding, state storage, and report generation on the user's machine by default. Cloud model providers are an explicit opt-in. |
-| Pluggable model provider | All model interaction through a `ModelProvider` protocol. Ollama is the default. OpenAI-compatible providers (Azure OpenAI, OpenAI, vLLM, LM Studio) are supported via config. Provider and model are config, not code. See ADR-010. |
+| Pluggable model provider | All model interaction through a `ModelProvider` protocol. Ollama is the default. OpenAI-compatible providers (OpenAI, vLLM, LM Studio) and Azure AI Foundry (Entra ID auth) are supported via config. Provider and model are config, not code. See ADR-010. |
 | 8 GB VRAM budget (local) | Local models must fit ~4B parameters at Q4_K_M quantization. Users with cloud providers or larger GPUs are not bound by this. |
 | Model-agnostic prompts | Prompts target general instruction-following, not model-specific or provider-specific features |
 | SQLite state store | Persistent state; embedded, zero-deployment, single-file |
@@ -199,8 +199,9 @@ Detectors that find things existing dev tools don't, without needing the LLM:
 Extract a `ModelProvider` protocol so the pipeline is provider-agnostic, not just model-agnostic. See ADR-010.
 
 - **`OllamaProvider`**: Current behavior extracted. Remains the zero-config default.
-- **`OpenAICompatibleProvider`**: Covers Azure OpenAI, OpenAI direct, and any OpenAI-compatible endpoint (vLLM, LM Studio, Together, etc.).
-- **Config**: `provider = "ollama"` (default) or `provider = "openai"` with `api_base` and `api_key_env`.
+- **`OpenAICompatibleProvider`**: Covers OpenAI direct and any OpenAI-compatible endpoint (vLLM, LM Studio, Together, etc.).
+- **`AzureProvider`**: Azure AI Foundry with Entra ID bearer token auth via `az` CLI. Uses `max_completion_tokens` for newer model compatibility.
+- **Config**: `provider = "ollama"` (default), `provider = "openai"` with `api_base`/`api_key_env`, or `provider = "azure"` with `api_base`.
 - Judge, semantic-drift, and docs-drift consolidate behind `provider.generate()` instead of raw `httpx.post` to Ollama.
 - Embedding calls consolidate behind `provider.embed()`.
 

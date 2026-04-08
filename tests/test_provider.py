@@ -323,3 +323,215 @@ class TestOpenAICompatibleProvider:
         r = repr(provider)
         assert "OpenAICompatibleProvider" in r
         assert "gpt-4o-mini" in r
+
+
+# ── AzureProvider ────────────────────────────────────────────────────
+
+
+class TestAzureProvider:
+    def _make_provider(self, **kwargs):
+        from sentinel.core.providers.azure import AzureProvider
+
+        defaults = {
+            "model": "gpt-5.4-nano",
+            "api_base": "https://myresource.services.ai.azure.com",
+        }
+        defaults.update(kwargs)
+        return AzureProvider(**defaults)
+
+    def test_satisfies_protocol(self):
+        provider = self._make_provider()
+        assert isinstance(provider, ModelProvider)
+
+    def test_factory_creates_azure_provider(self):
+        from sentinel.config import SentinelConfig
+        from sentinel.core.providers.azure import AzureProvider
+
+        config = SentinelConfig(
+            provider="azure",
+            model="gpt-5.4-nano",
+            api_base="https://myresource.services.ai.azure.com",
+        )
+        p = create_provider(config)
+        assert isinstance(p, AzureProvider)
+        assert p.model == "gpt-5.4-nano"
+
+    def test_azure_requires_api_base(self):
+        from sentinel.config import SentinelConfig
+
+        config = SentinelConfig(provider="azure", model="test")
+        with pytest.raises(ValueError, match="api_base"):
+            create_provider(config)
+
+    def test_completions_url_appends_openai(self):
+        provider = self._make_provider()
+        url = provider._completions_url()
+        assert url == "https://myresource.services.ai.azure.com/openai/v1/chat/completions"
+
+    def test_completions_url_preserves_existing_openai_suffix(self):
+        provider = self._make_provider(
+            api_base="https://myresource.services.ai.azure.com/openai"
+        )
+        url = provider._completions_url()
+        assert url == "https://myresource.services.ai.azure.com/openai/v1/chat/completions"
+
+    def test_embeddings_url(self):
+        provider = self._make_provider()
+        url = provider._embeddings_url()
+        assert url == "https://myresource.services.ai.azure.com/openai/v1/embeddings"
+
+    def test_token_acquisition(self):
+        provider = self._make_provider()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = '{"accessToken": "test-token-123", "expiresOn": "2099-01-01 00:00:00.000000"}'
+
+        with patch("subprocess.run", return_value=mock_result):
+            token = provider._ensure_token()
+
+        assert token == "test-token-123"
+
+    def test_token_caching(self):
+        """Token should be cached and not re-acquired on second call."""
+        provider = self._make_provider()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = '{"accessToken": "cached-token", "expiresOn": "2099-01-01 00:00:00.000000"}'
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            token1 = provider._ensure_token()
+            token2 = provider._ensure_token()
+
+        assert token1 == token2 == "cached-token"
+        assert mock_run.call_count == 1  # Only called once
+
+    def test_token_refresh_on_expiry(self):
+        """Expired token should trigger re-acquisition."""
+        provider = self._make_provider()
+        provider._token = "old-token"
+        provider._token_expires_at = 0.0  # Already expired
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = '{"accessToken": "new-token", "expiresOn": "2099-01-01 00:00:00.000000"}'
+
+        with patch("subprocess.run", return_value=mock_result):
+            token = provider._ensure_token()
+
+        assert token == "new-token"
+
+    def test_token_failure_raises(self):
+        provider = self._make_provider()
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Not logged in"
+
+        with patch("subprocess.run", return_value=mock_result):
+            with pytest.raises(RuntimeError, match="az account get-access-token failed"):
+                provider._ensure_token()
+
+    def test_az_cli_not_found_raises(self):
+        provider = self._make_provider()
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            with pytest.raises(RuntimeError, match="Azure CLI.*not found"):
+                provider._ensure_token()
+
+    def test_generate_success(self):
+        provider = self._make_provider()
+        provider._token = "test-token"
+        provider._token_expires_at = 9999999999.0
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "Hello from Azure!"}}],
+            "usage": {"completion_tokens": 5},
+        }
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("httpx.post", return_value=mock_resp) as mock_post:
+            result = provider.generate("Hi", system="Be helpful")
+
+        assert result.text == "Hello from Azure!"
+        assert result.token_count == 5
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["model"] == "gpt-5.4-nano"
+        assert payload["max_completion_tokens"] == 512
+        assert "max_tokens" not in payload
+        assert payload["messages"][0] == {"role": "system", "content": "Be helpful"}
+        assert payload["messages"][1] == {"role": "user", "content": "Hi"}
+        # Check auth header
+        headers = mock_post.call_args.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer test-token"
+
+    def test_generate_json_mode(self):
+        provider = self._make_provider()
+        provider._token = "test-token"
+        provider._token_expires_at = 9999999999.0
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": '{"a": 1}'}}],
+            "usage": {},
+        }
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("httpx.post", return_value=mock_resp) as mock_post:
+            provider.generate("JSON", json_output=True)
+
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["response_format"] == {"type": "json_object"}
+
+    def test_embed_success(self):
+        provider = self._make_provider(embed_model="text-embedding-3-small")
+        provider._token = "test-token"
+        provider._token_expires_at = 9999999999.0
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "data": [
+                {"index": 1, "embedding": [0.3, 0.4]},
+                {"index": 0, "embedding": [0.1, 0.2]},
+            ],
+        }
+
+        with patch("httpx.post", return_value=mock_resp):
+            result = provider.embed(["a", "b"])
+
+        assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+    def test_embed_no_model_returns_none(self):
+        provider = self._make_provider()
+        assert provider.embed(["text"]) is None
+
+    def test_embed_empty_input(self):
+        provider = self._make_provider(embed_model="test")
+        assert provider.embed([]) == []
+
+    def test_check_health_success(self):
+        provider = self._make_provider()
+        provider._token = "test-token"
+        provider._token_expires_at = 9999999999.0
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+
+        with patch("httpx.get", return_value=mock_resp):
+            assert provider.check_health() is True
+
+    def test_check_health_no_token(self):
+        """Health check fails if we can't get a token."""
+        provider = self._make_provider()
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Not logged in"
+
+        with patch("subprocess.run", return_value=mock_result):
+            assert provider.check_health() is False
+
+    def test_repr(self):
+        provider = self._make_provider()
+        r = repr(provider)
+        assert "AzureProvider" in r
+        assert "gpt-5.4-nano" in r

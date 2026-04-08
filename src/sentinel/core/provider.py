@@ -109,8 +109,25 @@ def create_provider(config: SentinelConfig) -> ModelProvider:
             api_key_env=config.api_key_env,
             embed_model=config.embed_model,
         )
+    elif config.provider == "azure":
+        from sentinel.core.providers.azure import AzureProvider
+
+        if not config.api_base:
+            raise ValueError(
+                "provider = 'azure' requires api_base to be set "
+                "(e.g., 'https://<resource>.services.ai.azure.com')"
+            )
+        logger.warning(
+            "Provider 'azure' configured — code excerpts will be sent to %s",
+            config.api_base,
+        )
+        return AzureProvider(
+            model=config.model,
+            api_base=config.api_base,
+            embed_model=config.embed_model,
+        )
     else:
         raise ValueError(
             f"Unknown provider: {config.provider!r}. "
-            f"Valid providers: 'ollama', 'openai'"
+            f"Valid providers: 'ollama', 'openai', 'azure'"
         )
