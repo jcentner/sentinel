@@ -18,7 +18,7 @@ Local Repo Sentinel development follows a phased approach. Each phase has a plan
 | 6b | High-Value Deterministic | **Complete** | Unused deps, dead code, stale env detectors |
 | 7 | Provider Abstraction | **Complete** | Pluggable model provider protocol (ADR-010): Ollama, OpenAI-compat, Azure |
 | 8 | Capability-Tiered Detectors | **Complete** | CapabilityTier infrastructure, enhanced test-coherence and semantic-drift |
-| 9 | Configurability, Plugins & Synthesis | **In Progress** | Detector selection, entry-points plugins, finding cluster synthesis |
+| 9 | Configurability, Plugins & Synthesis | **Complete** | Detector selection, entry-points plugins, finding cluster synthesis, setup flow |
 
 ## Phase details
 

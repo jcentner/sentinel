@@ -1,6 +1,6 @@
 # Current State — Sentinel
 
-> Last updated: Session 30 — Phase 9 Slices 1-4 (Configurability, Plugins, Synthesis)
+> Last updated: Session 30 — Phase 9 Complete (Configurability, Plugins, Synthesis, Setup Flow)
 
 ## Session 30 Summary
 
@@ -42,8 +42,15 @@ Document strategic decisions from user feedback, then implement Phase 9: Configu
 - Reviewer found 2 Major (log signature mismatch, confidence parsing), 5 Minor — all fixed
 - 917 total tests passing
 
+#### Phase 9 Slice 5: Setup Flow Enhancement (Committed: `282e70b`)
+- `sentinel init` enhanced with `--profile minimal|standard|full`, `--detectors`, `--list-detectors`
+- Generated config includes `enabled_detectors` list with detector catalog as comments
+- Profiles: minimal (heuristic, no LLM, 12 detectors), standard (all + basic), full (all + enhanced)
+- OQ-011 resolved
+- 923 total tests passing
+
 ### Verification
-- **Tests**: 917 passed, 3 skipped
+- **Tests**: 923 passed, 3 skipped
 - **Ruff**: Clean on all modified files
 - **Reviewer**: Ran for Slice 4, all findings addressed
 
@@ -53,11 +60,12 @@ Document strategic decisions from user feedback, then implement Phase 9: Configu
 3. User decision: Plugin system should be robust (entry_points — ADR-012)
 4. Synthesis gated on standard+ capability; graceful degradation at basic tier
 5. LLM log entries for synthesis use the same `LLMLogEntry` dataclass as judge
+6. Setup flow uses profiles (minimal/standard/full) for non-interactive setup
 
 ### Repository State
-- **Tests**: 917 passing
-- **VISION-LOCK**: v4.4 (Phase 9 in progress)
-- **Phase 9**: 4 of 5 slices complete
+- **Tests**: 923 passing
+- **VISION-LOCK**: v4.5 (Phase 9 complete)
+- **Phase 9**: Complete (all 5 slices)
 - **Providers**: 3 (ollama, openai, azure)
 - **ADRs**: 12 (001–012)
 - **Detectors**: 14
@@ -68,6 +76,7 @@ Document strategic decisions from user feedback, then implement Phase 9: Configu
 3. `7f2b995` — feat(detectors): entry-points plugin discovery (ADR-012)
 4. `f8bcfa5` — feat(synthesis): finding cluster synthesis via LLM (Phase 9 Slice 4)
 5. `6cc49a1` — fix(synthesis): address reviewer findings — log signature, parsing, tests
+6. `282e70b` — feat(cli): enhanced sentinel init with profiles and detector selection (Phase 9 Slice 5)
 
 ### Files Created
 - `src/sentinel/core/synthesis.py`
@@ -91,10 +100,10 @@ Document strategic decisions from user feedback, then implement Phase 9: Configu
 - `tests/test_config.py`, `tests/test_cli.py`, `tests/test_runner.py`, `tests/test_web.py`, `tests/test_detectors_base.py`, `tests/test_report.py` — new tests
 
 ### What Remains / Next Priority
-1. **Phase 9 Slice 5**: Setup flow enhancement — extend `sentinel init` to guide detector/model selection (depends on OQ-011)
-2. **Phase 10**: Advanced tier detectors (intent-drift, arch-drift, CI/CD config drift) — design NEW detectors with nano baseline
-3. **README/CONTRIBUTING fix**: Stale code examples (Severity import that doesn't exist in base.py)
-4. **Judge performance**: Serial bottleneck at ~4s/finding (TD-002)
+1. **Phase 10**: Advanced tier detectors (intent-drift, arch-drift, CI/CD config drift) — design NEW detectors with nano baseline
+2. **README/CONTRIBUTING fix**: Stale code examples (Severity import that doesn't exist in base.py)
+3. **Judge performance**: Serial bottleneck at ~4s/finding (TD-002)
+4. **OQ-012**: Per-detector model configuration (different models for different detectors)
 5. **PyPI publication**: Packaging ready, needs credentials
 
 ---

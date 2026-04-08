@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.4
+> **Version**: 4.5
 > **Updated**: 2026-04-08
-> **Supersedes**: v4.3
+> **Supersedes**: v4.4
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -103,7 +103,7 @@ Issue creation from approved findings with fingerprint-based dedup. Environment 
 `scan-all` scans multiple repos into a shared database. Web UI and CLI display runs across all repos.
 
 ### Quality Infrastructure
-CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 875 tests.
+CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 923 tests.
 
 ### Detector Value Assessment (honest)
 Based on real-world validation, the current detectors fall into three tiers:
@@ -222,7 +222,7 @@ With provider abstraction in place, detectors adapt their behavior based on mode
 
 Capability tiers are **informational, not enforced** — the system warns if a detector's declared tier exceeds the configured model's expected capability, but does not block execution. Users choose their detector set and model at setup time (see OQ-011), making the tier system a recommendation rather than a hidden gate.
 
-### Phase 9: Configurability, plugins, and finding synthesis — In Progress
+### Phase 9: Configurability, plugins, and finding synthesis — Complete
 
 Three gaps identified through strategic analysis and user feedback:
 
@@ -231,6 +231,8 @@ Three gaps identified through strategic analysis and user feedback:
 **Entry-points plugin system** (ADR-012): Third-party detectors discoverable via `pip install sentinel-detector-xyz` using Python's `entry_points` mechanism. Supplements existing `detectors_dir` for local development. Enables a detector ecosystem.
 
 **Finding cluster synthesis**: Post-judge pipeline step that feeds clusters of related findings to the LLM, producing root-cause analysis and redundancy elimination. Self-scan produces 142 docs-drift findings — many share root causes. Synthesis collapses these into actionable items. Requires `standard+` capability.
+
+**Setup flow**: `sentinel init` enhanced with `--profile` presets (minimal, standard, full), `--detectors` for explicit selection, and `--list-detectors` to show available detectors with capability tiers. Generated config includes explicit `enabled_detectors` list with detector catalog as comments.
 
 ### Phase 10: Advanced detectors — Planned
 
@@ -273,6 +275,17 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.5
+Phase 9 complete: Configurability, Plugins, and Finding Synthesis.
+- **Phase 9** marked complete (all 5 slices shipped)
+- **Detector configurability**: `enabled_detectors`/`disabled_detectors` in config, CLI (`--detectors`, `--skip-detectors`, `--capability`), web UI checkboxes
+- **Entry-points plugin discovery**: `sentinel.detectors` entry-points group (ADR-012) — `pip install` enabling
+- **Finding cluster synthesis**: Post-judge pipeline step for root-cause analysis and redundancy elimination (standard+ capability)
+- **Setup flow**: `sentinel init --profile minimal|standard|full`, `--detectors`, `--list-detectors`
+- **OQ-011** resolved: setup flow design implemented
+- **What Exists Today**: 923 tests, 14 detectors, 12 ADRs, all pipeline steps operational
+- Report integration: `🔄 redundant` badge, root cause + recommended action in evidence blocks
 
 ### v4.4
 Strategic direction update from Session 29/30 conversation.
