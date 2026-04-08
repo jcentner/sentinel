@@ -46,6 +46,7 @@ Evidence:
 | `docs-drift` | Inconsistency between documentation and code/config/other docs | Docs-drift detector |
 | `code-quality` | Lint findings, complexity, dead code | ESLint, ruff, Semgrep |
 | `test-health` | Test failures, flaky tests, coverage gaps | Test runner, coverage diff |
+| `test-coherence` | Stale tests that no longer validate their implementations | Test-code coherence detector |
 | `dependency` | Outdated deps, known vulnerabilities, audit findings | npm audit, pip-audit |
 | `todo-fixme` | TODO/FIXME/HACK/XXX comments, especially old or concerning ones | Grep/regex scanner |
 | `security` | Potential security issues surfaced by detectors | Semgrep, custom rules |
@@ -97,6 +98,7 @@ DetectorContext:
 | `git-hotspots` | Heuristic | git-health | ✅ Implemented | Identifies high-churn files via statistical outlier analysis on git log |
 | `complexity` | Deterministic | code-quality | ✅ Implemented | Flags functions exceeding cyclomatic complexity threshold |
 | `semantic-drift` | LLM-assisted | docs-drift | ✅ Implemented | Compares documentation prose sections against referenced source code for semantic drift |
+| `test-coherence` | LLM-assisted | test-coherence | ✅ Implemented | Compares test functions against implementations for staleness |
 
 ### docs-drift implementation notes
 

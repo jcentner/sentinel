@@ -78,7 +78,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 ## What Exists Today
 
 ### Core Pipeline
-- **10 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), git churn hotspots, and TODO/FIXME scanning
+- **11 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), test-code coherence (LLM-powered test staleness detection), git churn hotspots, and TODO/FIXME scanning
 - **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
 - **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
 - **Embedding-based context gathering**: opt-in via configured provider (default: Ollama), falls back to file-proximity heuristics
@@ -110,11 +110,10 @@ Based on real-world validation, the current detectors fall into three tiers:
 
 | Tier | Detectors | Capability Tier | Value |
 |------|-----------|----------------|-------|
-| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code) | basic (4B) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift binary signal is high-value. |
+| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code), test-coherence (test staleness) | basic (4B) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift and test-coherence binary signals are high-value. |
 | Medium | complexity | none (deterministic) | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
 | Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | none (deterministic) | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
 | Mixed | git-hotspots | none (deterministic) | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
-| Planned | test-code coherence (basic) | basic (4B) | Binary "test may be stale" signal. Not yet implemented. |
 | Planned | enhanced test-code coherence | standard (9B+) | Structured analysis: *what* the test misses and *why* it's stale. Not yet implemented. |
 | Planned | detailed docs-drift explanations | standard (9B+) | Explain *how* docs are wrong, not just *that* they need review. Not yet implemented. |
 | Planned | deep semantic analysis | advanced (frontier) | Subtle intent comparison, architecture-level drift. Not yet implemented. |
@@ -246,6 +245,13 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.1
+Test-code coherence detector shipped (Phase 6 Slice 2, completing Phase 6).
+- **What Exists Today** updated: 11 detectors (was 10), test-coherence added to high-value tier
+- **Detector Value Assessment** updated: test-coherence moved from Planned to High tier
+- **LLM analyst role** fully shipped: both cross-artifact detectors (semantic-drift + test-coherence) now operational
+- **OQ-009** partially resolved: detector implemented with 4B prompts, real-world validation pending
 
 ### v4.0 (2026-04-07)
 Provider abstraction and capability-tiered detector vision.

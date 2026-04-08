@@ -32,7 +32,7 @@ Based on real-world validation (104 findings, 88% confirmation rate):
 
 | Tier | What | Capability Tier | Why |
 |------|------|----------------|-----|
-| **Highest value (planned)** | Semantic docs-drift, test-code coherence | basic–standard | Cross-artifact analysis that nothing else does. Even a binary signal is high value. Stronger models unlock structured explanations. |
+| **Highest value** | Semantic docs-drift, test-code coherence | basic–standard | Cross-artifact analysis that nothing else does. Even a binary signal is high value. Stronger models unlock structured explanations. |
 | **High value (shipped)** | Docs-drift (broken links, stale paths) | none (deterministic) | Catches real drift that accumulates silently. 97% accuracy. |
 | **Medium** | Complexity | none (deterministic) | Useful on first scan; diminishing on repeat runs. |
 | **Low** | Lint, ESLint, go-linter, rust-clippy, todo-scanner | none (deterministic) | Duplicate what dev toolchains already provide. Useful only for repos without CI linting. |

@@ -23,10 +23,10 @@ Tracked questions that need resolution before or during implementation. Each que
 **Resolution**: Heading-based chunking + name-matching pairing. Sections are delimited by h1–h3 headings. References extracted via backtick paths, prose paths, markdown links, and backtick-wrapped symbol names. Python `ast` module extracts function/class signatures; regex-based extraction for other languages. Binary LLM output ("needs_review" / "in_sync"). Embedding-based pairing deferred. Implemented in `src/sentinel/detectors/semantic_drift.py`.
 
 ### OQ-009: Can a 4B model reliably deliver test-code coherence signals?
-**Status**: Open
+**Status**: Partially Resolved (implementation shipped, real-world validation pending)
 **Priority**: Medium
 **Context**: Test-code coherence requires the LLM to understand implementation intent and whether a test meaningfully validates it. This is harder than docs-drift (which is mostly string comparison). A 4B model may not have enough capacity. The 9B model fits in 8 GB VRAM but is slower. With provider abstraction (ADR-010), cloud models (Haiku 4.5, GPT-5.4-nano) are also available as alternatives — the `standard` capability tier may be the right starting point for this detector.
-**Current thinking**: Try 4B first with carefully constrained prompts (one test function + one implementation function, binary output). If precision is too low, fall back to 9B or cloud provider. A `standard`-tier variant with structured explanations can be built after Phase 7 (provider abstraction).
+**Resolution**: Detector implemented as `test-coherence` in `src/sentinel/detectors/test_coherence.py`. Uses 4B model by default with constrained binary prompts (one test function + one implementation function, binary "needs_review" / "coherent" output). Pairing via naming convention (`test_foo.py` → `foo.py`) with import-analysis fallback. Function-level matching via Python `ast` with underscore-boundary prefix matching. Real-world precision validation pending — if 4B proves insufficient for this task, the provider abstraction (Phase 7) enables seamless fallback to 9B or cloud models.
 
 ### OQ-005: Should Sentinel support multi-repo in MVP?
 **Status**: Resolved

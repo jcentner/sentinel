@@ -196,6 +196,7 @@ def _ensure_detectors_loaded() -> None:
     import sentinel.detectors.lint_runner
     import sentinel.detectors.rust_clippy
     import sentinel.detectors.semantic_drift
+    import sentinel.detectors.test_coherence
     import sentinel.detectors.todo_scanner  # noqa: F401
 
 

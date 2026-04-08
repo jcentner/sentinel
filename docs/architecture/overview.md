@@ -52,7 +52,7 @@ Detectors produce raw candidate findings. They come in three tiers:
 
 **Tier 2 — Heuristic**: Git-history hotspots (commit frequency analysis), cyclomatic complexity / function length analysis. Also model-free.
 
-**Tier 3 — LLM-assisted**: Docs-drift doc-code comparison and semantic docs-drift section-vs-code comparison via the configured model provider (default: Ollama). The semantic-drift detector compares documentation sections (heading-delimited) against the source code they reference, producing a binary "needs review" / "in sync" signal. Planned: test-code coherence analysis comparing tests against the implementations they validate.
+**Tier 3 — LLM-assisted**: Docs-drift doc-code comparison, semantic docs-drift section-vs-code comparison, and test-code coherence analysis via the configured model provider (default: Ollama). The semantic-drift detector compares documentation sections (heading-delimited) against the source code they reference. The test-coherence detector pairs test functions with their implementation functions and identifies stale tests. Both produce binary "needs review" / "in sync" signals.
 
 The architecture is **mostly Tier 1 + 2 today, with the LLM as the judgment/summarization layer**. The next strategic investment is Tier 3 cross-artifact detectors where the LLM is the primary analyst.
 
@@ -60,7 +60,7 @@ Every detector produces a `Finding` conforming to the [Detector Interface](detec
 
 **Implemented detectors**: `todo-scanner` (T1), `lint-runner` (T1), `eslint-runner` (T1), `go-linter` (T1), `rust-clippy` (T1), `dep-audit` (T1), `docs-drift` (T1+T3), `git-hotspots` (T2), `complexity` (T2).
 
-**Value assessment**: Based on real-world validation, the highest-value shipped detectors are docs-drift (97% accuracy catching broken links and stale paths) and semantic-drift (LLM-powered prose-vs-code comparison). Lint/complexity/todo detectors largely duplicate existing dev tooling. The highest-leverage planned detectors are test-code coherence and capability-tiered variants that leverage more powerful models for structured analysis. Detectors declare a **capability tier** (`basic`, `standard`, `advanced`) indicating the model class they need. See [VISION-LOCK.md](../vision/VISION-LOCK.md) for the full detector value tier table.
+**Value assessment**: Based on real-world validation, the highest-value shipped detectors are docs-drift (97% accuracy catching broken links and stale paths), semantic-drift (LLM-powered prose-vs-code comparison), and test-coherence (LLM-powered test staleness detection). Lint/complexity/todo detectors largely duplicate existing dev tooling. The highest-leverage planned extensions are capability-tiered variants that leverage more powerful models for structured analysis. Detectors declare a **capability tier** (`basic`, `standard`, `advanced`) indicating the model class they need. See [VISION-LOCK.md](../vision/VISION-LOCK.md) for the full detector value tier table.
 
 ### 2. Fingerprint Assignment
 
@@ -103,7 +103,7 @@ This is a structured judgment task, not open-ended generation. The model doesn't
 
 All LLM interaction goes through a **`ModelProvider` protocol** (see [ADR-010](decisions/010-pluggable-model-provider.md)). The default provider is Ollama (local). Users can configure any OpenAI-compatible provider (Azure OpenAI, OpenAI, vLLM, LM Studio) via `sentinel.toml`. The judge and all LLM-assisted detectors call `provider.generate()` rather than making raw HTTP requests to a specific backend.
 
-**Second role — Analyst** (partially shipped): For cross-artifact detectors, the LLM also serves as the primary signal source. The semantic-drift detector receives a doc section + the code it describes and produces a binary triage signal: "in sync" or "needs review". Even without detailed explanations, this binary signal is the core product value. Planned: test-code coherence using the same pattern. More powerful models (via cloud providers or larger local GPUs) can deliver structured analysis — explaining *what* is wrong, not just *that* something is wrong — through capability-tiered detectors.
+**Second role — Analyst** (shipped): For cross-artifact detectors, the LLM also serves as the primary signal source. The semantic-drift detector receives a doc section + the code it describes and produces a binary triage signal: "in sync" or "needs review". The test-coherence detector receives a test function + the implementation it tests and produces a binary signal: "coherent" or "needs review". Even without detailed explanations, these binary signals are the core product value. More powerful models (via cloud providers or larger local GPUs) can deliver structured analysis — explaining *what* is wrong, not just *that* something is wrong — through capability-tiered detectors.
 
 ### 6. Persistence Tracker
 

@@ -1,6 +1,6 @@
 # Phase 6: Cross-Artifact Semantic Detectors
 
-> **Status**: In Progress
+> **Status**: Complete
 > **Prerequisites**: Phase 4 complete, VISION-LOCK v3.0, OQ-008 open
 > **Goal**: Build LLM-primary detectors that compare related artifacts (docs vs code, tests vs implementation) for semantic inconsistency — the core differentiator identified in the v3.0 strategic recalibration.
 
@@ -42,9 +42,18 @@ Even a binary "in sync / needs review" triage signal is high value. The develope
 
 **Test**: Unit tests for section parsing, pairing logic, code extraction, mock LLM responses
 
-### Slice 2: Test-Code Coherence Detector (future)
+### Slice 2: Test-Code Coherence Detector
 
-Deferred to next session — depends on OQ-009 resolution and results from Slice 1.
+**Files**: `src/sentinel/detectors/test_coherence.py`, `tests/detectors/test_test_coherence.py`
+
+**What**: New detector that:
+1. Finds test files (matching `test_*.py` or `*_test.py`)
+2. Pairs each test file with its implementation file (naming convention + import analysis fallback)
+3. Extracts matched function pairs via Python `ast` (test_run_scan → run_scan, with underscore-boundary prefix matching)
+4. Sends (test function body + implementation function body) to LLM with binary comparison prompt
+5. Produces findings for test functions flagged as "needs review"
+
+**Status**: ✅ Implemented (Session 24). 37 tests, ruff + mypy strict clean.
 
 ### Slice 3: Real-World Validation
 
