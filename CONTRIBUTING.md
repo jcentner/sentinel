@@ -30,25 +30,31 @@ src/sentinel/
 ├── core/
 │   ├── runner.py           # Pipeline orchestrator
 │   ├── context.py          # Evidence gatherer (file-proximity + embeddings)
-│   ├── judge.py            # LLM judge via Ollama
+│   ├── judge.py            # LLM judge
+│   ├── synthesis.py        # Finding cluster synthesis (standard+ tier)
 │   ├── dedup.py            # Fingerprinting and deduplication
 │   ├── report.py           # Markdown report generator
 │   ├── clustering.py       # Pattern + directory clustering
+│   ├── provider.py         # Pluggable model provider (Ollama, OpenAI-compat)
 │   ├── eval.py             # Precision/recall evaluation
 │   ├── indexer.py          # Embedding index builder
-│   └── ollama.py           # Ollama API client
+│   └── ollama.py           # Ollama API client (low-level)
 ├── detectors/
-│   ├── base.py             # Detector ABC + auto-registry
-│   ├── todo_scanner.py     # TODO/FIXME scanner
-│   ├── lint_runner.py      # ruff wrapper
-│   ├── eslint_runner.py    # ESLint/Biome wrapper
-│   ├── go_linter.py        # golangci-lint wrapper
-│   ├── rust_clippy.py      # cargo clippy wrapper
+│   ├── base.py             # Detector ABC + auto-registry + plugin loading
+│   ├── complexity.py       # Cyclomatic complexity
+│   ├── dead_code.py        # Unused exported symbols
 │   ├── dep_audit.py        # pip-audit wrapper
 │   ├── docs_drift.py       # Documentation drift detector
-│   ├── semantic_drift.py   # Semantic docs-drift (LLM prose vs code comparison)
+│   ├── eslint_runner.py    # ESLint/Biome wrapper
 │   ├── git_hotspots.py     # Git churn analysis
-│   └── complexity.py       # Cyclomatic complexity
+│   ├── go_linter.py        # golangci-lint wrapper
+│   ├── lint_runner.py      # ruff wrapper
+│   ├── rust_clippy.py      # cargo clippy wrapper
+│   ├── semantic_drift.py   # Semantic docs-drift (LLM, basic+ tier)
+│   ├── stale_env.py        # .env.example drift detection
+│   ├── test_coherence.py   # Test-code coherence (LLM, basic+ tier)
+│   ├── todo_scanner.py     # TODO/FIXME scanner
+│   └── unused_deps.py      # Unused declared dependencies
 ├── store/
 │   ├── db.py               # SQLite connection + migrations
 │   ├── findings.py         # Finding CRUD
@@ -65,11 +71,31 @@ src/sentinel/
 
 ## Adding a Detector
 
-Detectors auto-register via `__init_subclass__`. Create a new file in `src/sentinel/detectors/`:
+Detectors auto-register via `__init_subclass__`. There are two paths:
+- **Built-in detector** (PR to this repo): create a file + one import line
+- **External plugin** (separate pip package): publish with an `entry_points` declaration
+
+### Minimal implementation
+
+Create `src/sentinel/detectors/my_detector.py`:
 
 ```python
-from sentinel.detectors.base import Detector
-from sentinel.models import DetectorContext, DetectorTier, Finding, Severity
+import logging
+from pathlib import Path
+
+from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
+from sentinel.models import (
+    DetectorContext,
+    DetectorTier,
+    Evidence,
+    EvidenceType,
+    Finding,
+    Severity,
+    ScopeType,
+)
+
+logger = logging.getLogger(__name__)
+
 
 class MyDetector(Detector):
     @property
@@ -78,28 +104,170 @@ class MyDetector(Detector):
 
     @property
     def description(self) -> str:
-        return "What this detector does"
+        return "One-line description shown in 'sentinel init --list-detectors'"
 
     @property
     def tier(self) -> DetectorTier:
-        return DetectorTier.DETERMINISTIC
+        return DetectorTier.DETERMINISTIC  # or HEURISTIC, LLM_ASSISTED
 
     @property
     def categories(self) -> list[str]:
-        return ["code-quality"]
+        return ["code-quality"]  # see detector-interface.md for valid categories
+
+    # Override capability_tier ONLY if your detector uses an LLM:
+    # @property
+    # def capability_tier(self) -> CapabilityTier:
+    #     return CapabilityTier.BASIC  # or STANDARD, ADVANCED
 
     def detect(self, context: DetectorContext) -> list[Finding]:
-        # Your detection logic here
-        return []
+        try:
+            return self._scan(context)
+        except Exception:
+            logger.exception("%s failed", self.name)
+            return []
+
+    def _scan(self, context: DetectorContext) -> list[Finding]:
+        root = Path(context.repo_root)
+        files = self._collect_files(context, root)
+        findings: list[Finding] = []
+
+        for path in files:
+            # ... detection logic ...
+            findings.append(Finding(
+                detector=self.name,
+                category="code-quality",
+                severity=Severity.MEDIUM,
+                confidence=0.8,
+                title="Issue found in function X",
+                description="Detailed explanation of the problem",
+                file_path=str(path.relative_to(root)),
+                line_start=42,
+                evidence=[
+                    Evidence(
+                        type=EvidenceType.CODE,
+                        source=str(path.relative_to(root)),
+                        content="the relevant code snippet",
+                        line_range=(40, 50),
+                    )
+                ],
+            ))
+
+        return findings
+
+    def _collect_files(self, context: DetectorContext, root: Path) -> list[Path]:
+        """Collect files respecting scan scope."""
+        # Incremental: only scan changed files
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
+            return [
+                root / f for f in context.changed_files
+                if f.endswith(".py") and (root / f).is_file()
+            ]
+
+        # Targeted: only scan files under target paths
+        if context.scope == ScopeType.TARGETED and context.target_paths:
+            files = []
+            for target in context.target_paths:
+                tp = Path(target)
+                if tp.is_file() and tp.suffix == ".py":
+                    files.append(tp)
+                elif tp.is_dir():
+                    files.extend(tp.rglob("*.py"))
+            return files
+
+        # Full scan: walk the repo, skip common directories
+        return [
+            p for p in root.rglob("*.py")
+            if not any(skip in p.parts for skip in COMMON_SKIP_DIRS)
+        ]
 ```
 
-Key conventions for detectors:
-- Return `[]` when the detector doesn't apply (wrong language, tool missing)
-- Catch `FileNotFoundError` for external tools and log at `warning` level
-- Include an outer `try/except Exception` safety net with `logger.exception()`
-- Support `context.scope` for incremental and targeted scans
-- Every finding needs evidence — never return a finding without it
-- If your detector requires LLM capabilities, override `capability_tier` (default: `CapabilityTier.NONE`)
+### Register the detector in the runner
+
+**This step is required** — without it your detector exists but never runs.
+
+Add one import line to `_ensure_detectors_loaded()` in `src/sentinel/core/runner.py`:
+
+```python
+def _ensure_detectors_loaded() -> None:
+    import sentinel.detectors.complexity
+    import sentinel.detectors.dead_code
+    # ... existing imports ...
+    import sentinel.detectors.my_detector      # ← add this
+```
+
+### PR checklist
+
+| File | Change | Required? |
+|------|--------|-----------|
+| `src/sentinel/detectors/my_detector.py` | New detector implementation | Yes |
+| `src/sentinel/core/runner.py` | Add import to `_ensure_detectors_loaded()` | Yes |
+| `tests/detectors/test_my_detector.py` | Tests (see Testing below) | Yes |
+| `docs/architecture/detector-interface.md` | Add row to detector table | Yes |
+| `pyproject.toml` | Add external tool to `[project.optional-dependencies]` | If wrapping an external tool |
+| `docs/reference/glossary.md` | Define new terms | If introducing new concepts |
+
+### Incremental and targeted scan support
+
+Every detector must handle three scan scopes. The standard pattern (shown in the template above):
+
+| Scope | `context` fields | Detector behavior |
+|-------|-------------------|--------------------|
+| `FULL` | — | Walk the entire repo, skip `COMMON_SKIP_DIRS` |
+| `INCREMENTAL` | `changed_files` = list of relative paths from `git diff` | Only process files in the changed list (filter by extension) |
+| `TARGETED` | `target_paths` = list of absolute paths from `--target` | Only process files under the target paths |
+
+If your detector wraps an external tool that can't easily be scoped (e.g., `pip-audit` audits the whole project), run the full tool but note in the detector that incremental mode is a no-op. The pipeline handles dedup regardless.
+
+### Capability tiers
+
+If your detector uses an LLM (via `context.config["provider"]`), declare the minimum model tier:
+
+| Tier | When to use | Example |
+|------|-------------|---------|
+| `CapabilityTier.NONE` | No LLM needed (default) | lint-runner, todo-scanner |
+| `CapabilityTier.BASIC` | Binary signal from a small model (4B+) | semantic-drift, test-coherence |
+| `CapabilityTier.STANDARD` | Structured reasoning, multiple fields | Enhanced modes with specific gaps/actions |
+| `CapabilityTier.ADVANCED` | Deep multi-artifact analysis | Intent comparison, arch drift (planned) |
+
+The runner **warns but does not block** if the user's configured model is below your declared tier. Your detector should still function — degrade gracefully by returning simpler output or skipping the LLM path entirely. Check the tier at runtime:
+
+```python
+from sentinel.models import CapabilityTier
+
+cap = context.config.get("model_capability", "basic")
+if CapabilityTier(cap) in (CapabilityTier.STANDARD, CapabilityTier.ADVANCED):
+    # Rich structured analysis
+else:
+    # Simpler binary signal
+```
+
+### Key conventions
+
+- **Never raise from `detect()`** — wrap in `try/except`, return `[]
+- **Every finding needs evidence** — never return a Finding without at least one Evidence item
+- **Return `[]` when the detector doesn't apply** (wrong language, tool missing, no relevant files)
+- **Catch `FileNotFoundError`** for external tools and log at `warning` level
+- **Use `COMMON_SKIP_DIRS`** from `base.py` to skip `node_modules`, `.venv`, `__pycache__`, etc.
+- **Fingerprints are assigned by the pipeline** — detectors never set `fingerprint` on Findings
+- **Log at `info` level** for normal operation (`logger.info("my-detector found %d issues", len(findings))`)
+
+### External plugin (pip-installable)
+
+Third-party detectors can be installed without modifying Sentinel itself. Create a Python package with this `pyproject.toml`:
+
+```toml
+[project]
+name = "sentinel-detector-xyz"
+version = "0.1.0"
+dependencies = ["local-repo-sentinel>=0.1.0"]
+
+[project.entry-points."sentinel.detectors"]
+xyz = "sentinel_detector_xyz.detector"  # module containing your Detector subclass
+```
+
+After `pip install sentinel-detector-xyz`, the detector is auto-discovered on the next scan. No Sentinel config changes needed. If the detector name collides with a built-in, the built-in wins (with a warning logged).
+
+See [ADR-012](docs/architecture/decisions/012-entry-points-plugin-system.md) for the design rationale.
 
 ## Testing
 
