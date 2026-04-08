@@ -48,10 +48,43 @@ Run the reviewer subagent (skipped in Session 28) and fix all findings.
 - **ADRs**: 11 (001–011)
 
 ### What Remains / Next Priority
-1. **Phase 8 Slice 2**: Advanced tier detectors (deep intent comparison, architecture-level drift)
-2. **Live validation**: Test enhanced modes with Azure AI Foundry gpt-5.4-nano
-3. **PyPI publication**: Packaging is ready, needs credentials
-4. **Self-scan validation**: Run all new detectors against a real project
+1. **Fix docs-drift in own README/CONTRIBUTING**: Self-scan found stale code examples in CONTRIBUTING.md (line 70) and README.md (line 252) — base.py no longer imports Severity
+2. **Judge performance**: Full judge run on 199 findings at ~4s each = ~13min. Serial bottleneck (TD-002)
+3. **Phase 8 Slice 2**: Advanced tier detectors — but now informed by standard tier validation
+4. **PyPI publication**: Packaging ready, needs credentials
+5. **Dead-code noise analysis**: 44 findings is high — may need tuning
+
+---
+
+## Session 29 Self-Scan Validation
+
+### Azure gpt-5.4-nano standard tier self-scan results
+
+All 14 detectors ran successfully against the sentinel repo itself.
+
+| Detector | Findings | Notes |
+|----------|---------|-------|
+| complexity | 52 | run_scan CC=22, _parse_python_module CC=21 |
+| dead-code | 44 | Unused exported symbols |
+| docs-drift | 142 | 140 deterministic + 2 LLM-detected code drifts |
+| git-hotspots | 10 | High-churn files |
+| lint-runner | 7 | ruff findings |
+| semantic-drift | 3 | Enhanced mode — structured specifics |
+| test-coherence | 27 | Enhanced mode — structured gap analysis |
+| todo-scanner | 15 | TODO/FIXME comments |
+| unused-deps | 2 | jinja2 + python-multipart (indirect deps — correct FP) |
+| dep-audit | 0 | Clean |
+| eslint-runner | 0 | No JS |
+| go-linter | 0 | No Go |
+| rust-clippy | 0 | No Rust |
+| stale-env | 0 | No .env.example |
+
+**Totals**: 302 raw → 199 after dedup. Judge ran on 14/199 before 300s timeout (13/14 confirmed, 1 likely_false_positive).
+
+**Key observations**:
+1. LLM doc-code drift found real bugs: CONTRIBUTING.md and README.md code samples reference `Severity` import that doesn't exist in `base.py`
+2. Enhanced semantic-drift (3 findings) and test-coherence (27 findings) are both delivering richer output at standard tier
+3. `unused-deps` correctly flagged indirect dependencies (jinja2/python-multipart used by Starlette) — confidence 0.80 is appropriate for known FP mode
 
 ---
 
