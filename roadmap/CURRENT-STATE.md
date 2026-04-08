@@ -1,81 +1,80 @@
 # Current State — Sentinel
 
-> Last updated: Session 24 — Phase 6 Complete: test-code coherence detector
+> Last updated: Session 25 — Real-world validation of semantic detectors
 
-## Session 24 Summary
+## Session 25 Summary
 
 ### Current Objective
-Implement test-code coherence detector (Phase 6 Slice 2) — completes Phase 6.
+Real-world validation of semantic detectors (semantic-drift + test-coherence) against the Sentinel repo itself with live Ollama (qwen3.5:4b).
 
 ### What Was Accomplished
 
-**Test-Code Coherence Detector — Complete:**
+**Real-world validation scan — self-scan of Sentinel with LLM:**
 
-1. **New detector** (`src/sentinel/detectors/test_coherence.py`):
-   - Finds test files (`test_*.py`, `*_test.py`), skips common dirs
-   - Pairs each test file with its implementation (naming convention + import analysis fallback)
-   - Extracts matched function pairs via Python `ast` (`test_run_scan` → `run_scan`)
-   - Underscore-boundary prefix matching to prevent false matches (`run` won't match `test_run_scan`)
-   - LLM binary comparison: "coherent" / "needs review"
-   - Graceful degradation: skips if no provider, unhealthy provider, or `skip_llm` set
-   - DB logging via `insert_llm_log` for all LLM interactions
+Ran `sentinel scan . --json-output --model qwen3.5:4b` against the Sentinel repo.
 
-2. **Tests** (`tests/detectors/test_test_coherence.py`):
-   - 37 tests covering: detector properties, file discovery, naming derivation,
-     implementation file finding, function matching (exact + prefix + boundary),
-     function pair extraction, detector integration (mock LLM),
-     direct `_llm_compare` tests with MockProvider, DB logging, async functions
+**Results by detector (118 total findings):**
+| Detector | Count |
+|---|---|
+| complexity | 41 |
+| docs-drift | 42 |
+| git-hotspots | 7 |
+| lint-runner | 2 |
+| semantic-drift | 1 |
+| test-coherence | 10 |
+| todo-scanner | 15 |
 
-3. **Reviewer subagent**: All HIGH and MEDIUM findings addressed:
-   - Underscore-boundary prefix matching (was open prefix, now requires `_` boundary)
-   - Docstring accuracy fix
-   - max_tokens aligned to 512 (consistency with semantic_drift)
-   - json_output removed (consistency with semantic_drift)
-   - Direct `_llm_compare` test added (exercises prompt construction + JSON parsing)
-   - DB logging test added
-   - Async function test added
+**Semantic-drift (1 finding):**
+- Finding: CONTRIBUTING.md line 66 claims detectors auto-register via `__init_subclass__`
+- LLM reason: "The documentation incorrectly states that detectors auto-register via `__init_subclass__` when the actual code shows `__init_subclass__` is defined but the registration logic is handled by a separate `_register` function called elsewhere."
+- **Assessment: FALSE POSITIVE** — `__init_subclass__` does call `_register()` internally; the doc is correct. The 4B model failed to notice the method body calls `_register`.
+- Precision: 0/1 (0%) — very small sample, not statistically meaningful
 
-4. **Documentation updated** (6+ doc pages):
-   - detector-interface.md: `test-coherence` category added, detector listed as shipped
-   - overview.md: Tier 3 description, value assessment, analyst role all updated
-   - VISION-LOCK.md: v4.1, 11 detectors, test-coherence in high-value tier
-   - strategy.md: removed "(planned)" from highest-value tier
-   - open-questions.md: OQ-009 partially resolved
-   - phase-6-semantic-detectors.md: Phase 6 Complete, Slice 2 documented
-   - roadmap/README.md: Phase 6 marked Complete
+**Test-coherence (10 findings):**
+- All findings are about tests that "mock away core logic" or "only check trivial properties"
+- Examples: test_scan_nonexistent_repo "only checks exit code", test_generate_success "mocks HTTP entirely"
+- **Assessment: MIXED** — These are philosophically debatable. The tests are doing what unit tests should do (isolating behavior, testing contracts), but the LLM interprets mocking as "not testing the real thing." ~7/10 are false positives (legitimate unit test patterns), ~3/10 are arguable (could benefit from deeper assertions).
+- Estimated precision: ~30% (optimistic), more realistically ~20% at current prompt quality
+- The detector correctly identifies test-impl pairs and sends the right code to the LLM — the issue is prompt quality and 4B model reasoning ability
+
+**Key Insight:** Both detectors work end-to-end correctly (pipeline, pairing, LLM calls, finding creation). The bottleneck is LLM judgment quality at 4B scale. This is exactly what Phase 8 (capability-tiered detectors) is designed to address — escalating semantic checks to larger models when available.
+
+### Decisions Made
+- OQ-009 remains partially resolved — real-world results confirm the detector works mechanically but 4B precision needs improvement
+- Phase 8 (model escalation) is now more clearly the next high-leverage work after 6b
 
 ### Verification
 - **Tests**: 748 passed, 3 skipped
-- **Ruff**: All checks passed
-- **Mypy strict**: Success (43 source files)
-- **Post-commit consistency**: grepped docs for stale "planned"/"not yet implemented" refs — only legitimate future items remain
+- **Git**: Clean tree, HEAD at `6745a1b`
+- **Pushed**: Phase 6 commit pushed to origin
 
 ### Repository State
 - **Tests**: 748 passing
 - **VISION-LOCK**: v4.1
 - **Phase 6**: Complete (semantic-drift + test-coherence)
 - **Phase 7**: Complete (provider abstraction)
-- **OQ-009**: Partially resolved (implementation shipped, real-world validation pending)
-
-### Files Created
-- `src/sentinel/detectors/test_coherence.py`
-- `tests/detectors/test_test_coherence.py`
-
-### Files Modified
-- `src/sentinel/core/runner.py` (detector registration)
-- `docs/architecture/detector-interface.md`
-- `docs/architecture/overview.md`
-- `docs/vision/VISION-LOCK.md`
-- `docs/vision/strategy.md`
-- `docs/reference/open-questions.md`
-- `roadmap/phases/phase-6-semantic-detectors.md`
-- `roadmap/README.md`
+- **OQ-009**: Partially resolved — detector ships, precision at 4B is low (~20-30%), model escalation needed
 
 ### What Remains / Next Priority
-1. **Real-world validation**: Run both semantic detectors on a real project and analyze accuracy
-2. Phase 6b: Dead code / unused exports, unused dependencies, stale config / env drift
-3. Phase 8: Capability-tiered detectors (enhanced test-coherence, detailed docs-drift explanations)
-4. PyPI publication
+1. **Phase 6b**: Dead code / unused exports, unused dependencies, stale config / env drift (deterministic detectors)
+2. **Phase 8**: Capability-tiered detectors (model escalation for semantic checks)
+3. **Prompt tuning**: Improve test-coherence and semantic-drift prompts for 4B — could improve precision without model upgrade
+4. **PyPI publication**
+
+---
+
+## Session 24 Summary
+
+### What Was Accomplished
+- Implemented test-code coherence detector (Phase 6 Slice 2, completes Phase 6)
+- 37 tests in `tests/detectors/test_test_coherence.py`
+- Reviewer subagent: all HIGH/MEDIUM findings addressed
+- Documentation updated across 6+ pages
+- VISION-LOCK v4.1, 11 detectors total
+
+### Verification
+- Tests: 748 passed, 3 skipped
+- Ruff clean, mypy strict clean (43 files)
 
 ---
 
