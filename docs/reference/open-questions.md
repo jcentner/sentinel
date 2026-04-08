@@ -41,6 +41,18 @@ Tracked questions that need resolution before or during implementation. Each que
 **Context**: Detecting queries that should use CTEs, N+1 patterns, etc. SQLFluff handles SQL style linting. Semantic anti-patterns (CTE suggestions, cross-file N+1) require understanding intent.
 **Current thinking**: Phase 2. Build as a pluggable detector: SQLFluff for deterministic SQL lint, LLM-assisted prompt for semantic suggestions. Don't build a SQL parser.
 
+### OQ-011: How should the first-run setup flow guide detector and model selection?
+**Status**: Open
+**Priority**: High
+**Context**: Users need to configure which detectors to run and what model to use. Currently `sentinel init` creates a basic `sentinel.toml` with defaults, but doesn't guide the user through detector selection or model recommendation. The user pointed out that explicit setup-time detector selection negates the risk of silently skipping detectors based on model capability — the user chooses what they want upfront.
+**Current thinking**: Enhance `sentinel init` to be interactive: list available detectors with descriptions and capability tiers, let the user select which to enable, recommend a model based on their selections. Generate a `sentinel.toml` with `enabled_detectors` reflecting their choices. Non-interactive fallback for CI/scripting: `sentinel init --all-detectors` or `sentinel init --detectors todo-scanner,docs-drift,semantic-drift`.
+
+### OQ-012: Should different detectors be able to use different models/providers?
+**Status**: Open
+**Priority**: Medium
+**Context**: The user asked: "perhaps we can allow different models for different detectors in the same config?" This would let users run cheap deterministic-adjacent detectors on a local 4B model while routing advanced detectors (intent-drift, arch-drift) to a cloud model like gpt-5.4-nano. Currently, one provider/model pair is used for all LLM calls in a scan.
+**Current thinking**: This is powerful but adds complexity to config and provider wiring. Possible config shape: `[sentinel.detector.semantic-drift] model = "gpt-5.4-nano" provider = "azure"`. The `DetectorContext.config["provider"]` would need to become detector-specific. Alternative: a simpler two-tier approach — a "local" provider for basic detectors and a "cloud" provider for advanced ones. Defer implementation until Phase 9 Slice 5 or later, but design config and context to not preclude it.
+
 ### OQ-010: What is the right ModelProvider protocol surface?
 **Status**: Resolved (→ ADR-010, implementation in `src/sentinel/core/provider.py`)
 **Priority**: High

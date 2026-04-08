@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.3
-> **Updated**: 2026-04-09
-> **Supersedes**: v4.2
+> **Version**: 4.4
+> **Updated**: 2026-04-08
+> **Supersedes**: v4.3
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -79,7 +79,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 
 ### Core Pipeline
 - **14 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, unused dependency detection, dead code / unused exports detection, stale env/config drift detection, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), test-code coherence (LLM-powered test staleness detection), git churn hotspots, and TODO/FIXME scanning
-- **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
+- **Custom detector loading**: external detectors via `detectors_dir` config and `entry_points` plugin discovery (ADR-012), auto-registered through `__init_subclass__`
 - **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
 - **Embedding-based context gathering**: opt-in via configured provider (default: Ollama), falls back to file-proximity heuristics
 - **LLM judge**: structured judgment via configured provider (default: Ollama) with JSON output. System degrades gracefully (raw findings only) when no model is running
@@ -103,7 +103,7 @@ Issue creation from approved findings with fingerprint-based dedup. Environment 
 `scan-all` scans multiple repos into a shared database. Web UI and CLI display runs across all repos.
 
 ### Quality Infrastructure
-CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 867 tests.
+CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 875 tests.
 
 ### Detector Value Assessment (honest)
 Based on real-world validation, the current detectors fall into three tiers:
@@ -208,7 +208,7 @@ Extract a `ModelProvider` protocol so the pipeline is provider-agnostic, not jus
 - Judge, semantic-drift, and docs-drift consolidate behind `provider.generate()` instead of raw `httpx.post` to Ollama.
 - Embedding calls consolidate behind `provider.embed()`.
 
-### Phase 8: Capability-tiered detectors — In Progress
+### Phase 8: Capability-tiered detectors — Complete
 
 With provider abstraction in place, detectors adapt their behavior based on model capability:
 
@@ -220,9 +220,30 @@ With provider abstraction in place, detectors adapt their behavior based on mode
 
 `CapabilityTier` enum and infrastructure shipped. Detectors declare their tier via `capability_tier` property. Runner warns when a detector's tier exceeds the configured `model_capability`. Both semantic-drift and test-coherence adapt: basic mode gives binary signal; standard+ mode gives structured analysis with severity, specific gaps/inaccuracies, and higher confidence.
 
-Capability tiers are **informational, not enforced** — the system warns if a detector's declared tier exceeds the configured model's expected capability, but does not block execution.
+Capability tiers are **informational, not enforced** — the system warns if a detector's declared tier exceeds the configured model's expected capability, but does not block execution. Users choose their detector set and model at setup time (see OQ-011), making the tier system a recommendation rather than a hidden gate.
 
-### PyPI publication — After Phase 8
+### Phase 9: Configurability, plugins, and finding synthesis — In Progress
+
+Three gaps identified through strategic analysis and user feedback:
+
+**Detector configurability**: Users can select which detectors to run via `enabled_detectors`/`disabled_detectors` in config, CLI flags (`--detectors`, `--skip-detectors`), and web UI checkboxes. This makes detector selection a conscious setup-time choice rather than an all-or-nothing default.
+
+**Entry-points plugin system** (ADR-012): Third-party detectors discoverable via `pip install sentinel-detector-xyz` using Python's `entry_points` mechanism. Supplements existing `detectors_dir` for local development. Enables a detector ecosystem.
+
+**Finding cluster synthesis**: Post-judge pipeline step that feeds clusters of related findings to the LLM, producing root-cause analysis and redundancy elimination. Self-scan produces 142 docs-drift findings — many share root causes. Synthesis collapses these into actionable items. Requires `standard+` capability.
+
+### Phase 10: Advanced detectors — Planned
+
+New detectors designed for `standard+` and `advanced` model capabilities (gpt-5.4-nano baseline). These are *new* detectors with richer prompts — existing detectors' prompts remain unchanged.
+
+| Detector | Capability | Description |
+|----------|-----------|-------------|
+| CI/CD config drift | basic | Stale file paths and commands in GitHub Actions, Dockerfiles, Makefiles. Mostly deterministic. |
+| Inline comment drift | advanced | Docstring/comment accuracy vs adjacent code. Micro-level semantic-drift. |
+| Intent comparison | advanced | Multi-artifact triangulation: docstring + test + doc section + code body simultaneously. Catches contradictions between any pair. |
+| Architecture drift | advanced | Import graph vs documented architecture. Layer violations, undocumented components, stale arch docs. One LLM call per scan. |
+
+### PyPI publication — After Phase 9
 
 Publish to PyPI. Packaging is ready (wheel, CI/CD, CONTRIBUTING.md). Needs credentials and final release workflow.
 
@@ -247,10 +268,25 @@ These are explicitly excluded from the project's vision, not deferred:
 | Most detectors duplicate existing dev tooling | **Observed** | Medium | Accepted for now — lint/complexity/todo detectors provide value for repos without CI linting. Focus new investment on cross-artifact analysis that nothing else does. |
 | Fingerprinting breaks on file renames | Medium | Low | Accept; add similar-finding heuristic later |
 | Ollama dependency creates friction | Low | Low | Resolved by ADR-010 — provider is pluggable, Ollama is just the default |
-| Provider proliferation dilutes focus | Medium | Medium | Ship exactly two providers (Ollama, OpenAI-compatible). OpenAI-compatible covers Azure, OpenAI, vLLM, LM Studio. No bespoke integrations. Entry-point plugin system deferred unless a third provider type emerges. |
+| Provider proliferation dilutes focus | Medium | Medium | Ship exactly two providers (Ollama, OpenAI-compatible). OpenAI-compatible covers Azure, OpenAI, vLLM, LM Studio. No bespoke integrations. |
+| Third-party detector quality | Medium | Medium | Entry-points plugin system (ADR-012) means third-party detectors execute on import. Users bear responsibility for what they `pip install`, same as any Python package. |
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.4
+Strategic direction update from Session 29/30 conversation.
+- **Phase 8** marked complete (capability infrastructure + enhanced modes shipped)
+- **Phase 9** added: Configurability, plugins, and finding synthesis
+- **Phase 10** added: Advanced detectors (intent comparison, architecture drift, CI/CD config drift, inline comment drift)
+- **ADR-012**: Entry-points plugin system for third-party detectors
+- **OQ-011**: Setup flow design (how first-run guides detector/model selection)
+- **OQ-012**: Per-detector model configuration (different models for different detectors)
+- **Product constraints**: detector selection is a setup-time user choice, not a hidden auto-skip
+- **What Exists Today**: updated test count to 875, entry-points plugin discovery noted
+- **Risks**: added third-party detector quality risk
+- **Glossary**: 5 new terms (entry-points discovery, finding cluster synthesis, intent comparison, architecture drift, setup flow)
+- New detectors designed around gpt-5.4-nano as baseline — existing detector prompts unchanged
 
 ### v4.3
 Phase 8 Slice 1: capability-tiered detectors infrastructure + enhanced modes shipped.

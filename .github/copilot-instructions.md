@@ -24,6 +24,7 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - ADR-009: Embedding-based context gatherer
 - ADR-010: Pluggable model provider interface (Ollama default, OpenAI-compatible supported)
 - ADR-011: Capability tier system for detectors
+- ADR-012: Entry-points plugin system for third-party detectors
 
 ## Documentation
 
