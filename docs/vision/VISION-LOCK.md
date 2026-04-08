@@ -103,7 +103,7 @@ Issue creation from approved findings with fingerprint-based dedup. Environment 
 `scan-all` scans multiple repos into a shared database. Web UI and CLI display runs across all repos.
 
 ### Quality Infrastructure
-CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 626 tests, 90% code coverage.
+CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 867 tests.
 
 ### Detector Value Assessment (honest)
 Based on real-world validation, the current detectors fall into three tiers:

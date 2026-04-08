@@ -199,6 +199,7 @@ def _execute_scan(
         embed_chunk_overlap=config.embed_chunk_overlap,
         detectors_dir=config.detectors_dir,
         num_ctx=config.num_ctx,
+        model_capability=config.model_capability,
     )
     if output_path is not None:
         kwargs["output_path"] = output_path

@@ -13,7 +13,7 @@ from sentinel.core.judge import judge_findings
 from sentinel.core.provider import ModelProvider
 from sentinel.core.report import generate_report
 from sentinel.detectors.base import Detector, get_all_detectors
-from sentinel.models import DetectorContext, Finding, RunSummary, ScopeType
+from sentinel.models import CapabilityTier, DetectorContext, Finding, RunSummary, ScopeType
 from sentinel.store.findings import insert_finding
 from sentinel.store.persistence import update_persistence
 from sentinel.store.runs import complete_run, create_run, get_last_completed_run
@@ -70,6 +70,7 @@ def run_scan(
     embed_chunk_overlap: int = 10,
     detectors_dir: str = "",
     num_ctx: int = 2048,
+    model_capability: str = "basic",
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -92,6 +93,7 @@ def run_scan(
             "provider": provider,
             "skip_llm": skip_judge or provider is None,
             "num_ctx": num_ctx,
+            "model_capability": model_capability,
         },
         conn=conn,
         run_id=run.id,
@@ -107,8 +109,22 @@ def run_scan(
         detectors = get_all_detectors()
 
     all_findings: list[Finding] = []
+    model_cap = CapabilityTier(ctx.config.get("model_capability", "basic"))
+    _TIER_ORDER = {
+        CapabilityTier.NONE: 0,
+        CapabilityTier.BASIC: 1,
+        CapabilityTier.STANDARD: 2,
+        CapabilityTier.ADVANCED: 3,
+    }
     for detector in detectors:
         try:
+            det_cap = detector.capability_tier
+            if _TIER_ORDER.get(det_cap, 0) > _TIER_ORDER.get(model_cap, 0):
+                logger.warning(
+                    "Detector %s requires %s capability but model is %s — "
+                    "results may be degraded",
+                    detector.name, det_cap.value, model_cap.value,
+                )
             logger.info("Running detector: %s", detector.name)
             findings = detector.detect(ctx)
             logger.info("  %s produced %d findings", detector.name, len(findings))

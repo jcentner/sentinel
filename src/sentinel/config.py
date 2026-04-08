@@ -31,6 +31,7 @@ class SentinelConfig:
     embed_chunk_overlap: int = 10
     detectors_dir: str = ""
     num_ctx: int = 2048
+    model_capability: str = "basic"  # none, basic, standard, advanced
 
 
 # Expected types for each config field, derived from the dataclass defaults.

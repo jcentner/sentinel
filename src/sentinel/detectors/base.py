@@ -7,7 +7,7 @@ import importlib.util
 import logging
 from pathlib import Path
 
-from sentinel.models import DetectorContext, DetectorTier, Finding
+from sentinel.models import CapabilityTier, DetectorContext, DetectorTier, Finding
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,15 @@ class Detector(abc.ABC):
     @abc.abstractmethod
     def categories(self) -> list[str]:
         """Finding categories this detector can produce."""
+
+    @property
+    def capability_tier(self) -> CapabilityTier:
+        """Model capability tier this detector requires.
+
+        Defaults to NONE (no model needed). Override in LLM-assisted
+        detectors to declare their minimum model requirement.
+        """
+        return CapabilityTier.NONE
 
     @abc.abstractmethod
     def detect(self, context: DetectorContext) -> list[Finding]:

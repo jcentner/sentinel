@@ -57,6 +57,20 @@ class DetectorTier(str, enum.Enum):
     LLM_ASSISTED = "llm-assisted"
 
 
+class CapabilityTier(str, enum.Enum):
+    """Model capability tier a detector requires.
+
+    Detectors declare what model class they need. The runner warns
+    (but does not block) when a detector's tier exceeds the configured
+    model's capability.
+    """
+
+    NONE = "none"  # Deterministic — no model needed
+    BASIC = "basic"  # 4B+ models (binary signals, simple judgment)
+    STANDARD = "standard"  # 9B+ or small cloud (reasoning, structured output)
+    ADVANCED = "advanced"  # Frontier cloud (deep semantic analysis)
+
+
 @dataclass(frozen=True)
 class Evidence:
     """A piece of supporting evidence for a finding."""

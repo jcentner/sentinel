@@ -25,6 +25,7 @@ from typing import Any
 from sentinel.core.provider import ModelProvider
 from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
+    CapabilityTier,
     DetectorContext,
     DetectorTier,
     Evidence,
@@ -63,6 +64,10 @@ class TestCoherenceDetector(Detector):
     @property
     def tier(self) -> DetectorTier:
         return DetectorTier.LLM_ASSISTED
+
+    @property
+    def capability_tier(self) -> CapabilityTier:
+        return CapabilityTier.BASIC
 
     @property
     def categories(self) -> list[str]:
