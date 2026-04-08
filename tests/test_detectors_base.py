@@ -147,9 +147,6 @@ class TestLoadEntrypointDetectors:
         mock_ep.name = "ep-detector"
         mock_ep.value = "some_package.module"
 
-        # Track what was in the registry before
-        before = set(_REGISTRY.keys())
-
         # When ep.load() is called, register a detector
         def _load_side_effect():
             # Simulate what happens when a module with a Detector subclass is imported

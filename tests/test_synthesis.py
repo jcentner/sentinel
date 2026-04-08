@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from sentinel.core.synthesis import (
-    SynthesisResult,
     _build_synthesis_prompt,
     _parse_synthesis,
     synthesize_clusters,
@@ -145,11 +142,11 @@ class TestSynthesizeClusters:
             assert f.context["synthesis"]["root_cause"] == "API docs section outdated"
 
         # fp2 should be marked redundant
-        fp2_finding = [f for f in result if f.fingerprint == "fp2"][0]
+        fp2_finding = next(f for f in result if f.fingerprint == "fp2")
         assert fp2_finding.context["synthesis"]["redundant"] is True
 
         # fp1 and fp3 should not be redundant
-        fp1_finding = [f for f in result if f.fingerprint == "fp1"][0]
+        fp1_finding = next(f for f in result if f.fingerprint == "fp1")
         assert "redundant" not in fp1_finding.context["synthesis"]
 
     def test_unhealthy_provider_skips(self):

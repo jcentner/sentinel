@@ -5,12 +5,9 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-import pytest
-
 from sentinel.detectors.base import get_registry
 from sentinel.detectors.dead_code import (
     DeadCodeDetector,
-    _extract_all_names,
     _find_unused_js_symbols,
     _find_unused_python_symbols,
     _ModuleInfo,
@@ -20,7 +17,6 @@ from sentinel.detectors.dead_code import (
     _Symbol,
 )
 from sentinel.models import DetectorContext, DetectorTier
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -213,7 +213,7 @@ class TestDetectorFiltering:
                     evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="b")],
                 )]
 
-        run, findings, _ = run_scan(
+        _run, findings, _ = run_scan(
             str(repo), db_conn,
             detectors=[_DetA(), _DetB()],
             skip_judge=True,
@@ -246,7 +246,7 @@ class TestDetectorFiltering:
                     evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="d")],
                 )]
 
-        run, findings, _ = run_scan(
+        _run, findings, _ = run_scan(
             str(repo), db_conn,
             detectors=[_DetC(), _DetD()],
             skip_judge=True,
@@ -258,7 +258,7 @@ class TestDetectorFiltering:
     def test_no_filter_runs_all(self, db_conn, repo):
         """Without filters, all detectors run."""
         det = _MockDetector([_sample_finding()])
-        run, findings, _ = run_scan(
+        _run, findings, _ = run_scan(
             str(repo), db_conn,
             detectors=[det],
             skip_judge=True,
@@ -270,7 +270,7 @@ class TestDetectorFiltering:
         import logging
         det = _MockDetector([_sample_finding()])
         with caplog.at_level(logging.WARNING):
-            run, findings, _ = run_scan(
+            _run, findings, _ = run_scan(
                 str(repo), db_conn,
                 detectors=[det],
                 skip_judge=True,

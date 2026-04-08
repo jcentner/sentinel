@@ -426,16 +426,14 @@ class TestAzureProvider:
         mock_result.returncode = 1
         mock_result.stderr = "Not logged in"
 
-        with patch("subprocess.run", return_value=mock_result):
-            with pytest.raises(RuntimeError, match="az account get-access-token failed"):
-                provider._ensure_token()
+        with patch("subprocess.run", return_value=mock_result), pytest.raises(RuntimeError, match="az account get-access-token failed"):
+            provider._ensure_token()
 
     def test_az_cli_not_found_raises(self):
         provider = self._make_provider()
 
-        with patch("subprocess.run", side_effect=FileNotFoundError):
-            with pytest.raises(RuntimeError, match="Azure CLI.*not found"):
-                provider._ensure_token()
+        with patch("subprocess.run", side_effect=FileNotFoundError), pytest.raises(RuntimeError, match="Azure CLI.*not found"):
+            provider._ensure_token()
 
     def test_generate_success(self):
         provider = self._make_provider()
