@@ -15,6 +15,7 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
+    ScopeType,
     Severity,
 )
 
@@ -106,12 +107,12 @@ class LintRunner(Detector):
         self, context: DetectorContext, repo_root: Path
     ) -> list[str] | None:
         """Return file targets based on scope, or None for full scan."""
-        if context.scope.value == "incremental" and context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 f for f in context.changed_files
                 if f.endswith(".py") and (repo_root / f).is_file()
             ]
-        if context.scope.value == "targeted" and context.target_paths:
+        if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 f for f in context.target_paths
                 if f.endswith(".py") and (repo_root / f).is_file()

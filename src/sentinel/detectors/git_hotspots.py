@@ -51,6 +51,13 @@ class GitHotspotsDetector(Detector):
         return ["git-health"]
 
     def detect(self, context: DetectorContext) -> list[Finding]:
+        try:
+            return self._scan(context)
+        except Exception:
+            logger.exception("git-hotspots failed")
+            return []
+
+    def _scan(self, context: DetectorContext) -> list[Finding]:
         repo_root = context.repo_root
         config = context.config
 

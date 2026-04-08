@@ -21,6 +21,7 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
+    ScopeType,
     Severity,
 )
 
@@ -337,7 +338,7 @@ class UnusedDeps(Detector):
                     files.extend(self._walk_py_files(p))
             return files
 
-        if context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / f for f in context.changed_files
                 if f.endswith(".py") and (repo_root / f).exists()
@@ -409,7 +410,7 @@ class UnusedDeps(Detector):
                     files.extend(self._walk_js_files(p, exts))
             return files
 
-        if context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / f for f in context.changed_files
                 if any(f.endswith(ext) for ext in exts) and (repo_root / f).exists()

@@ -23,6 +23,7 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
+    ScopeType,
     Severity,
 )
 
@@ -232,7 +233,7 @@ class StaleEnv(Detector):
                     files.extend(self._walk_files(p, extensions))
             return files
 
-        if context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / f for f in context.changed_files
                 if any(f.endswith(ext) for ext in extensions)

@@ -71,6 +71,7 @@ def run_scan(
     detectors: list[Detector] | None = None,
     provider: ModelProvider | None = None,
     output_path: str | None = None,
+    output_dir: str = ".sentinel",
     skip_judge: bool = False,
     embed_model: str = "",
     embed_chunk_size: int = 50,
@@ -233,7 +234,7 @@ def run_scan(
 
     # 11. Generate report
     if output_path is None:
-        output_path = str(Path(repo_root) / ".sentinel" / f"report-{run.id}.md")
+        output_path = str(Path(repo_root) / output_dir / f"report-{run.id}.md")
 
     report = generate_report(deduped, run, output_path=output_path)
     logger.info("Report written to %s", output_path)

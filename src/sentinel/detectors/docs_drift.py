@@ -18,6 +18,7 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
+    ScopeType,
     Severity,
 )
 
@@ -123,13 +124,13 @@ class DocsDriftDetector(Detector):
     def _get_markdown_files(
         self, context: DetectorContext, repo_root: Path
     ) -> list[Path]:
-        if context.scope.value == "targeted" and context.target_paths:
+        if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
                 if (repo_root / p).is_file() and p.endswith(".md")
             ]
-        if context.scope.value == "incremental" and context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / p
                 for p in context.changed_files

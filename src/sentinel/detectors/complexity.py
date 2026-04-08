@@ -13,6 +13,7 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
+    ScopeType,
     Severity,
 )
 
@@ -98,7 +99,7 @@ class ComplexityDetector(Detector):
                     files.extend(self._walk_dir(p))
             return files
 
-        if context.scope.value == "incremental" and context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 root / f for f in context.changed_files
                 if f.endswith(".py") and (root / f).is_file()

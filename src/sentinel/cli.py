@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     """Local Repo Sentinel — overnight code health monitoring.
 
-    Exit codes: 0 = success, 1 = error or eval below threshold.
-    Use --json-output on any subcommand for machine-readable output.
+    Exit codes: 0 = success, 1 = error, 2 = partial failure (scan-all).
+    Most subcommands support --json-output for machine-readable output.
     """
     if verbose and quiet:
         raise click.UsageError("Cannot use --verbose and --quiet together.")
@@ -223,6 +223,7 @@ def _execute_scan(
         embed_chunk_size=config.embed_chunk_size,
         embed_chunk_overlap=config.embed_chunk_overlap,
         detectors_dir=config.detectors_dir,
+        output_dir=config.output_dir,
         num_ctx=config.num_ctx,
         model_capability=config.model_capability,
         enabled_detectors=config.enabled_detectors or None,
@@ -862,40 +863,6 @@ def scan_all(
 
 if __name__ == "__main__":
     main()
-
-
-_INIT_TEMPLATE = """\
-# Sentinel configuration
-# See: https://github.com/jakce/sentinel
-
-[sentinel]
-# Model provider: "ollama" (default, local) or "openai" (OpenAI-compatible API)
-provider = "ollama"
-
-# LLM model for judge + detectors (skip_judge = true to run without)
-model = "qwen3.5:4b"
-ollama_url = "http://localhost:11434"
-skip_judge = false
-
-# For OpenAI-compatible providers (Azure OpenAI, OpenAI, vLLM, LM Studio):
-# provider = "openai"
-# model = "gpt-5.4-nano"
-# api_base = "https://api.openai.com"
-# api_key_env = "OPENAI_API_KEY"  # reads from this environment variable
-
-# Embedding model for semantic context (leave empty to disable)
-# embed_model = "nomic-embed-text"
-
-# Database and output directory (relative to repo root)
-db_path = ".sentinel/sentinel.db"
-output_dir = ".sentinel"
-
-# Custom detectors directory (leave empty for built-in only)
-# detectors_dir = ""
-
-# LLM context window size (tokens). Current prompts use ~500 tokens.
-# num_ctx = 2048
-"""
 
 
 # Profile definitions: name → (model_capability, detector_filter_fn, description)

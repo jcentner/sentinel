@@ -16,6 +16,7 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
+    ScopeType,
     Severity,
 )
 
@@ -185,14 +186,14 @@ class TodoScanner(Detector):
         self, context: DetectorContext, repo_root: Path
     ) -> list[Path]:
         """Get the list of code files to scan based on scope."""
-        if context.scope.value == "targeted" and context.target_paths:
+        if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
                 if (repo_root / p).is_file()
                 and (repo_root / p).suffix.lower() not in _SKIP_EXTENSIONS
             ]
-        if context.scope.value == "incremental" and context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / p
                 for p in context.changed_files
@@ -219,14 +220,14 @@ class TodoScanner(Detector):
         self, context: DetectorContext, repo_root: Path
     ) -> list[Path]:
         """Get markdown/doc files to scan for HTML comment TODOs."""
-        if context.scope.value == "targeted" and context.target_paths:
+        if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
                 if (repo_root / p).is_file()
                 and (repo_root / p).suffix.lower() in _MARKDOWN_EXTENSIONS
             ]
-        if context.scope.value == "incremental" and context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / p
                 for p in context.changed_files

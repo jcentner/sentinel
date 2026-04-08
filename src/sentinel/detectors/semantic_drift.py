@@ -31,6 +31,7 @@ from sentinel.models import (
     Evidence,
     EvidenceType,
     Finding,
+    ScopeType,
     Severity,
 )
 
@@ -255,14 +256,14 @@ class SemanticDriftDetector(Detector):
         Intentionally shallow: only scans repo root and docs/ directory to bound
         LLM cost per scan. See phase-5-semantic-detectors.md.
         """
-        if context.scope.value == "targeted" and context.target_paths:
+        if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
                 if (repo_root / p).is_file() and p.upper().rstrip("/").split("/")[-1] in _KEY_DOCS
             ]
 
-        if context.scope.value == "incremental" and context.changed_files:
+        if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / p
                 for p in context.changed_files
