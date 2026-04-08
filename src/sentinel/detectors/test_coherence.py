@@ -39,6 +39,9 @@ logger = logging.getLogger(__name__)
 # Max chars for test/impl code sent to LLM
 _MAX_TEST_CHARS = 1500
 _MAX_IMPL_CHARS = 1500
+# Extended limits for standard+ capability
+_MAX_TEST_CHARS_ENHANCED = 3000
+_MAX_IMPL_CHARS_ENHANCED = 3000
 
 # Min function body size to bother analyzing
 _MIN_FUNC_LINES = 3
@@ -101,6 +104,9 @@ class TestCoherenceDetector(Detector):
             return []
 
         findings: list[Finding] = []
+        model_cap = context.config.get("model_capability", "basic")
+        use_enhanced = model_cap in ("standard", "advanced")
+
         for test_file in test_files:
             impl_file = find_implementation_file(test_file, repo_root)
             if impl_file is None:
@@ -114,33 +120,64 @@ class TestCoherenceDetector(Detector):
             impl_rel = str(impl_file.relative_to(repo_root))
 
             for test_name, test_body, impl_name, impl_body in pairs[:_MAX_PAIRS_PER_FILE]:
-                result = self._llm_compare(
-                    test_name=test_name,
-                    test_body=test_body,
-                    impl_name=impl_name,
-                    impl_body=impl_body,
-                    test_path=test_rel,
-                    impl_path=impl_rel,
-                    provider=provider,
-                    num_ctx=context.config.get("num_ctx", 2048),
-                    conn=context.conn,
-                    run_id=context.run_id,
-                )
+                if use_enhanced:
+                    result = self._llm_compare_enhanced(
+                        test_name=test_name,
+                        test_body=test_body,
+                        impl_name=impl_name,
+                        impl_body=impl_body,
+                        test_path=test_rel,
+                        impl_path=impl_rel,
+                        provider=provider,
+                        num_ctx=context.config.get("num_ctx", 2048),
+                        conn=context.conn,
+                        run_id=context.run_id,
+                    )
+                else:
+                    result = self._llm_compare(
+                        test_name=test_name,
+                        test_body=test_body,
+                        impl_name=impl_name,
+                        impl_body=impl_body,
+                        test_path=test_rel,
+                        impl_path=impl_rel,
+                        provider=provider,
+                        num_ctx=context.config.get("num_ctx", 2048),
+                        conn=context.conn,
+                        run_id=context.run_id,
+                    )
                 if result and result.get("needs_review"):
                     reason = result.get(
                         "reason", "Test may not validate the current implementation"
                     )
+                    # Enhanced mode provides structured gaps and severity
+                    gaps = result.get("gaps", [])
+                    gap_text = ""
+                    if gaps:
+                        gap_text = "\n\nSpecific gaps:\n" + "\n".join(
+                            f"  - {g}" for g in gaps
+                        )
+                    # Use LLM-suggested severity if available
+                    severity = Severity.MEDIUM
+                    llm_severity = result.get("severity", "")
+                    if llm_severity == "high":
+                        severity = Severity.HIGH
+                    elif llm_severity == "low":
+                        severity = Severity.LOW
+                    # Enhanced mode gets higher confidence
+                    confidence = 0.75 if use_enhanced else 0.6
+
                     findings.append(
                         Finding(
                             detector=self.name,
                             category="test-coherence",
-                            severity=Severity.MEDIUM,
-                            confidence=0.6,
+                            severity=severity,
+                            confidence=confidence,
                             title=f"Stale test: {test_name} may not validate {impl_name}",
                             description=(
                                 f"Test `{test_name}` in `{test_rel}` may no longer "
                                 f"meaningfully validate `{impl_name}` in `{impl_rel}`. "
-                                f"Reason: {reason}"
+                                f"Reason: {reason}{gap_text}"
                             ),
                             evidence=[
                                 Evidence(
@@ -162,6 +199,8 @@ class TestCoherenceDetector(Detector):
                                 "impl_function": impl_name,
                                 "impl_file": impl_rel,
                                 "llm_reason": reason,
+                                **({"gaps": gaps} if gaps else {}),
+                                **({"enhanced": True} if use_enhanced else {}),
                             },
                         )
                     )
@@ -267,6 +306,121 @@ class TestCoherenceDetector(Detector):
             except Exception:
                 logger.debug(
                     "Failed to write test-coherence LLM log entry", exc_info=True,
+                )
+
+        return result
+
+    @staticmethod
+    def _llm_compare_enhanced(
+        test_name: str,
+        test_body: str,
+        impl_name: str,
+        impl_body: str,
+        test_path: str,
+        impl_path: str,
+        *,
+        provider: ModelProvider,
+        num_ctx: int = 2048,
+        conn: sqlite3.Connection | None = None,
+        run_id: int | None = None,
+    ) -> dict[str, Any] | None:
+        """Enhanced comparison using standard+ tier model.
+
+        Returns structured analysis with gaps and severity instead of
+        just a binary signal.
+        """
+        test_text = test_body[:_MAX_TEST_CHARS_ENHANCED]
+        impl_text = impl_body[:_MAX_IMPL_CHARS_ENHANCED]
+
+        prompt = (
+            "You are a senior test engineer reviewing test quality. Analyze the "
+            "test function below against the implementation it validates.\n\n"
+            "Evaluate:\n"
+            "1. Does the test exercise the implementation's actual behavior?\n"
+            "2. Are there important code paths, edge cases, or error conditions "
+            "that the test ignores?\n"
+            "3. Has the implementation's interface changed in ways the test doesn't "
+            "account for?\n"
+            "4. Does the test mock away the core logic it should be validating?\n"
+            "5. Are the assertions testing meaningful properties, not just 'not None'?\n\n"
+            f"## Test function: {test_name} (from {test_path})\n"
+            f"```python\n{test_text}\n```\n\n"
+            f"## Implementation: {impl_name} (from {impl_path})\n"
+            f"```python\n{impl_text}\n```\n\n"
+            "Respond ONLY with a JSON object (no markdown fences, no explanation "
+            "outside JSON):\n"
+            "{\n"
+            '  "needs_review": true/false,\n'
+            '  "severity": "low" | "medium" | "high",\n'
+            '  "reason": "One-sentence summary of the main issue (empty if coherent)",\n'
+            '  "gaps": ["Description of each specific gap or missing coverage area"]\n'
+            "}\n\n"
+            "Severity guide:\n"
+            "- high: test is fundamentally broken or tests wrong behavior\n"
+            "- medium: test misses important paths or has stale assertions\n"
+            "- low: minor gaps or style issues, test still catches regressions"
+        )
+
+        try:
+            llm_resp = provider.generate(
+                prompt,
+                temperature=0.1,
+                max_tokens=1024,
+                num_ctx=num_ctx,
+            )
+        except Exception:
+            logger.debug(
+                "Enhanced LLM call failed for test-coherence: %s.%s vs %s.%s",
+                test_path, test_name, impl_path, impl_name,
+                exc_info=True,
+            )
+            return None
+
+        text = llm_resp.text.strip()
+        tokens = llm_resp.token_count or 0
+        gen_ms = llm_resp.duration_ms or 0.0
+        logger.debug(
+            "Test-coherence enhanced LLM response (%d tokens): %s",
+            tokens, text[:500],
+        )
+
+        # Parse JSON from response
+        result = None
+        try:
+            json_match = re.search(r"\{.*\}", text, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        # Log to DB
+        if conn is not None:
+            verdict = "no_parse"
+            if result is not None:
+                verdict = "needs_review" if result.get("needs_review") else "coherent"
+            from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+            try:
+                insert_llm_log(
+                    conn,
+                    run_id,
+                    LLMLogEntry(
+                        purpose="test-coherence-enhanced",
+                        model=getattr(provider, "model", str(provider)),
+                        detector="test-coherence",
+                        finding_title=f"{test_name} vs {impl_name}",
+                        prompt=prompt,
+                        response=text if text else None,
+                        tokens_generated=tokens if tokens is not None else None,
+                        generation_ms=gen_ms if gen_ms is not None else None,
+                        verdict=verdict,
+                        summary=result.get("reason") if result else None,
+                    ),
+                )
+            except Exception:
+                logger.debug(
+                    "Failed to write test-coherence enhanced LLM log entry",
+                    exc_info=True,
                 )
 
         return result

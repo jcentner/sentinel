@@ -503,3 +503,127 @@ class TestAsyncFunctions:
         assert len(pairs) == 1
         assert pairs[0][0] == "test_fetch_data"
         assert pairs[0][2] == "fetch_data"
+
+
+# ── Enhanced mode tests ──────────────────────────────────────────
+
+
+class TestCapabilityTier:
+    def test_capability_tier_is_basic(self):
+        from sentinel.models import CapabilityTier
+
+        d = TestCoherenceDetector()
+        assert d.capability_tier == CapabilityTier.BASIC
+
+
+class TestEnhancedMode:
+    """Test the enhanced LLM comparison mode for standard+ capability."""
+
+    def test_enhanced_finding_has_gaps(self, tmp_path, monkeypatch):
+        """When model_capability=standard, findings include structured gaps."""
+        from unittest.mock import MagicMock
+
+        from sentinel.core.provider import LLMResponse
+
+        # Set up mock provider
+        mock_provider = MagicMock()
+        mock_provider.check_health.return_value = True
+        mock_provider.generate.return_value = LLMResponse(
+            text='{"needs_review": true, "severity": "high", '
+            '"reason": "Test mocks core logic", '
+            '"gaps": ["Missing error path test", "No edge case for empty input"]}',
+            token_count=50,
+            duration_ms=100.0,
+        )
+
+        # Create test and impl files (bodies must be >= _MIN_FUNC_LINES)
+        impl = tmp_path / "math_utils.py"
+        impl.write_text(
+            "def add(a, b):\n"
+            "    '''Add two numbers with validation.'''\n"
+            "    if not isinstance(a, (int, float)):\n"
+            "        raise TypeError('First arg must be number')\n"
+            "    if not isinstance(b, (int, float)):\n"
+            "        raise TypeError('Second arg must be number')\n"
+            "    result = a + b\n"
+            "    return result\n"
+        )
+        test_file = tmp_path / "test_math_utils.py"
+        test_file.write_text(
+            "def test_add():\n"
+            "    result = add(1, 2)\n"
+            "    assert result == 3\n"
+            "    result2 = add(10, 20)\n"
+            "    assert result2 == 30\n"
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={
+                "provider": mock_provider,
+                "skip_llm": False,
+                "num_ctx": 2048,
+                "model_capability": "standard",
+            },
+        )
+
+        d = TestCoherenceDetector()
+        findings = d.detect(ctx)
+
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.confidence == 0.75  # Enhanced confidence
+        assert f.severity.value == "high"  # LLM-suggested severity
+        assert "Missing error path test" in f.description
+        assert "No edge case for empty input" in f.description
+        assert f.context["enhanced"] is True
+        assert len(f.context["gaps"]) == 2
+
+    def test_basic_mode_no_gaps(self, tmp_path, monkeypatch):
+        """When model_capability=basic, findings use binary signal only."""
+        from unittest.mock import MagicMock
+
+        from sentinel.core.provider import LLMResponse
+
+        mock_provider = MagicMock()
+        mock_provider.check_health.return_value = True
+        mock_provider.generate.return_value = LLMResponse(
+            text='{"needs_review": true, "reason": "Test is trivial"}',
+            token_count=30,
+            duration_ms=80.0,
+        )
+
+        impl = tmp_path / "utils.py"
+        impl.write_text(
+            "def helper():\n"
+            "    '''Do something complex.'''\n"
+            "    data = compute_stuff()\n"
+            "    result = transform(data)\n"
+            "    return result\n"
+        )
+        test_file = tmp_path / "test_utils.py"
+        test_file.write_text(
+            "def test_helper():\n"
+            "    result = helper()\n"
+            "    assert result is not None\n"
+            "    assert isinstance(result, dict)\n"
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={
+                "provider": mock_provider,
+                "skip_llm": False,
+                "num_ctx": 2048,
+                "model_capability": "basic",
+            },
+        )
+
+        d = TestCoherenceDetector()
+        findings = d.detect(ctx)
+
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.confidence == 0.6  # Basic confidence
+        assert f.severity.value == "medium"  # Default severity
+        assert "enhanced" not in f.context
