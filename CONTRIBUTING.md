@@ -99,6 +99,7 @@ Key conventions for detectors:
 - Include an outer `try/except Exception` safety net with `logger.exception()`
 - Support `context.scope` for incremental and targeted scans
 - Every finding needs evidence — never return a finding without it
+- If your detector requires LLM capabilities, override `capability_tier` (default: `CapabilityTier.NONE`)
 
 ## Testing
 
