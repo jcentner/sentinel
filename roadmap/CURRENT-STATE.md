@@ -1,94 +1,103 @@
 # Current State — Sentinel
 
-> Last updated: Session 29 — Reviewer fixes for Session 28 code
+> Last updated: Session 30 — Phase 9 Slices 1-4 (Configurability, Plugins, Synthesis)
 
-## Session 29 Summary
+## Session 30 Summary
 
 ### Current Objective
-Run the reviewer subagent (skipped in Session 28) and fix all findings.
+Document strategic decisions from user feedback, then implement Phase 9: Configurability, Plugins & Synthesis.
 
 ### What Was Accomplished
 
-**Reviewer subagent** ran on all Session 28 code (Phase 6b + Phase 8 Slice 1). Found 3 HIGH, 5 MEDIUM, 4 LOW, 3 NIT severity issues. All fixed this session:
+#### Documentation (Committed: `53021c7`)
+- **ADR-012**: Entry-points plugin system for third-party detectors
+- **Phase 9 plan**: `roadmap/phases/phase-9-configurability-plugins.md` — 5 slices
+- **OQ-011**: Setup flow design (how should first-run guide detector/model selection?)
+- **OQ-012**: Per-detector model configuration (should different detectors use different models?)
+- **VISION-LOCK v4.4**: Phase 8 marked complete, Phase 9+10 added to roadmap
+- **Glossary**: 5 new terms (entry-points discovery, enabled/disabled detectors, finding synthesis, setup flow, detector plugin)
+- **copilot-instructions.md**: Added ADR-012 to key decisions list
 
-#### HIGH severity fixes
-1. **CapabilityTier crash** (`runner.py`): `CapabilityTier(value)` crashed with `ValueError` on invalid `model_capability` config. Fixed with try/except fallback to `BASIC`.
-2. **Wrong category in stale-env** (`stale_env.py`): Used `"config"` but detector-interface spec says `"config-drift"`. Fixed in property + both Finding constructions + test assertion.
-3. **Stale docs**: `detector-interface.md` still listed `dead-code` as "Planned" with tree-sitter. `overview.md` only listed 9 of 14 detectors. Both updated to reflect all 14 implemented detectors.
+#### Phase 9 Slice 1+2: Detector Configurability (Committed: `f584a9c`)
+- `config.py`: `enabled_detectors` and `disabled_detectors` fields with validation
+- `cli.py`: `--detectors`, `--skip-detectors`, `--capability` flags on scan/scan-all
+- `runner.py`: Set-based filtering after detector loading
+- `web/app.py`: Provider dropdown, capability dropdown, detector checkboxes with input validation
+- `scan.html`: Full form redesign with new controls
+- Reviewed by reviewer subagent, all findings fixed (web input validation, public `get_detector_info()`, consistent `[]→None` conversion)
+- 896 total tests
 
-#### MEDIUM severity fixes
-4. **Config validation** (`config.py`): Added allowlist validation for `model_capability` — rejects invalid values at config load time. Added 2 tests.
-5. **Enum-based capability comparison** (`test_coherence.py`, `semantic_drift.py`): Replaced raw string comparison `model_cap in ("standard", "advanced")` with `CapabilityTier` enum comparison.
-6. **Double-parse in dead_code.py**: Non-skipped Python files were parsed twice (once to build `py_modules`, again to build `all_py_modules`). Refactored to single-pass parsing.
+#### Phase 9 Slice 3: Entry-Points Plugin Discovery (Committed: `7f2b995`)
+- `base.py`: `load_entrypoint_detectors()` using `importlib.metadata.entry_points(group="sentinel.detectors")`
+- Discovery order: built-in → entry-points → detectors_dir
+- Name collision: built-in wins with warning; import errors: logged and skipped
+- `get_detector_info()` updated; runner wired
+- 900 total tests
 
-#### NIT fixes
-7. **`_TIER_ORDER` module-level** (`runner.py`): Moved from per-call dict construction to module-level constant.
-
-#### Documentation
-8. **ADR-011**: Created formal ADR for the CapabilityTier system (was missing from Session 28).
-9. **ADR index**: Updated to include ADR-011, incremented "next" to 012.
-10. **copilot-instructions.md**: Added ADR-011 to the key decisions list.
-11. **Agent improvement log**: Documented the third repeat of the reviewer-skip failure (Sessions 9, 14, 28).
+#### Phase 9 Slice 4: Finding Cluster Synthesis (Committed: `f8bcfa5` + reviewer fixes `6cc49a1`)
+- `src/sentinel/core/synthesis.py` (NEW): `synthesize_clusters()`, `_build_synthesis_prompt()`, `_parse_synthesis()`, `_log_synthesis()`
+- Pipeline position: step 7b, after judge, before persistence
+- Gated on `model_capability >= standard`; graceful degradation for all failure modes
+- Report integration: `🔄 redundant` badge, root cause + recommended action in evidence blocks
+- Reviewer found 2 Major (log signature mismatch, confidence parsing), 5 Minor — all fixed
+- 917 total tests passing
 
 ### Verification
-- **Tests**: 875 passed, 3 skipped (up from 873 — 2 new config validation tests)
+- **Tests**: 917 passed, 3 skipped
 - **Ruff**: Clean on all modified files
-- **Pre-existing lint**: 5 pre-existing issues in test_dead_code.py (unused imports) and test_provider.py (nested with statements) — not introduced by this session
+- **Reviewer**: Ran for Slice 4, all findings addressed
 
-### Key Lessons
-- The reviewer subagent was correctly skipped 0 out of 4 major sessions. The improvement log now has 3 entries documenting this same failure. The rules and checklists exist but get bypassed under implementation pressure.
-- The reviewer found real bugs in Session 28 code — the CapabilityTier crash and wrong category would have manifested in production.
+### Key Design Decisions (This Session)
+1. User feedback: "Initial setup where users choose detectors negates silent skipping risk"
+2. User feedback: "Don't replace existing prompts — build NEW detectors with nano baseline"
+3. User decision: Plugin system should be robust (entry_points — ADR-012)
+4. Synthesis gated on standard+ capability; graceful degradation at basic tier
+5. LLM log entries for synthesis use the same `LLMLogEntry` dataclass as judge
 
 ### Repository State
-- **Tests**: 875 passing
-- **VISION-LOCK**: v4.3 (14 detectors, all ADRs current)
-- **Phase 6b**: Complete
-- **Phase 8**: In progress (infrastructure + standard tier enhancements)
+- **Tests**: 917 passing
+- **VISION-LOCK**: v4.4 (Phase 9 in progress)
+- **Phase 9**: 4 of 5 slices complete
 - **Providers**: 3 (ollama, openai, azure)
-- **ADRs**: 11 (001–011)
+- **ADRs**: 12 (001–012)
+- **Detectors**: 14
+
+### Commits This Session
+1. `53021c7` — docs(project): strategic direction — Phase 9 plan, ADR-012, VISION-LOCK v4.4
+2. `f584a9c` — feat(config): detector configurability — enable/disable via config, CLI, web UI
+3. `7f2b995` — feat(detectors): entry-points plugin discovery (ADR-012)
+4. `f8bcfa5` — feat(synthesis): finding cluster synthesis via LLM (Phase 9 Slice 4)
+5. `6cc49a1` — fix(synthesis): address reviewer findings — log signature, parsing, tests
+
+### Files Created
+- `src/sentinel/core/synthesis.py`
+- `tests/test_synthesis.py`
+- `docs/architecture/decisions/012-entry-points-plugin-system.md`
+- `roadmap/phases/phase-9-configurability-plugins.md`
+
+### Files Modified
+- `src/sentinel/config.py` — enabled_detectors/disabled_detectors fields
+- `src/sentinel/cli.py` — --detectors, --skip-detectors, --capability flags
+- `src/sentinel/core/runner.py` — detector filtering, synthesis step, entry-points loading
+- `src/sentinel/core/report.py` — synthesis badges and evidence display
+- `src/sentinel/detectors/base.py` — get_detector_info(), load_entrypoint_detectors()
+- `src/sentinel/web/app.py` — provider/capability/detector selection with validation
+- `src/sentinel/web/templates/scan.html` — form redesign
+- `docs/vision/VISION-LOCK.md` — v4.4
+- `docs/reference/open-questions.md` — OQ-011, OQ-012
+- `docs/reference/glossary.md` — 5 new terms
+- `roadmap/README.md` — Phase 9 added
+- `.github/copilot-instructions.md` — ADR-012 added
+- `tests/test_config.py`, `tests/test_cli.py`, `tests/test_runner.py`, `tests/test_web.py`, `tests/test_detectors_base.py`, `tests/test_report.py` — new tests
 
 ### What Remains / Next Priority
-1. **Fix docs-drift in own README/CONTRIBUTING**: Self-scan found stale code examples in CONTRIBUTING.md (line 70) and README.md (line 252) — base.py no longer imports Severity
-2. **Judge performance**: Full judge run on 199 findings at ~4s each = ~13min. Serial bottleneck (TD-002)
-3. **Phase 8 Slice 2**: Advanced tier detectors — but now informed by standard tier validation
-4. **PyPI publication**: Packaging ready, needs credentials
-5. **Dead-code noise analysis**: 44 findings is high — may need tuning
+1. **Phase 9 Slice 5**: Setup flow enhancement — extend `sentinel init` to guide detector/model selection (depends on OQ-011)
+2. **Phase 10**: Advanced tier detectors (intent-drift, arch-drift, CI/CD config drift) — design NEW detectors with nano baseline
+3. **README/CONTRIBUTING fix**: Stale code examples (Severity import that doesn't exist in base.py)
+4. **Judge performance**: Serial bottleneck at ~4s/finding (TD-002)
+5. **PyPI publication**: Packaging ready, needs credentials
 
 ---
-
-## Session 29 Self-Scan Validation
-
-### Azure gpt-5.4-nano standard tier self-scan results
-
-All 14 detectors ran successfully against the sentinel repo itself.
-
-| Detector | Findings | Notes |
-|----------|---------|-------|
-| complexity | 52 | run_scan CC=22, _parse_python_module CC=21 |
-| dead-code | 44 | Unused exported symbols |
-| docs-drift | 142 | 140 deterministic + 2 LLM-detected code drifts |
-| git-hotspots | 10 | High-churn files |
-| lint-runner | 7 | ruff findings |
-| semantic-drift | 3 | Enhanced mode — structured specifics |
-| test-coherence | 27 | Enhanced mode — structured gap analysis |
-| todo-scanner | 15 | TODO/FIXME comments |
-| unused-deps | 2 | jinja2 + python-multipart (indirect deps — correct FP) |
-| dep-audit | 0 | Clean |
-| eslint-runner | 0 | No JS |
-| go-linter | 0 | No Go |
-| rust-clippy | 0 | No Rust |
-| stale-env | 0 | No .env.example |
-
-**Totals**: 302 raw → 199 after dedup. Judge ran on 14/199 before 300s timeout (13/14 confirmed, 1 likely_false_positive).
-
-**Key observations**:
-1. LLM doc-code drift found real bugs: CONTRIBUTING.md and README.md code samples reference `Severity` import that doesn't exist in `base.py`
-2. Enhanced semantic-drift (3 findings) and test-coherence (27 findings) are both delivering richer output at standard tier
-3. `unused-deps` correctly flagged indirect dependencies (jinja2/python-multipart used by Starlette) — confidence 0.80 is appropriate for known FP mode
-
----
-
-## Session 28 Summary
 
 ### Current Objective
 1. Complete Phase 6b by shipping stale-env and dead-code detectors

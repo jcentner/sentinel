@@ -42,10 +42,10 @@ Tracked questions that need resolution before or during implementation. Each que
 **Current thinking**: Phase 2. Build as a pluggable detector: SQLFluff for deterministic SQL lint, LLM-assisted prompt for semantic suggestions. Don't build a SQL parser.
 
 ### OQ-011: How should the first-run setup flow guide detector and model selection?
-**Status**: Open
+**Status**: Resolved
 **Priority**: High
 **Context**: Users need to configure which detectors to run and what model to use. Currently `sentinel init` creates a basic `sentinel.toml` with defaults, but doesn't guide the user through detector selection or model recommendation. The user pointed out that explicit setup-time detector selection negates the risk of silently skipping detectors based on model capability — the user chooses what they want upfront.
-**Current thinking**: Enhance `sentinel init` to be interactive: list available detectors with descriptions and capability tiers, let the user select which to enable, recommend a model based on their selections. Generate a `sentinel.toml` with `enabled_detectors` reflecting their choices. Non-interactive fallback for CI/scripting: `sentinel init --all-detectors` or `sentinel init --detectors todo-scanner,docs-drift,semantic-drift`.
+**Resolution**: `sentinel init` enhanced with three mechanisms: (1) `--profile` flag with `minimal` (heuristic-only, no LLM), `standard` (all detectors + basic LLM), and `full` (all detectors + enhanced analysis) presets; (2) `--detectors` flag for explicit comma-separated selection; (3) `--list-detectors` to show available detectors with tiers. Generated config includes `enabled_detectors` list with detector catalog as comments. Default (no flags): all detectors enabled.
 
 ### OQ-012: Should different detectors be able to use different models/providers?
 **Status**: Open

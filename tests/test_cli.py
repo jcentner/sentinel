@@ -754,6 +754,59 @@ class TestInitCommand:
         content = (tmp_path / "sentinel.toml").read_text()
         assert 'model = "qwen3.5:4b"' in content
 
+    def test_init_list_detectors(self, runner, tmp_path):
+        result = runner.invoke(main, ["init", str(tmp_path), "--list-detectors"])
+        assert result.exit_code == 0
+        assert "Available detectors:" in result.output
+        assert "todo-scanner" in result.output
+        assert "Profiles:" in result.output
+        # Should not create a config file
+        assert not (tmp_path / "sentinel.toml").exists()
+
+    def test_init_profile_minimal(self, runner, tmp_path):
+        result = runner.invoke(main, ["init", str(tmp_path), "--profile", "minimal"])
+        assert result.exit_code == 0
+        content = (tmp_path / "sentinel.toml").read_text()
+        assert 'skip_judge = true' in content
+        assert 'model_capability = "none"' in content
+        assert '"todo-scanner"' in content
+        # LLM-dependent detectors excluded
+        assert '"semantic-drift"' not in content
+        assert '"test-coherence"' not in content
+
+    def test_init_profile_full(self, runner, tmp_path):
+        result = runner.invoke(main, ["init", str(tmp_path), "--profile", "full"])
+        assert result.exit_code == 0
+        content = (tmp_path / "sentinel.toml").read_text()
+        assert 'model_capability = "standard"' in content
+        assert '"semantic-drift"' in content
+        assert '"test-coherence"' in content
+
+    def test_init_detectors_flag(self, runner, tmp_path):
+        result = runner.invoke(main, [
+            "init", str(tmp_path), "--detectors", "todo-scanner,lint-runner",
+        ])
+        assert result.exit_code == 0
+        content = (tmp_path / "sentinel.toml").read_text()
+        assert '"todo-scanner"' in content
+        assert '"lint-runner"' in content
+        assert '"complexity"' not in content
+        assert "Enabled 2 detectors" in result.output
+
+    def test_init_profile_and_detectors_conflict(self, runner, tmp_path):
+        result = runner.invoke(main, [
+            "init", str(tmp_path), "--profile", "minimal", "--detectors", "todo-scanner",
+        ])
+        assert result.exit_code != 0
+
+    def test_init_default_includes_enabled_detectors(self, runner, tmp_path):
+        result = runner.invoke(main, ["init", str(tmp_path)])
+        assert result.exit_code == 0
+        content = (tmp_path / "sentinel.toml").read_text()
+        assert "enabled_detectors" in content
+        assert '"todo-scanner"' in content
+        assert "all detectors enabled" in result.output.lower()
+
 
 # ── scan-all command ─────────────────────────────────────────────────
 

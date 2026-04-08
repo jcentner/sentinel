@@ -1,6 +1,6 @@
 # Phase 9: Configurability, Plugins, and Finding Synthesis
 
-> **Status**: Planning
+> **Status**: Complete
 > **Prerequisites**: Phase 8 capability-tier infrastructure complete
 > **Goal**: Make Sentinel fully configurable for detector selection, model assignment, and third-party extension. Add finding cluster synthesis for smarter report output.
 
