@@ -33,8 +33,8 @@ Based on real-world validation (104 findings, 88% confirmation rate):
 | Tier | What | Capability Tier | Why |
 |------|------|----------------|-----|
 | **Highest value** | Semantic docs-drift, test-code coherence | basic–standard | Cross-artifact analysis that nothing else does. Even a binary signal is high value. Stronger models unlock structured explanations. |
-| **High value (shipped)** | Docs-drift (broken links, stale paths) | none (deterministic) | Catches real drift that accumulates silently. 97% accuracy. |
-| **Medium** | Complexity | none (deterministic) | Useful on first scan; diminishing on repeat runs. |
+| **High value (shipped)** | Docs-drift (broken links, stale paths), stale-env | none (deterministic) | Catches real drift that accumulates silently. 97% accuracy (docs-drift). Stale-env catches .env.example vs code drift — unique capability. |
+| **Medium** | Complexity, dead-code, unused-deps | none (deterministic) | Useful on first scan; diminishing on repeat runs. Dead-code and unused-deps provide cleanup signal. |
 | **Low** | Lint, ESLint, go-linter, rust-clippy, todo-scanner | none (deterministic) | Duplicate what dev toolchains already provide. Useful only for repos without CI linting. |
 | **Mixed** | git-hotspots, dep-audit | none (deterministic) | Statistics without insight; or useful only if user doesn't already run audit tools. |
 

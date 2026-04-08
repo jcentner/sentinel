@@ -40,7 +40,7 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Pipeline order:** Detectors → Fingerprint → Dedup → Context → Judge → Persistence → Store → Report. Dedup runs *before* context gathering and judging to avoid wasting effort on suppressed or duplicate findings.
+**Pipeline order:** Detectors → Fingerprint → Dedup → Embed Index (opt-in) → Context → Judge → Synthesis (standard+) → Persistence → Store → Report. Dedup runs *before* context gathering and judging to avoid wasting effort on suppressed or duplicate findings.
 
 ## Component responsibilities
 
@@ -138,6 +138,14 @@ Primary output. Markdown formatted, designed to be scannable in under 2 minutes:
 ### 9. GitHub Issue Creator
 
 Takes approved findings and creates GitHub issues. Only runs after explicit human approval via `sentinel create-issues`. Deduplicates against existing open issues using fingerprint markers in issue bodies. Supports dry-run mode.
+
+### 9b. Finding Cluster Synthesis
+
+Post-judge pipeline step (Phase 9). Groups related findings by pattern (same detector + normalized title) and sends each cluster to the LLM for root-cause analysis. The LLM identifies shared root causes, flags redundant findings, and suggests a single action that addresses the group.
+
+Gated on `model_capability >= standard`. Graceful degradation: skipped entirely when the model tier is below standard or no provider is available. Annotates findings with `synthesis` context containing root cause, recommended action, cluster label, and redundancy flag. The report shows 🔄 redundant badges and root cause + recommended action in evidence blocks.
+
+Implemented in `src/sentinel/core/synthesis.py`.
 
 ### 10. Web UI
 

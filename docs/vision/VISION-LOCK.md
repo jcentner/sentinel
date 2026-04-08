@@ -91,7 +91,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 Tested on a production Next.js + Python project (~102 source files). After iterative FP reduction: 104 findings after dedup, 92 confirmed, 12 FP (88% confirmation rate). Judge time: 179s. Zero inconsistent verdicts. Every confirmed stale link and stale path reference verified as genuinely broken/missing.
 
 ### CLI
-14 commands: `scan`, `scan-all`, `init`, `doctor`, `show`, `suppress`, `approve`, `create-issues`, `history`, `eval`, `eval-history`, `index`, `serve`, plus global `--version`/`-v`/`-q`. All key commands support `--json-output` for AI agent integration.
+13 commands: `scan`, `scan-all`, `init`, `doctor`, `show`, `suppress`, `approve`, `create-issues`, `history`, `eval`, `eval-history`, `index`, `serve`, plus global `--version`/`-v`/`-q`. All key commands support `--json-output` for AI agent integration.
 
 ### Web UI (`sentinel serve`)
 Browser-based triage interface with run review, finding detail, bulk actions, GitHub issue creation, scan configuration, evaluation with trend chart, and run comparison. Dark/light themes.

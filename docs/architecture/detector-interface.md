@@ -64,7 +64,7 @@ interface Detector:
   description: string
   tier:        "deterministic" | "heuristic" | "llm-assisted"
   categories:  string[]           # Which categories it can produce
-  capability:  "basic" | "standard" | "advanced"  # Min model tier needed (informational, see ADR-010)
+  capability_tier: "none" | "basic" | "standard" | "advanced"  # Min model tier needed (see ADR-011)
   
   detect(context: DetectorContext) -> Finding[]
 ```
@@ -121,8 +121,6 @@ The tier is `LLM_ASSISTED` because the LLM comparison is available, but the prim
 | `sql-antipattern` | Deterministic + LLM | performance | Planned | SQLFluff + LLM for semantic suggestions (CTE, N+1) |
 | `semgrep-runner` | Deterministic | security, code-quality | Planned | Wraps Semgrep with custom rules |
 | `config-drift` | Deterministic | config-drift | Planned | Compare env configs, schema vs. defaults |
-| `complexity` | Heuristic | code-quality | ✅ Implemented | Cyclomatic complexity, function length |
-
 ## Custom detectors
 
 Sentinel supports loading user-defined detectors from a directory configured via `detectors_dir` in `sentinel.toml`. Each `.py` file in the directory is dynamically imported at scan time. Any class extending `Detector` is auto-registered via `__init_subclass__` and participates in the scan.

@@ -16,15 +16,6 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 
 ## Active
 
-### TD-001: Context gatherer uses file-proximity only
-**Status**: Resolved (Session 9)
-**Severity**: Medium
-**Introduced**: Phase 1
-**Description**: The context gatherer uses simple file-proximity heuristics (±5 lines, naming-convention test file matching, git log) instead of embedding-based retrieval.
-**Impact**: Lower-quality context for LLM judge, reducing judgment accuracy.
-**Proposed resolution**: Add embeddings via Qwen3-Embedding-0.6B + SQLite-vec in Phase 2 (see OQ-004).
-**Resolution**: Embedding-based context gatherer implemented (ADR-009). Opt-in via `embed_model` config. Uses Ollama `/api/embed` endpoint, stores vectors as float32 BLOBs in SQLite (no sqlite-vec needed). Falls back to file-proximity heuristic when embeddings unavailable.
-
 ### TD-002: Sync detector interface
 **Status**: Active
 **Severity**: Low
@@ -41,70 +32,6 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Users who expected `sentinel serve` to also handle scheduling must configure system cron/systemd instead. This is well-documented in the README scheduling section.
 **Proposed resolution**: Won't implement unless a compelling use case emerges. System schedulers are more reliable, observable, and configurable than an application-level scheduler. See VISION-REVISION-004 for rationale.
 
-### TD-003: No schema migration system
-**Status**: Resolved (Session 5)
-**Severity**: Medium
-**Introduced**: Phase 1
-**Description**: The SQLite store tracks a `SCHEMA_VERSION` integer but has no migration framework. Schema changes require manual SQL scripts or database recreation.
-**Impact**: Upgrading between versions may lose data.
-**Proposed resolution**: Add a simple migration runner (ordered SQL files or Python functions keyed by version) before Phase 2 adds new tables.
-**Resolution**: Implemented migration framework in `store/db.py`. Migrations are ordered `(version, description, sql)` tuples applied sequentially. Base schema (v1) is always created, then pending migrations are applied on DB open. First migration (v2) adds `finding_persistence` table.
-
-### TD-004: Config values not type-validated
-**Status**: Resolved (Session 7)
-**Severity**: Low
-**Introduced**: Phase 1
-**Description**: `load_config()` reads `sentinel.toml` values but does not validate types. `skip_judge = "yes"` or `model = 42` would be silently accepted.
-**Impact**: Confusing runtime errors from bad config instead of clear validation messages.
-**Proposed resolution**: Add type checks at config load time or use a validation library.
-**Resolution**: `_validate_config()` checks type and key validity at load time. Unknown keys and wrong types raise `ConfigError` with clear messages. 6 tests.
-
-### TD-005: TODO comments in markdown are invisible
-**Status**: Resolved (Session 8)
-**Severity**: Low
-**Introduced**: Phase 2
-**Description**: The TODO scanner skips `.md` files (to avoid false positives from docs-drift's domain), and the docs-drift detector doesn't scan for TODO/FIXME comments in markdown. HTML comment TODOs (`<!-- TODO: ... -->`) in markdown are invisible to both detectors.
-**Impact**: TODO comments in markdown documentation are never surfaced.
-**Proposed resolution**: Either add a markdown-aware TODO pattern to the TODO scanner (only matching HTML comments) or add a simple TODO check to the docs-drift detector.
-**Resolution**: Added `_scan_markdown_todos()` to the TODO scanner. Scans `.md`, `.rst`, `.adoc`, `.html` files for `<!-- TODO/FIXME/HACK/XXX: ... -->` HTML comment patterns. 6 new tests. Also fixed `_get_files()` to apply `_SKIP_EXTENSIONS` filter in incremental/targeted modes.
-
-### TD-006: dep-audit audits current environment, not target repo
-**Status**: Resolved (Session 4)
-**Severity**: Medium
-**Introduced**: Phase 1
-**Description**: The dep-audit detector runs `pip-audit` against the running Python environment rather than parsing the target repo's declared dependencies (pyproject.toml, requirements.txt). When scanning an external repo, it reports vulnerabilities in *Sentinel's own* deps rather than the target's.
-**Impact**: dep-audit findings are misleading when the target repo is not the current venv. Eval tests exclude dep-audit findings to avoid noise.
-**Proposed resolution**: Parse the target repo's dependency manifest and either (a) run `pip-audit -r requirements.txt` pointing at the target, or (b) resolve dependencies in a temporary venv.
-
-### TD-007: Finding timestamp lost on DB round-trip
-**Status**: Resolved (Session 4)
-**Severity**: Low
-**Introduced**: Phase 1
-**Description**: `_row_to_finding` in `findings.py` does not restore the `timestamp` column from the database. Findings reloaded from the store get a new `datetime.now()` via the dataclass default.
-**Impact**: Historical timing data is silently lost when retrieving findings later.
-**Proposed resolution**: Parse the stored `created_at` column into the Finding's `timestamp` field in `_row_to_finding`.
-
-### TD-008: Poetry pyproject.toml dependency format not supported
-**Status**: Resolved (Session 8)
-**Severity**: Low
-**Introduced**: Phase 2
-**Description**: The docs-drift dependency drift check only parses PEP 621 `[project.dependencies]` and pip `requirements.txt`. Poetry's `[tool.poetry.dependencies]` format is not supported.
-**Impact**: Repos using Poetry will get no dependency drift detection.
-**Proposed resolution**: Add a Poetry-format parser branch in `_check_dependency_drift`.
-**Resolution**: `_parse_pyproject_deps()` now reads `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]`, skipping `python` entries. 4 new tests.
-
-## Resolved
-
-- **TD-003**: Schema migration system implemented in `store/db.py` with ordered migrations and version tracking.
-- **TD-004**: Config validation in `config.py` — type checks and unknown key rejection at load time.
-- **TD-005**: Markdown HTML comment TODOs now detected by `_scan_markdown_todos()` in the TODO scanner.
-- **TD-006**: dep-audit now targets the repo's declared dependencies (pyproject.toml or requirements.txt), not the running environment.
-- **TD-007**: `_row_to_finding` now restores the `created_at` timestamp from the database.
-- **TD-008**: Poetry pyproject.toml dependency format now supported in docs-drift.
-
-### TD-010: Hardcoded num_ctx in LLM judge
-**Status**: Resolved (Session 19)
-
 ### TD-011: Most detectors duplicate existing dev tooling
 **Status**: Active
 **Severity**: Low
@@ -120,11 +47,55 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Description**: The git-hotspots detector correctly identifies high-churn files but doesn't explain *why* the churn matters. A file changed 50 times could be healthy (frequently improved) or problematic (constantly breaking). Without context about *what* changed, churn alone is weak signal.
 **Impact**: Findings are technically accurate but not actionable. Developers see "this file changed a lot" and shrug.
 **Proposed resolution**: Consider enriching with commit message analysis or pairing with other signals (e.g., "high churn + high complexity" or "high churn + failing tests"). Low priority — focus new investment on semantic detectors first.
+
+## Resolved
+
+### TD-001: Context gatherer uses file-proximity only
+**Status**: Resolved (Session 9)
+**Severity**: Medium
+**Introduced**: Phase 1
+**Resolution**: Embedding-based context gatherer implemented (ADR-009). Opt-in via `embed_model` config. Uses Ollama `/api/embed` endpoint, stores vectors as float32 BLOBs in SQLite (no sqlite-vec needed). Falls back to file-proximity heuristic when embeddings unavailable.
+
+### TD-003: No schema migration system
+**Status**: Resolved (Session 5)
+**Severity**: Medium
+**Introduced**: Phase 1
+**Resolution**: Implemented migration framework in `store/db.py`. Migrations are ordered `(version, description, sql)` tuples applied sequentially. Base schema (v1) is always created, then pending migrations are applied on DB open.
+
+### TD-004: Config values not type-validated
+**Status**: Resolved (Session 7)
+**Severity**: Low
+**Introduced**: Phase 1
+**Resolution**: `_validate_config()` checks type and key validity at load time. Unknown keys and wrong types raise `ConfigError` with clear messages. 6 tests.
+
+### TD-005: TODO comments in markdown are invisible
+**Status**: Resolved (Session 8)
+**Severity**: Low
+**Introduced**: Phase 2
+**Resolution**: Added `_scan_markdown_todos()` to the TODO scanner. Scans `.md`, `.rst`, `.adoc`, `.html` files for `<!-- TODO/FIXME/HACK/XXX: ... -->` HTML comment patterns. 6 new tests.
+
+### TD-006: dep-audit audits current environment, not target repo
+**Status**: Resolved (Session 4)
+**Severity**: Medium
+**Introduced**: Phase 1
+**Resolution**: dep-audit now targets the repo's declared dependencies (pyproject.toml or requirements.txt), not the running environment.
+
+### TD-007: Finding timestamp lost on DB round-trip
+**Status**: Resolved (Session 4)
+**Severity**: Low
+**Introduced**: Phase 1
+**Resolution**: `_row_to_finding` now restores the `created_at` timestamp from the database.
+
+### TD-008: Poetry pyproject.toml dependency format not supported
+**Status**: Resolved (Session 8)
+**Severity**: Low
+**Introduced**: Phase 2
+**Resolution**: `_parse_pyproject_deps()` now reads `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]`, skipping `python` entries. 4 new tests.
+
+### TD-010: Hardcoded num_ctx in LLM judge
+**Status**: Resolved (Session 19)
 **Severity**: Low
 **Introduced**: Session 18
-**Description**: `judge.py` hardcodes `num_ctx: 2048` in the Ollama API call. Current prompts use <50% of this (avg 523 tokens). The value is adequate today but is not configurable via `sentinel.toml`.
-**Impact**: If future detectors produce much larger evidence blocks, or if users want larger context for better judgment quality, they cannot adjust this without editing code.
-**Proposed resolution**: Add `num_ctx` to `SentinelConfig` with default 2048. Expose in `sentinel.toml` scaffold. Aligns with ADR-003 (model parameters as config, not code).
 **Resolution**: `num_ctx` added to `SentinelConfig` (default 2048), threaded through `run_scan` → `judge_findings` → `_judge_single`. Exposed in `sentinel init` scaffold as commented-out option.
 
 ## Won't Fix

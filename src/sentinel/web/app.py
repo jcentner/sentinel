@@ -500,6 +500,14 @@ async def scan_page(request: Request) -> Response:
 
     config = load_config(repo)
 
+    # Incremental scan support
+    from sentinel.models import ScopeType
+    scan_scope = ScopeType.FULL
+    scan_changed_files: list[str] | None = None
+    if form.get("incremental"):
+        from sentinel.core.runner import prepare_incremental
+        scan_scope, scan_changed_files = prepare_incremental(str(repo), conn)
+
     # Apply form overrides
     form_model = str(form.get("model", "")).strip()
     if form_model:
@@ -538,6 +546,8 @@ async def scan_page(request: Request) -> Response:
         return run_scan(
             str(repo),
             conn,
+            scope=scan_scope,
+            changed_files=scan_changed_files,
             provider=provider,
             skip_judge=config.skip_judge,
             embed_model=config.embed_model,
