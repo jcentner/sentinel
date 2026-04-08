@@ -78,7 +78,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 ## What Exists Today
 
 ### Core Pipeline
-- **11 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), test-code coherence (LLM-powered test staleness detection), git churn hotspots, and TODO/FIXME scanning
+- **12 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, unused dependency detection, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), test-code coherence (LLM-powered test staleness detection), git churn hotspots, and TODO/FIXME scanning
 - **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
 - **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
 - **Embedding-based context gathering**: opt-in via configured provider (default: Ollama), falls back to file-proximity heuristics
@@ -117,6 +117,7 @@ Based on real-world validation, the current detectors fall into three tiers:
 | Planned | enhanced test-code coherence | standard (9B+) | Structured analysis: *what* the test misses and *why* it's stale. Not yet implemented. |
 | Planned | detailed docs-drift explanations | standard (9B+) | Explain *how* docs are wrong, not just *that* they need review. Not yet implemented. |
 | Planned | deep semantic analysis | advanced (frontier) | Subtle intent comparison, architecture-level drift. Not yet implemented. |
+| Medium | unused-deps | none (deterministic) | Flags declared-but-never-imported dependencies in Python and JS/TS. Catches transitive deps declared unnecessarily and abandoned packages from rapid development. |
 | Mixed | dep-audit | none (deterministic) | Genuinely useful for CVE detection if user doesn't already run audit tools. Limited to Python with root-level project markers. |
 
 The **capability tier** column shows what model class a detector needs. Detectors with higher capability tiers are only useful when a sufficiently powerful model is configured. Users choose their own ceiling.
@@ -180,7 +181,7 @@ Detectors that find things existing dev tools don't, without needing the LLM:
 
 **Dead code / unused exports**: Use tree-sitter to identify exported symbols (functions, classes, constants) and cross-reference against imports across the codebase. Symbols exported but never imported elsewhere are likely dead code. Especially valuable after AI-assisted rapid development where approaches get generated, tried, and abandoned.
 
-**Unused dependencies**: Compare installed packages (from pyproject.toml / package.json) against actual imports in source code. Flag packages that are declared but never imported. Different from dep-audit (which checks for CVEs) — this checks for waste.
+**Unused dependencies**: ✅ **Shipped.** Compares declared packages (pyproject.toml / package.json) against actual imports in source code. Flags packages declared but never imported. Handles known package→import name mappings (e.g. Pillow→PIL, PyYAML→yaml). Skips known tool packages (pytest, ruff, etc.). Supports PEP 621, Poetry, requirements.txt, and package.json. Different from dep-audit (which checks for CVEs) — this checks for waste.
 
 **Stale config / env drift**: Compare `.env.example` against environment variables actually referenced in code (via `os.environ`, `process.env`). Flag variables that exist in the example but are never read, or that code reads but the example doesn't document.
 

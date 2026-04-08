@@ -1,6 +1,53 @@
 # Current State — Sentinel
 
-> Last updated: Session 26 — Azure AI Foundry provider
+> Last updated: Session 27 — Phase 6b: unused-deps detector
+
+## Session 27 Summary
+
+### Current Objective
+Phase 6b Slice 1: Implement the unused-dependencies detector — a deterministic detector that compares declared dependencies against actual imports in source code.
+
+### What Was Accomplished
+
+**New detector: `unused-deps`** (`src/sentinel/detectors/unused_deps.py`):
+- Compares declared deps (pyproject.toml PEP 621 + Poetry, requirements.txt, package.json) against actual imports in source
+- Python: uses `ast` module to extract top-level import names from all `.py` files
+- JS/TS: regex-based extraction of `import`, `require()`, `import()` patterns from `.js/.jsx/.ts/.tsx/.mjs/.cjs`
+- Package→import name mapping for known mismatches (Pillow→PIL, PyYAML→yaml, python-dateutil→dateutil, etc.)
+- Tool package skip list (pytest, ruff, mypy, pip-audit, etc.) — packages invoked via CLI, not imported
+- JS tool package skip list (typescript, eslint, prettier, jest, etc.)
+- Deterministic tier, `dependency` category
+
+**Self-scan validation**: 2 findings against Sentinel itself (jinja2, python-multipart — both are starlette transitive deps declared in optional deps but never directly imported). Both are legitimate.
+
+### Verification
+- **Tests**: 803 passed, 3 skipped (36 new unused-deps tests)
+- **Ruff**: Clean
+- **Mypy strict**: Clean
+- **Self-scan**: 2 findings, both true positives
+
+### Repository State
+- **Tests**: 803 passing
+- **VISION-LOCK**: v4.1 (12 detectors now)
+- **Phase 6b**: In progress (unused-deps shipped, dead code + stale config remaining)
+
+### Files Created
+- `src/sentinel/detectors/unused_deps.py`
+- `tests/detectors/test_unused_deps.py`
+
+### Files Modified
+- `docs/vision/VISION-LOCK.md` — 12 detectors, unused-deps in value table, Phase 6b updated
+- `roadmap/README.md` — Phase 6b added to table
+- `roadmap/CURRENT-STATE.md` — this file
+
+### What Remains / Next Priority
+1. **Phase 6b Slice 2**: Stale config / env drift detector
+2. **Phase 6b Slice 3**: Dead code / unused exports detector
+3. **Phase 8**: Capability-tiered detectors
+4. **Prompt tuning**: Improve semantic detector prompts with cloud models
+5. **PyPI publication**
+
+---
 
 ## Session 26 Summary
 
