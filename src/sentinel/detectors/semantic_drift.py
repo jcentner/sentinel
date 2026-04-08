@@ -69,6 +69,9 @@ _KEY_DOCS = frozenset({
 # Max chars for doc section and code excerpt sent to LLM
 _MAX_DOC_CHARS = 800
 _MAX_CODE_CHARS = 2000
+# Extended limits for standard+ capability
+_MAX_DOC_CHARS_ENHANCED = 1500
+_MAX_CODE_CHARS_ENHANCED = 3000
 
 # Min section length to bother analyzing (skip trivial headings)
 _MIN_SECTION_CHARS = 50
@@ -125,6 +128,9 @@ class SemanticDriftDetector(Detector):
             return []
 
         findings: list[Finding] = []
+        model_cap = context.config.get("model_capability", "basic")
+        use_enhanced = model_cap in ("standard", "advanced")
+
         for md_file in md_files:
             try:
                 content = md_file.read_text(encoding="utf-8", errors="ignore")
@@ -143,27 +149,55 @@ class SemanticDriftDetector(Detector):
                     continue
 
                 for code_path, code_excerpt in pairs:
-                    result = self._llm_compare(
-                        section["title"],
-                        section["body"],
-                        rel_path,
-                        code_path,
-                        code_excerpt,
-                        provider=provider,
-                        num_ctx=context.config.get("num_ctx", 2048),
-                        conn=context.conn,
-                        run_id=context.run_id,
-                    )
+                    if use_enhanced:
+                        result = self._llm_compare_enhanced(
+                            section["title"],
+                            section["body"],
+                            rel_path,
+                            code_path,
+                            code_excerpt,
+                            provider=provider,
+                            num_ctx=context.config.get("num_ctx", 2048),
+                            conn=context.conn,
+                            run_id=context.run_id,
+                        )
+                    else:
+                        result = self._llm_compare(
+                            section["title"],
+                            section["body"],
+                            rel_path,
+                            code_path,
+                            code_excerpt,
+                            provider=provider,
+                            num_ctx=context.config.get("num_ctx", 2048),
+                            conn=context.conn,
+                            run_id=context.run_id,
+                        )
                     if result and result.get("needs_review"):
                         reason = result.get(
                             "reason", "Documentation may not match implementation"
                         )
+                        # Enhanced mode provides specifics and severity
+                        specifics = result.get("specifics", [])
+                        specifics_text = ""
+                        if specifics:
+                            specifics_text = "\n\nSpecifics:\n" + "\n".join(
+                                f"  - {s}" for s in specifics
+                            )
+                        severity = Severity.MEDIUM
+                        llm_severity = result.get("severity", "")
+                        if llm_severity == "high":
+                            severity = Severity.HIGH
+                        elif llm_severity == "low":
+                            severity = Severity.LOW
+                        confidence = 0.75 if use_enhanced else 0.6
+
                         findings.append(
                             Finding(
                                 detector=self.name,
                                 category="docs-drift",
-                                severity=Severity.MEDIUM,
-                                confidence=0.6,
+                                severity=severity,
+                                confidence=confidence,
                                 title=(
                                     f"Semantic drift: \"{section['title']}\" "
                                     f"vs {code_path}"
@@ -172,7 +206,7 @@ class SemanticDriftDetector(Detector):
                                     f"LLM analysis found potential semantic drift "
                                     f"between the \"{section['title']}\" section in "
                                     f"{rel_path} and source code in {code_path}: "
-                                    f"{reason}"
+                                    f"{reason}{specifics_text}"
                                 ),
                                 evidence=[
                                     Evidence(
@@ -198,6 +232,8 @@ class SemanticDriftDetector(Detector):
                                     "section_title": section["title"],
                                     "code_path": code_path,
                                     "llm_reason": reason,
+                                    **({"specifics": specifics} if specifics else {}),
+                                    **({"enhanced": True} if use_enhanced else {}),
                                 },
                             )
                         )
@@ -338,6 +374,118 @@ class SemanticDriftDetector(Detector):
             except Exception:
                 logger.debug(
                     "Failed to write semantic-drift LLM log entry", exc_info=True
+                )
+
+        return result
+
+    @staticmethod
+    def _llm_compare_enhanced(
+        section_title: str,
+        section_body: str,
+        doc_path: str,
+        code_path: str,
+        code_excerpt: str,
+        *,
+        provider: ModelProvider,
+        num_ctx: int = 2048,
+        conn: sqlite3.Connection | None = None,
+        run_id: int | None = None,
+    ) -> dict[str, Any] | None:
+        """Enhanced comparison using standard+ tier model.
+
+        Returns structured analysis with specific inaccuracies and severity.
+        """
+        doc_text = section_body[:_MAX_DOC_CHARS_ENHANCED]
+        code_text = code_excerpt[:_MAX_CODE_CHARS_ENHANCED]
+
+        prompt = (
+            "You are a senior documentation accuracy reviewer. Analyze the "
+            "documentation section below against the actual source code.\n\n"
+            "Check for:\n"
+            "1. Wrong parameter names, types, or missing parameters\n"
+            "2. Incorrect return type or behavior description\n"
+            "3. Outdated class/function names or removed features\n"
+            "4. Wrong usage examples or code snippets\n"
+            "5. Missing important caveats or preconditions\n"
+            "6. Described configuration or options that no longer exist\n\n"
+            "Ignore: style differences, brevity (being brief is not inaccurate), "
+            "and documentation that accurately describes a subset of behavior.\n\n"
+            f'## Documentation section: "{section_title}" (from {doc_path})\n'
+            f"{doc_text}\n\n"
+            f"## Source code (from {code_path})\n"
+            f"```\n{code_text}\n```\n\n"
+            "Respond ONLY with a JSON object (no markdown fences, no explanation "
+            "outside JSON):\n"
+            "{\n"
+            '  "needs_review": true/false,\n'
+            '  "severity": "low" | "medium" | "high",\n'
+            '  "reason": "One-sentence summary of the main issue (empty if in sync)",\n'
+            '  "specifics": ["Each specific inaccuracy or outdated claim"]\n'
+            "}\n\n"
+            "Severity guide:\n"
+            "- high: factually wrong API/parameter/behavior info that will mislead developers\n"
+            "- medium: outdated descriptions or missing important details\n"
+            "- low: minor omissions or slightly stale wording"
+        )
+
+        try:
+            llm_resp = provider.generate(
+                prompt,
+                temperature=0.1,
+                max_tokens=1024,
+                num_ctx=num_ctx,
+            )
+        except Exception:
+            logger.debug(
+                "Enhanced LLM call failed for semantic-drift: %s vs %s",
+                doc_path, code_path, exc_info=True,
+            )
+            return None
+
+        text = llm_resp.text.strip()
+        tokens = llm_resp.token_count or 0
+        gen_ms = llm_resp.duration_ms or 0.0
+        logger.debug(
+            "Semantic-drift enhanced LLM response (%d tokens): %s",
+            tokens, text[:500],
+        )
+
+        # Parse JSON from response
+        result = None
+        try:
+            json_match = re.search(r"\{.*\}", text, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        # Log to DB
+        if conn is not None:
+            verdict = "no_parse"
+            if result is not None:
+                verdict = "needs_review" if result.get("needs_review") else "in_sync"
+            from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+            try:
+                insert_llm_log(
+                    conn,
+                    run_id,
+                    LLMLogEntry(
+                        purpose="semantic-drift-enhanced",
+                        model=getattr(provider, "model", str(provider)),
+                        detector="semantic-drift",
+                        finding_title=f'"{section_title}" vs {code_path}',
+                        prompt=prompt,
+                        response=text if text else None,
+                        tokens_generated=tokens if tokens is not None else None,
+                        generation_ms=gen_ms if gen_ms is not None else None,
+                        verdict=verdict,
+                        summary=result.get("reason") if result else None,
+                    ),
+                )
+            except Exception:
+                logger.debug(
+                    "Failed to write semantic-drift enhanced LLM log entry",
+                    exc_info=True,
                 )
 
         return result

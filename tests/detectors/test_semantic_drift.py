@@ -568,3 +568,118 @@ class TestGetKeyDocs:
         )
         found = detector._get_key_docs(ctx, tmp_path)
         assert len(found) == 0
+
+
+# ── Enhanced mode tests ──────────────────────────────────────────
+
+
+class TestEnhancedSemanticDrift:
+    """Test enhanced mode for standard+ model capability."""
+
+    def test_capability_tier_is_basic(self):
+        from sentinel.models import CapabilityTier
+
+        d = SemanticDriftDetector()
+        assert d.capability_tier == CapabilityTier.BASIC
+
+    def test_enhanced_finding_has_specifics(self, tmp_path):
+        """When model_capability=standard, findings include specific inaccuracies."""
+        from unittest.mock import MagicMock
+
+        from sentinel.core.provider import LLMResponse
+        from sentinel.models import DetectorContext
+
+        mock_provider = MagicMock()
+        mock_provider.check_health.return_value = True
+        mock_provider.generate.return_value = LLMResponse(
+            text='{"needs_review": true, "severity": "high", '
+            '"reason": "Function signature changed", '
+            '"specifics": ["Docs say run_scan(path) but actual signature is run_scan(path, conn)", '
+            '"Missing skip_judge parameter in docs"]}',
+            token_count=80,
+            duration_ms=200.0,
+        )
+
+        # Create a key doc and source file it references
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "# Usage\n\n"
+            "Run a scan with `run_scan(path)` to analyze your repo.\n"
+            "The function returns a report.\n"
+            "See `src/scanner.py` for implementation details.\n"
+        )
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "scanner.py").write_text(
+            "def run_scan(path, conn, *, skip_judge=False):\n"
+            "    '''Run a full scan.'''\n"
+            "    return 'report'\n"
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={
+                "provider": mock_provider,
+                "skip_llm": False,
+                "num_ctx": 2048,
+                "model_capability": "standard",
+            },
+        )
+
+        d = SemanticDriftDetector()
+        findings = d.detect(ctx)
+
+        assert len(findings) >= 1
+        f = findings[0]
+        assert f.confidence == 0.75
+        assert f.severity.value == "high"
+        assert "Function signature changed" in f.description
+        assert f.context["enhanced"] is True
+        assert len(f.context["specifics"]) == 2
+
+    def test_basic_mode_no_specifics(self, tmp_path):
+        """When model_capability=basic, findings use binary signal only."""
+        from unittest.mock import MagicMock
+
+        from sentinel.core.provider import LLMResponse
+        from sentinel.models import DetectorContext
+
+        mock_provider = MagicMock()
+        mock_provider.check_health.return_value = True
+        mock_provider.generate.return_value = LLMResponse(
+            text='{"needs_review": true, "reason": "Docs are outdated"}',
+            token_count=30,
+            duration_ms=100.0,
+        )
+
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "# API\n\n"
+            "Use `process(data)` to transform input.\n"
+            "See `src/processor.py` for the implementation.\n"
+        )
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "processor.py").write_text(
+            "def process(data, *, verbose=False):\n"
+            "    '''Process the data.'''\n"
+            "    return data\n"
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={
+                "provider": mock_provider,
+                "skip_llm": False,
+                "num_ctx": 2048,
+                "model_capability": "basic",
+            },
+        )
+
+        d = SemanticDriftDetector()
+        findings = d.detect(ctx)
+
+        assert len(findings) >= 1
+        f = findings[0]
+        assert f.confidence == 0.6
+        assert "enhanced" not in f.context
