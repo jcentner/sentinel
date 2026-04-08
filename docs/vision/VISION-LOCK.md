@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.2
+> **Version**: 4.3
 > **Updated**: 2026-04-09
-> **Supersedes**: v4.1
+> **Supersedes**: v4.2
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -110,12 +110,12 @@ Based on real-world validation, the current detectors fall into three tiers:
 
 | Tier | Detectors | Capability Tier | Value |
 |------|-----------|----------------|-------|
-| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code), test-coherence (test staleness) | basic (4B) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift and test-coherence binary signals are high-value. |
+| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code), test-coherence (test staleness) | basic (4B) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift and test-coherence binary signals are high-value. Enhanced mode (standard+) provides structured gap analysis and specific inaccuracies. |
 | Medium | complexity | none (deterministic) | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
 | Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | none (deterministic) | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
 | Mixed | git-hotspots | none (deterministic) | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
-| Planned | enhanced test-code coherence | standard (9B+) | Structured analysis: *what* the test misses and *why* it's stale. Not yet implemented. |
-| Planned | detailed docs-drift explanations | standard (9B+) | Explain *how* docs are wrong, not just *that* they need review. Not yet implemented. |
+| Shipped | enhanced test-code coherence | standard (9B+) | Structured analysis: *what* the test misses and *why* it's stale. Activated when model_capability is standard+. |
+| Shipped | detailed docs-drift explanations | standard (9B+) | Explain *how* docs are wrong with specific inaccuracies. Activated when model_capability is standard+. |
 | Planned | deep semantic analysis | advanced (frontier) | Subtle intent comparison, architecture-level drift. Not yet implemented. |
 | Medium | unused-deps | none (deterministic) | Flags declared-but-never-imported dependencies in Python and JS/TS. Catches transitive deps declared unnecessarily and abandoned packages from rapid development. |
 | Medium | stale-env | none (deterministic) | Detects drift between .env.example and actual env var usage in code. Catches undocumented vars (MEDIUM) and stale documented vars (LOW). Supports Python (os.environ/os.getenv) and JS (process.env). |
@@ -208,15 +208,17 @@ Extract a `ModelProvider` protocol so the pipeline is provider-agnostic, not jus
 - Judge, semantic-drift, and docs-drift consolidate behind `provider.generate()` instead of raw `httpx.post` to Ollama.
 - Embedding calls consolidate behind `provider.embed()`.
 
-### Phase 8: Capability-tiered detectors — After Phase 7
+### Phase 8: Capability-tiered detectors — In Progress
 
-With provider abstraction in place, build detectors that leverage more powerful models:
+With provider abstraction in place, detectors adapt their behavior based on model capability:
 
-| Capability Tier | Model Class | New Detectors Enabled |
-|-----------------|-------------|----------------------|
-| `basic` (4B+) | qwen3.5:4b | Already shipped: judge, semantic-drift binary signal |
-| `standard` (9B+ or small cloud) | qwen3:9b, Haiku 4.5 | Enhanced test-code coherence with reasoning, detailed docs-drift explanations |
-| `advanced` (frontier cloud) | GPT-5.4-nano, GLM-5 | Deep intent comparison, architecture-level drift, subtle semantic analysis |
+| Capability Tier | Model Class | Detectors / Enhancements |
+|-----------------|-------------|-------------------------|
+| `basic` (4B+) | qwen3.5:4b | ✅ Judge, semantic-drift binary signal, test-coherence binary signal |
+| `standard` (9B+ or small cloud) | qwen3:9b, gpt-5.4-nano | ✅ Enhanced test-coherence with structured gap analysis, enhanced semantic-drift with specific inaccuracies |
+| `advanced` (frontier cloud) | GPT-5.4-mini, GLM-5 | Deep intent comparison, architecture-level drift, subtle semantic analysis |
+
+`CapabilityTier` enum and infrastructure shipped. Detectors declare their tier via `capability_tier` property. Runner warns when a detector's tier exceeds the configured `model_capability`. Both semantic-drift and test-coherence adapt: basic mode gives binary signal; standard+ mode gives structured analysis with severity, specific gaps/inaccuracies, and higher confidence.
 
 Capability tiers are **informational, not enforced** — the system warns if a detector's declared tier exceeds the configured model's expected capability, but does not block execution.
 
@@ -249,6 +251,18 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.3
+Phase 8 Slice 1: capability-tiered detectors infrastructure + enhanced modes shipped.
+- **CapabilityTier** enum added: NONE, BASIC, STANDARD, ADVANCED
+- **Detector ABC** extended: `capability_tier` property with default NONE
+- **Runner** warns when detector tier exceeds model capability
+- **SentinelConfig**: `model_capability` field (default: basic)
+- **semantic-drift** enhanced: structured specifics, severity, higher confidence when standard+
+- **test-coherence** enhanced: structured gaps, severity, higher confidence when standard+
+- **Detector Value Assessment**: enhanced modes moved from Planned to Shipped
+- **Phase 8** marked In Progress, standard tier detectors shipped
+- **What Exists Today**: 14 detectors, 873 tests
 
 ### v4.2
 Phase 6b complete: all three deterministic detectors shipped (unused-deps, stale-env, dead-code).

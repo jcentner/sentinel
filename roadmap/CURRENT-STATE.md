@@ -1,19 +1,21 @@
 # Current State — Sentinel
 
-> Last updated: Session 28 — Phase 6b complete: dead-code detector + stale-env detector
+> Last updated: Session 28 — Phase 6b complete + Phase 8 Slice 1 (capability-tiered detectors)
 
 ## Session 28 Summary
 
 ### Current Objective
-Complete Phase 6b by shipping the remaining deterministic detectors (stale-env, dead-code) and registering all Phase 6b detectors in the runner.
+1. Complete Phase 6b by shipping stale-env and dead-code detectors
+2. Begin Phase 8 with capability tier infrastructure and enhanced detector modes
 
 ### What Was Accomplished
+
+#### Phase 6b: Deterministic Detectors (Complete)
 
 **Stale-env detector** (`src/sentinel/detectors/stale_env.py`) — committed:
 - Detects drift between `.env.example`/`.env.sample`/`.env.template` and actual env var usage in code
 - Supports Python (`os.environ`, `os.getenv`, `os.environ.get`) and JS/TS (`process.env`)
-- Stale vars (in example but unused) → LOW severity
-- Undocumented vars (used but not in example) → MEDIUM severity
+- Stale vars (in example but unused) → LOW severity; undocumented vars (used but not in example) → MEDIUM
 - Filters common system vars (PATH, HOME, CI, etc.)
 - 23 tests, all passing
 
@@ -21,61 +23,92 @@ Complete Phase 6b by shipping the remaining deterministic detectors (stale-env, 
 - Identifies exported functions, classes, and constants never imported elsewhere in the codebase
 - Python: uses `ast` module for precise symbol extraction and import tracking
 - JS/TS: regex-based extraction of `export` statements and `import` usage
-- Respects `__all__` (if defined, only those names are considered exports)
-- Skips private symbols (underscore-prefixed), dunder methods, and framework entry points
+- Respects `__all__`, skips private symbols, dunder methods, framework entry points
 - Test files don't generate findings but test imports count as usage
-- Skips `__init__.py`, `conftest.py`, `setup.py` for definitions
 - Heuristic tier, code-quality category
 - 41 tests, all passing
 
 **Runner registration fix** (`src/sentinel/core/runner.py`):
 - Added `dead_code`, `stale_env`, and `unused_deps` to `_ensure_detectors_loaded()`
-- These detectors were registered via `__init_subclass__` but never imported by the runner, so they didn't execute during scans
+- These detectors were registered via `__init_subclass__` but never imported by the runner
 
 **Ground truth update** (`tests/fixtures/sample-repo/ground-truth.toml`):
-- Added 4 dead-code expected findings (DATABASE_URL, SECRET_KEY, DEBUG in config.py + helper in main.py)
-- 17 total expected true positives (was 13)
+- Added 4 dead-code expected findings (17 total expected TPs)
 
-**Vision lock updated to v4.2**:
-- 14 detectors (was 12)
-- Phase 6b marked complete
-- Dead-code and stale-env in value assessment table
-- Dead code and stale-env marked as shipped in "Where We're Going"
+#### Phase 8: Capability-Tiered Detectors (Slice 1)
 
-### Key Design Decision
-- `from X import y` does NOT mark all symbols in module X as "used" — only `import X` (full module import) does. This prevents false negatives where unused symbols in frequently-imported modules would be missed. Tracked via import_names vs imported_modules distinction in `_ModuleInfo`.
+**CapabilityTier infrastructure**:
+- `CapabilityTier` enum: `NONE`, `BASIC`, `STANDARD`, `ADVANCED` in models.py
+- `capability_tier` property on Detector ABC (defaults to `NONE`)
+- Runner warns when detector tier exceeds `model_capability` config
+- `model_capability` config field (default: "basic") wired through CLI→runner→context
+
+**Enhanced test-coherence** (standard+ mode):
+- Adaptive behavior based on `model_capability`
+- Basic mode: binary signal, confidence 0.6, default medium severity
+- Standard+ mode: structured gap analysis, specific gaps list, LLM-suggested severity, confidence 0.75
+- Extended code limits (3000 chars vs 1500)
+- 3 new tests for capability tier and mode switching
+
+**Enhanced semantic-drift** (standard+ mode):
+- Adaptive behavior based on `model_capability`
+- Basic mode: binary signal, confidence 0.6
+- Standard+ mode: structured specifics list, LLM-suggested severity, confidence 0.75
+- Extended doc/code limits (1500/3000 chars vs 800/2000)
+- 3 new tests for capability tier and mode switching
+
+### Key Design Decisions
+1. `from X import y` does NOT mark all symbols in module X as "used" (dead-code detector)
+2. Enhanced modes are adaptive within existing detectors (not separate detectors)
+3. CapabilityTier is informational, not enforced — runner warns but doesn't skip
+4. Detectors have default `capability_tier = NONE`, override only if they need a model
 
 ### Verification
-- **Tests**: 867 passed, 3 skipped (41 dead-code + 23 stale-env + 36 unused-deps new)
-- **Ruff**: Clean on all new files
-- **Eval**: 8/8 tests passing, precision and recall targets met with updated ground truth
-- **Self-scan**: dead-code found 4 genuine findings in sample repo (all added to ground truth)
+- **Tests**: 873 passed, 3 skipped
+- **Ruff**: Clean on all modified files
+- **Eval**: 8/8 tests passing, precision and recall targets met
 
 ### Repository State
-- **Tests**: 867 passing
-- **VISION-LOCK**: v4.2 (14 detectors)
-- **Phase 6b**: Complete (unused-deps, stale-env, dead-code all shipped)
+- **Tests**: 873 passing
+- **VISION-LOCK**: v4.3 (14 detectors, Phase 8 in progress)
+- **Phase 6b**: Complete (unused-deps, stale-env, dead-code)
+- **Phase 8**: In progress (infrastructure + standard tier enhancements shipped)
 - **Providers**: 3 (ollama, openai, azure)
+
+### Commits This Session
+1. `8b2ce25` — feat(detector): add stale-env detector (Phase 6b Slice 2)
+2. `2d0e351` — feat(detector): add dead-code detector, register Phase 6b detectors in runner
+3. `9c86dd7` — feat(core): add CapabilityTier infrastructure for Phase 8
+4. `bbe6ba4` — feat(detector): enhanced test-coherence with structured gaps (Phase 8)
+5. `b882972` — feat(detector): enhanced semantic-drift with structured specifics (Phase 8)
 
 ### Files Created
 - `src/sentinel/detectors/dead_code.py`
 - `tests/detectors/test_dead_code.py`
-- `src/sentinel/detectors/stale_env.py` (from prior session)
-- `tests/detectors/test_stale_env.py` (from prior session)
+- `src/sentinel/detectors/stale_env.py`
+- `tests/detectors/test_stale_env.py`
 
 ### Files Modified
-- `src/sentinel/core/runner.py` — added 3 missing detector imports
-- `tests/fixtures/sample-repo/ground-truth.toml` — 4 new dead-code expected findings
+- `src/sentinel/core/runner.py` — detector imports, capability tier logic, model_capability param
+- `src/sentinel/models.py` — CapabilityTier enum
+- `src/sentinel/detectors/base.py` — capability_tier property
+- `src/sentinel/config.py` — model_capability field
+- `src/sentinel/cli.py` — pass model_capability through
+- `src/sentinel/detectors/test_coherence.py` — enhanced mode, adaptive behavior
+- `src/sentinel/detectors/semantic_drift.py` — enhanced mode, adaptive behavior
+- `tests/detectors/test_test_coherence.py` — enhanced mode tests
+- `tests/detectors/test_semantic_drift.py` — enhanced mode tests
+- `tests/fixtures/sample-repo/ground-truth.toml` — dead-code expected findings
 - `tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md` — documented dead-code findings
-- `docs/vision/VISION-LOCK.md` — v4.2, 14 detectors, Phase 6b complete
-- `roadmap/README.md` — Phase 6b status → Complete
+- `docs/vision/VISION-LOCK.md` — v4.3, Phase 8, enhanced detectors shipped
+- `roadmap/README.md` — Phase 6b Complete, Phase 8 In Progress
 - `roadmap/CURRENT-STATE.md` — this file
 
 ### What Remains / Next Priority
-1. **Phase 8**: Capability-tiered detectors (enhanced analysis with more powerful models)
-2. **Prompt tuning**: Improve semantic detector prompts with cloud models
-3. **PyPI publication**
-4. **Self-scan validation**: Run dead-code + stale-env against a real project
+1. **Phase 8 Slice 2**: Advanced tier detectors (deep intent comparison, architecture-level drift)
+2. **Live validation**: Test enhanced modes with Azure AI Foundry gpt-5.4-nano
+3. **PyPI publication**: Packaging is ready, needs credentials
+4. **Self-scan validation**: Run all new detectors against a real project
 
 ---
 

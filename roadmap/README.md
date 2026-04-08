@@ -17,7 +17,7 @@ Local Repo Sentinel development follows a phased approach. Each phase has a plan
 | 6 | Semantic Detectors | **Complete** | Cross-artifact LLM detectors: semantic docs-drift, test-code coherence |
 | 6b | High-Value Deterministic | **Complete** | Unused deps, dead code, stale env detectors |
 | 7 | Provider Abstraction | **Complete** | Pluggable model provider protocol (ADR-010): Ollama, OpenAI-compat, Azure |
-| 8 | Capability-Tiered Detectors | Not Started | Enhanced detectors leveraging more powerful models |
+| 8 | Capability-Tiered Detectors | **In Progress** | CapabilityTier infrastructure, enhanced test-coherence and semantic-drift |
 
 ## Phase details
 
