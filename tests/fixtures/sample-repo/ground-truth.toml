@@ -89,6 +89,27 @@ detector = "todo-scanner"
 file_path = "README.md"
 title = "update install instructions"
 
+# dead-code: unused symbols
+[[expected]]
+detector = "dead-code"
+file_path = "config.py"
+title = "DATABASE_URL"
+
+[[expected]]
+detector = "dead-code"
+file_path = "config.py"
+title = "SECRET_KEY"
+
+[[expected]]
+detector = "dead-code"
+file_path = "config.py"
+title = "DEBUG"
+
+[[expected]]
+detector = "dead-code"
+file_path = "main.py"
+title = "helper"
+
 # ── Known false positive patterns (should NOT appear) ────────────
 
 # Code block content should not be flagged

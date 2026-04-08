@@ -1,51 +1,81 @@
 # Current State — Sentinel
 
-> Last updated: Session 27 — Phase 6b: unused-deps detector
+> Last updated: Session 28 — Phase 6b complete: dead-code detector + stale-env detector
 
-## Session 27 Summary
+## Session 28 Summary
 
 ### Current Objective
-Phase 6b Slice 1: Implement the unused-dependencies detector — a deterministic detector that compares declared dependencies against actual imports in source code.
+Complete Phase 6b by shipping the remaining deterministic detectors (stale-env, dead-code) and registering all Phase 6b detectors in the runner.
 
 ### What Was Accomplished
 
-**New detector: `unused-deps`** (`src/sentinel/detectors/unused_deps.py`):
-- Compares declared deps (pyproject.toml PEP 621 + Poetry, requirements.txt, package.json) against actual imports in source
-- Python: uses `ast` module to extract top-level import names from all `.py` files
-- JS/TS: regex-based extraction of `import`, `require()`, `import()` patterns from `.js/.jsx/.ts/.tsx/.mjs/.cjs`
-- Package→import name mapping for known mismatches (Pillow→PIL, PyYAML→yaml, python-dateutil→dateutil, etc.)
-- Tool package skip list (pytest, ruff, mypy, pip-audit, etc.) — packages invoked via CLI, not imported
-- JS tool package skip list (typescript, eslint, prettier, jest, etc.)
-- Deterministic tier, `dependency` category
+**Stale-env detector** (`src/sentinel/detectors/stale_env.py`) — committed:
+- Detects drift between `.env.example`/`.env.sample`/`.env.template` and actual env var usage in code
+- Supports Python (`os.environ`, `os.getenv`, `os.environ.get`) and JS/TS (`process.env`)
+- Stale vars (in example but unused) → LOW severity
+- Undocumented vars (used but not in example) → MEDIUM severity
+- Filters common system vars (PATH, HOME, CI, etc.)
+- 23 tests, all passing
 
-**Self-scan validation**: 2 findings against Sentinel itself (jinja2, python-multipart — both are starlette transitive deps declared in optional deps but never directly imported). Both are legitimate.
+**Dead-code detector** (`src/sentinel/detectors/dead_code.py`) — committed:
+- Identifies exported functions, classes, and constants never imported elsewhere in the codebase
+- Python: uses `ast` module for precise symbol extraction and import tracking
+- JS/TS: regex-based extraction of `export` statements and `import` usage
+- Respects `__all__` (if defined, only those names are considered exports)
+- Skips private symbols (underscore-prefixed), dunder methods, and framework entry points
+- Test files don't generate findings but test imports count as usage
+- Skips `__init__.py`, `conftest.py`, `setup.py` for definitions
+- Heuristic tier, code-quality category
+- 41 tests, all passing
+
+**Runner registration fix** (`src/sentinel/core/runner.py`):
+- Added `dead_code`, `stale_env`, and `unused_deps` to `_ensure_detectors_loaded()`
+- These detectors were registered via `__init_subclass__` but never imported by the runner, so they didn't execute during scans
+
+**Ground truth update** (`tests/fixtures/sample-repo/ground-truth.toml`):
+- Added 4 dead-code expected findings (DATABASE_URL, SECRET_KEY, DEBUG in config.py + helper in main.py)
+- 17 total expected true positives (was 13)
+
+**Vision lock updated to v4.2**:
+- 14 detectors (was 12)
+- Phase 6b marked complete
+- Dead-code and stale-env in value assessment table
+- Dead code and stale-env marked as shipped in "Where We're Going"
+
+### Key Design Decision
+- `from X import y` does NOT mark all symbols in module X as "used" — only `import X` (full module import) does. This prevents false negatives where unused symbols in frequently-imported modules would be missed. Tracked via import_names vs imported_modules distinction in `_ModuleInfo`.
 
 ### Verification
-- **Tests**: 803 passed, 3 skipped (36 new unused-deps tests)
-- **Ruff**: Clean
-- **Mypy strict**: Clean
-- **Self-scan**: 2 findings, both true positives
+- **Tests**: 867 passed, 3 skipped (41 dead-code + 23 stale-env + 36 unused-deps new)
+- **Ruff**: Clean on all new files
+- **Eval**: 8/8 tests passing, precision and recall targets met with updated ground truth
+- **Self-scan**: dead-code found 4 genuine findings in sample repo (all added to ground truth)
 
 ### Repository State
-- **Tests**: 803 passing
-- **VISION-LOCK**: v4.1 (12 detectors now)
-- **Phase 6b**: In progress (unused-deps shipped, dead code + stale config remaining)
+- **Tests**: 867 passing
+- **VISION-LOCK**: v4.2 (14 detectors)
+- **Phase 6b**: Complete (unused-deps, stale-env, dead-code all shipped)
+- **Providers**: 3 (ollama, openai, azure)
 
 ### Files Created
-- `src/sentinel/detectors/unused_deps.py`
-- `tests/detectors/test_unused_deps.py`
+- `src/sentinel/detectors/dead_code.py`
+- `tests/detectors/test_dead_code.py`
+- `src/sentinel/detectors/stale_env.py` (from prior session)
+- `tests/detectors/test_stale_env.py` (from prior session)
 
 ### Files Modified
-- `docs/vision/VISION-LOCK.md` — 12 detectors, unused-deps in value table, Phase 6b updated
-- `roadmap/README.md` — Phase 6b added to table
+- `src/sentinel/core/runner.py` — added 3 missing detector imports
+- `tests/fixtures/sample-repo/ground-truth.toml` — 4 new dead-code expected findings
+- `tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md` — documented dead-code findings
+- `docs/vision/VISION-LOCK.md` — v4.2, 14 detectors, Phase 6b complete
+- `roadmap/README.md` — Phase 6b status → Complete
 - `roadmap/CURRENT-STATE.md` — this file
 
 ### What Remains / Next Priority
-1. **Phase 6b Slice 2**: Stale config / env drift detector
-2. **Phase 6b Slice 3**: Dead code / unused exports detector
-3. **Phase 8**: Capability-tiered detectors
-4. **Prompt tuning**: Improve semantic detector prompts with cloud models
-5. **PyPI publication**
+1. **Phase 8**: Capability-tiered detectors (enhanced analysis with more powerful models)
+2. **Prompt tuning**: Improve semantic detector prompts with cloud models
+3. **PyPI publication**
+4. **Self-scan validation**: Run dead-code + stale-env against a real project
 
 ---
 

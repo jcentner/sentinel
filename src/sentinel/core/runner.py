@@ -188,6 +188,7 @@ def run_scan(
 def _ensure_detectors_loaded() -> None:
     """Import all built-in detector modules to trigger registration."""
     import sentinel.detectors.complexity
+    import sentinel.detectors.dead_code
     import sentinel.detectors.dep_audit
     import sentinel.detectors.docs_drift
     import sentinel.detectors.eslint_runner
@@ -196,8 +197,10 @@ def _ensure_detectors_loaded() -> None:
     import sentinel.detectors.lint_runner
     import sentinel.detectors.rust_clippy
     import sentinel.detectors.semantic_drift
+    import sentinel.detectors.stale_env
     import sentinel.detectors.test_coherence
-    import sentinel.detectors.todo_scanner  # noqa: F401
+    import sentinel.detectors.todo_scanner
+    import sentinel.detectors.unused_deps  # noqa: F401
 
 
 def prepare_incremental(

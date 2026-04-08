@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.0
-> **Updated**: 2026-04-07
-> **Supersedes**: v3.1 (2026-04-07)
+> **Version**: 4.2
+> **Updated**: 2026-04-09
+> **Supersedes**: v4.1
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -78,7 +78,7 @@ Deduplication happens before the expensive steps (context gathering, LLM judgmen
 ## What Exists Today
 
 ### Core Pipeline
-- **12 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, unused dependency detection, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), test-code coherence (LLM-powered test staleness detection), git churn hotspots, and TODO/FIXME scanning
+- **14 pluggable detectors** covering Python (ruff, pip-audit, complexity), JS/TS (ESLint/Biome), Go (golangci-lint), Rust (cargo clippy), dependency auditing, unused dependency detection, dead code / unused exports detection, stale env/config drift detection, docs-drift (broken links + stale references), semantic docs-drift (LLM-powered prose vs code comparison), test-code coherence (LLM-powered test staleness detection), git churn hotspots, and TODO/FIXME scanning
 - **Custom detector loading**: external detectors via `detectors_dir` config, auto-registered through `__init_subclass__`
 - **Centralized skip-directory management**: `COMMON_SKIP_DIRS` in detector base class, extensible per-detector
 - **Embedding-based context gathering**: opt-in via configured provider (default: Ollama), falls back to file-proximity heuristics
@@ -118,6 +118,8 @@ Based on real-world validation, the current detectors fall into three tiers:
 | Planned | detailed docs-drift explanations | standard (9B+) | Explain *how* docs are wrong, not just *that* they need review. Not yet implemented. |
 | Planned | deep semantic analysis | advanced (frontier) | Subtle intent comparison, architecture-level drift. Not yet implemented. |
 | Medium | unused-deps | none (deterministic) | Flags declared-but-never-imported dependencies in Python and JS/TS. Catches transitive deps declared unnecessarily and abandoned packages from rapid development. |
+| Medium | stale-env | none (deterministic) | Detects drift between .env.example and actual env var usage in code. Catches undocumented vars (MEDIUM) and stale documented vars (LOW). Supports Python (os.environ/os.getenv) and JS (process.env). |
+| Medium | dead-code | none (heuristic) | Identifies exported functions, classes, and constants never imported elsewhere. Cross-references Python (ast) and JS/TS (regex) across the codebase. Valuable after AI-assisted rapid development. |
 | Mixed | dep-audit | none (deterministic) | Genuinely useful for CVE detection if user doesn't already run audit tools. Limited to Python with root-level project markers. |
 
 The **capability tier** column shows what model class a detector needs. Detectors with higher capability tiers are only useful when a sufficiently powerful model is configured. Users choose their own ceiling.
@@ -179,11 +181,11 @@ The highest-leverage improvement is using the LLM to do what deterministic detec
 
 Detectors that find things existing dev tools don't, without needing the LLM:
 
-**Dead code / unused exports**: Use tree-sitter to identify exported symbols (functions, classes, constants) and cross-reference against imports across the codebase. Symbols exported but never imported elsewhere are likely dead code. Especially valuable after AI-assisted rapid development where approaches get generated, tried, and abandoned.
+**Dead code / unused exports**: ✅ **Shipped.** Uses Python's `ast` module and regex-based JS/TS extraction to identify exported symbols (functions, classes, constants) and cross-reference against imports across the codebase. Symbols exported but never imported elsewhere are flagged. Respects `__all__`, skips private symbols and dunder methods, and excludes test files from generating findings (while counting test imports as usage). Heuristic tier (symbol reachability involves heuristic judgment). Tree-sitter can be added later for more precise multi-language extraction.
 
 **Unused dependencies**: ✅ **Shipped.** Compares declared packages (pyproject.toml / package.json) against actual imports in source code. Flags packages declared but never imported. Handles known package→import name mappings (e.g. Pillow→PIL, PyYAML→yaml). Skips known tool packages (pytest, ruff, etc.). Supports PEP 621, Poetry, requirements.txt, and package.json. Different from dep-audit (which checks for CVEs) — this checks for waste.
 
-**Stale config / env drift**: Compare `.env.example` against environment variables actually referenced in code (via `os.environ`, `process.env`). Flag variables that exist in the example but are never read, or that code reads but the example doesn't document.
+**Stale config / env drift**: ✅ **Shipped.** Compares `.env.example` (or `.env.sample`/`.env.template`) against environment variables actually referenced in code. Detects both stale documented vars (in example but never read) and undocumented vars (read in code but not in example). Supports Python (`os.environ`, `os.getenv`, `os.environ.get`) and JS/TS (`process.env`). Filters common system vars (PATH, HOME, CI, etc.).
 
 ### Completed (shipped in prior phases)
 
@@ -247,6 +249,14 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.2
+Phase 6b complete: all three deterministic detectors shipped (unused-deps, stale-env, dead-code).
+- **What Exists Today** updated: 14 detectors (was 12), stale-env and dead-code added to value assessment
+- **Detector Value Assessment** updated: stale-env added as Medium tier, dead-code added as Medium tier
+- **Where We're Going** updated: stale-env and dead-code marked as shipped. Phase 6b complete.
+- **Provider list** updated: Azure provider shipped (3 providers: Ollama, OpenAI-compatible, Azure with Entra ID)
+- **Ground truth** updated: sample-repo now includes 4 dead-code expected findings (17 total expected TPs)
 
 ### v4.1
 Test-code coherence detector shipped (Phase 6 Slice 2, completing Phase 6).

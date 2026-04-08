@@ -26,6 +26,12 @@ Used by the eval test to measure precision@k and recall.
 12. **README.md** — `<!-- TODO: add contributing section before release -->`
 13. **README.md** — `<!-- FIXME: update install instructions for v2 -->`
 
+### dead-code: unused symbols
+14. **src/myapp/config.py:4** — Unused constant: `DATABASE_URL` (never imported elsewhere)
+15. **src/myapp/config.py:5** — Unused constant: `SECRET_KEY` (never imported elsewhere)
+16. **src/myapp/config.py:6** — Unused constant: `DEBUG` (never imported elsewhere)
+17. **src/myapp/main.py:27** — Unused function: `helper` (never imported elsewhere)
+
 ## Expected TRUE NEGATIVES (scanner should NOT find these)
 
 ### docs-drift: valid references
