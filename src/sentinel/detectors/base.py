@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 import importlib.util
 import logging
+from importlib.metadata import entry_points
 from pathlib import Path
 
 from sentinel.models import CapabilityTier, DetectorContext, DetectorTier, Finding
@@ -103,11 +104,13 @@ def get_all_detectors() -> list[Detector]:
 def get_detector_info() -> list[dict[str, str]]:
     """Return metadata for all registered detectors.
 
-    Ensures built-in detectors are loaded first.  Returns a list of
-    dicts with keys: name, description, tier (capability tier value).
+    Ensures built-in and entry-point detectors are loaded first.
+    Returns a list of dicts with keys: name, description, tier
+    (capability tier value).
     """
     from sentinel.core.runner import _ensure_detectors_loaded
     _ensure_detectors_loaded()
+    load_entrypoint_detectors()
     return [
         {"name": d.name, "description": d.description, "tier": d.capability_tier.value}
         for d in get_all_detectors()
@@ -155,4 +158,46 @@ def load_custom_detectors(detectors_dir: str | Path) -> list[str]:
     loaded.extend(sorted(new_names))
     if loaded:
         logger.info("Loaded custom detectors: %s", ", ".join(loaded))
+    return loaded
+
+
+def load_entrypoint_detectors() -> list[str]:
+    """Discover and load third-party detectors via entry_points.
+
+    Packages declare detectors in the ``sentinel.detectors`` entry-point
+    group (see ADR-012). Each entry point module is imported, triggering
+    ``__init_subclass__`` registration.
+
+    Built-in detector names take priority — if an entry-point detector
+    collides with a built-in name, it is skipped with a warning.
+
+    Returns the names of newly registered detectors.
+    """
+    builtin_names = set(_REGISTRY.keys())
+    before = set(_REGISTRY.keys())
+    loaded: list[str] = []
+
+    eps = entry_points(group="sentinel.detectors")
+    for ep in eps:
+        try:
+            ep.load()  # triggers module import → __init_subclass__ registration
+        except Exception:
+            logger.warning(
+                "Failed to load entry-point detector %r from %s",
+                ep.name, ep.value, exc_info=True,
+            )
+            continue
+
+    new_names = set(_REGISTRY.keys()) - before
+    for name in sorted(new_names):
+        if name in builtin_names:
+            logger.warning(
+                "Entry-point detector %r collides with built-in — keeping built-in",
+                name,
+            )
+        else:
+            loaded.append(name)
+
+    if loaded:
+        logger.info("Loaded entry-point detectors: %s", ", ".join(loaded))
     return loaded

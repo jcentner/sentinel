@@ -9,6 +9,7 @@ from sentinel.detectors.base import (
     get_detector,
     get_registry,
     load_custom_detectors,
+    load_entrypoint_detectors,
 )
 from sentinel.models import DetectorContext, DetectorTier, Finding
 
@@ -123,3 +124,94 @@ class CustomDetector(Detector):
         # Clean up
         _REGISTRY.pop("custom-a", None)
         _REGISTRY.pop("custom-b", None)
+
+
+class TestLoadEntrypointDetectors:
+    """Tests for entry_points-based detector discovery (ADR-012)."""
+
+    def test_no_entry_points_returns_empty(self, monkeypatch):
+        """When no entry points exist, returns empty list."""
+        monkeypatch.setattr(
+            "sentinel.detectors.base.entry_points",
+            lambda group: [],
+        )
+        loaded = load_entrypoint_detectors()
+        assert loaded == []
+
+    def test_loads_entry_point_detector(self, monkeypatch):
+        """A working entry point registers its detector."""
+        from unittest.mock import MagicMock
+
+        # Create a mock entry point that, when loaded, registers a new detector
+        mock_ep = MagicMock()
+        mock_ep.name = "ep-detector"
+        mock_ep.value = "some_package.module"
+
+        # Track what was in the registry before
+        before = set(_REGISTRY.keys())
+
+        # When ep.load() is called, register a detector
+        def _load_side_effect():
+            # Simulate what happens when a module with a Detector subclass is imported
+            _REGISTRY["ep-test-det"] = _StubDetector  # type: ignore[assignment]
+        mock_ep.load = _load_side_effect
+
+        monkeypatch.setattr(
+            "sentinel.detectors.base.entry_points",
+            lambda group: [mock_ep],
+        )
+
+        loaded = load_entrypoint_detectors()
+        assert "ep-test-det" in loaded
+
+        # Clean up
+        _REGISTRY.pop("ep-test-det", None)
+
+    def test_broken_entry_point_skipped(self, monkeypatch, caplog):
+        """A broken entry point is skipped with a warning."""
+        import logging
+        from unittest.mock import MagicMock
+
+        mock_ep = MagicMock()
+        mock_ep.name = "broken-ep"
+        mock_ep.value = "broken_package.module"
+        mock_ep.load.side_effect = ImportError("No such module")
+
+        monkeypatch.setattr(
+            "sentinel.detectors.base.entry_points",
+            lambda group: [mock_ep],
+        )
+
+        with caplog.at_level(logging.WARNING):
+            loaded = load_entrypoint_detectors()
+
+        assert loaded == []
+        assert "broken-ep" in caplog.text
+
+    def test_builtin_name_collision_keeps_builtin(self, monkeypatch, caplog):
+        """Entry point with same name as built-in is skipped."""
+        import logging
+        from unittest.mock import MagicMock
+
+        # stub-detector is already registered (from _StubDetector class above)
+        assert "stub-detector" in _REGISTRY
+
+        mock_ep = MagicMock()
+        mock_ep.name = "stub-detector"
+        mock_ep.value = "some_package.stub"
+
+        def _load_side_effect():
+            # This would try to re-register stub-detector, but it's already there
+            pass
+        mock_ep.load = _load_side_effect
+
+        monkeypatch.setattr(
+            "sentinel.detectors.base.entry_points",
+            lambda group: [mock_ep],
+        )
+
+        with caplog.at_level(logging.WARNING):
+            loaded = load_entrypoint_detectors()
+
+        # stub-detector should NOT appear in loaded (it's a built-in collision)
+        assert "stub-detector" not in loaded

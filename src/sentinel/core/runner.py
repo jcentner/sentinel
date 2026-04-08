@@ -112,6 +112,9 @@ def run_scan(
     if detectors is None:
         # Import detector modules so they register
         _ensure_detectors_loaded()
+        # Discover entry-point detectors (ADR-012)
+        from sentinel.detectors.base import load_entrypoint_detectors
+        load_entrypoint_detectors()
         if detectors_dir:
             from sentinel.detectors.base import load_custom_detectors
             load_custom_detectors(detectors_dir)
