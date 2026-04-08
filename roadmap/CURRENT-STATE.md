@@ -1,66 +1,52 @@
 # Current State — Sentinel
 
-> Last updated: Session 30 — Phase 9 Complete (Configurability, Plugins, Synthesis, Setup Flow)
+> Last updated: Consistency pass — Post-Phase 9 (code fixes, doc alignment, web bug fixes)
 
-## Session 30 Summary
+## Consistency Pass Summary
 
 ### Current Objective
-Document strategic decisions from user feedback, then implement Phase 9: Configurability, Plugins & Synthesis.
+Major consistency pass across the entire repo: fix code bugs, align docs with reality, resolve stale content.
 
 ### What Was Accomplished
 
-#### Documentation (Committed: `53021c7`)
-- **ADR-012**: Entry-points plugin system for third-party detectors
-- **Phase 9 plan**: `roadmap/phases/phase-9-configurability-plugins.md` — 5 slices
-- **OQ-011**: Setup flow design (how should first-run guide detector/model selection?)
-- **OQ-012**: Per-detector model configuration (should different detectors use different models?)
-- **VISION-LOCK v4.4**: Phase 8 marked complete, Phase 9+10 added to roadmap
-- **Glossary**: 5 new terms (entry-points discovery, enabled/disabled detectors, finding synthesis, setup flow, detector plugin)
-- **copilot-instructions.md**: Added ADR-012 to key decisions list
+#### Code Fixes (Committed: `1d16fac`)
+- **Scope enum standardization**: 8 detectors updated with `ScopeType` import; 13 string comparisons (`scope.value == "..."`) replaced with proper enum comparisons (`scope == ScopeType.INCREMENTAL`)
+- **Missing scope guards**: `unused_deps` (2 locations) and `stale_env` (1 location) now check `scope == ScopeType.INCREMENTAL` before filtering by `changed_files`
+- **Error handling**: `git_hotspots.detect()` wrapped in try/except (was the only detector violating base class contract)
+- **output_dir bug**: `run_scan()` now accepts `output_dir` param; CLI and web pass it through (was hardcoding `.sentinel`)
+- **Web config passthrough**: `_do_scan()` now passes `num_ctx`, `detectors_dir`, `embed_chunk_size`, `embed_chunk_overlap`, `output_dir` to `run_scan()`
+- **Dead code**: Removed unused `_INIT_TEMPLATE` (32 lines)
+- **CLI help**: Fixed exit code docs, corrected `--json-output` claim
 
-#### Phase 9 Slice 1+2: Detector Configurability (Committed: `f584a9c`)
-- `config.py`: `enabled_detectors` and `disabled_detectors` fields with validation
-- `cli.py`: `--detectors`, `--skip-detectors`, `--capability` flags on scan/scan-all
-- `runner.py`: Set-based filtering after detector loading
-- `web/app.py`: Provider dropdown, capability dropdown, detector checkboxes with input validation
-- `scan.html`: Full form redesign with new controls
-- Reviewed by reviewer subagent, all findings fixed (web input validation, public `get_detector_info()`, consistent `[]→None` conversion)
-- 896 total tests
+#### README Update (Committed: `9b1b3da`)
+- Detector count 10→14, test count 680→923
+- Feature list expanded with Phase 9 features (synthesis, plugins, configurability, capability tiers, setup flow)
+- Options table: added 5 missing flags (`--provider`, `--api-base`, `--capability`, `--detectors`, `--skip-detectors`)
+- Config example: added 7 missing fields
+- Prerequisites: mention Azure/OpenAI alongside Ollama
+- Init examples: show `--profile` and `--list-detectors`
+- Exit codes: documented code 2
 
-#### Phase 9 Slice 3: Entry-Points Plugin Discovery (Committed: `7f2b995`)
-- `base.py`: `load_entrypoint_detectors()` using `importlib.metadata.entry_points(group="sentinel.detectors")`
-- Discovery order: built-in → entry-points → detectors_dir
-- Name collision: built-in wins with warning; import errors: logged and skipped
-- `get_detector_info()` updated; runner wired
-- 900 total tests
+#### CONTRIBUTING.md Update (Committed: `65efc71`)
+- Full working detector template with imports, class, tests
+- Runner import step, PR checklist, capability tier guide
+- Entry-points plugin instructions, incremental scope table
 
-#### Phase 9 Slice 4: Finding Cluster Synthesis (Committed: `f8bcfa5` + reviewer fixes `6cc49a1`)
-- `src/sentinel/core/synthesis.py` (NEW): `synthesize_clusters()`, `_build_synthesis_prompt()`, `_parse_synthesis()`, `_log_synthesis()`
-- Pipeline position: step 7b, after judge, before persistence
-- Gated on `model_capability >= standard`; graceful degradation for all failure modes
-- Report integration: `🔄 redundant` badge, root cause + recommended action in evidence blocks
-- Reviewer found 2 Major (log signature mismatch, confidence parsing), 5 Minor — all fixed
-- 917 total tests passing
+#### Doc Consistency Fixes (Committed: `2837068`)
+- **overview.md**: Added missing synthesis + embed index pipeline steps; new "Finding Cluster Synthesis" component section
+- **detector-interface.md**: Fixed `capability` → `capability_tier`, added `none` tier, removed duplicate `complexity` from Phase 2+ table
+- **tech-debt.md**: Moved 8 resolved items (TD-001, TD-003–008, TD-010) from Active to Resolved section; cleaned up stale content
+- **strategy.md**: Added 3 missing detectors (dead-code, stale-env, unused-deps) to value tier table
+- **VISION-LOCK.md**: Fixed command count 14→13
+- **glossary.md**: Added Azure AI provider, init profile terms; updated model provider entry to include Azure AI
+- **samples/README.md**: Marked samples as stale with regeneration instructions
 
-#### Phase 9 Slice 5: Setup Flow Enhancement (Committed: `282e70b`)
-- `sentinel init` enhanced with `--profile minimal|standard|full`, `--detectors`, `--list-detectors`
-- Generated config includes `enabled_detectors` list with detector catalog as comments
-- Profiles: minimal (heuristic, no LLM, 12 detectors), standard (all + basic), full (all + enhanced)
-- OQ-011 resolved
-- 923 total tests passing
+#### Web Bug Fix (Committed: `2837068`)
+- **Incremental checkbox**: Form checkbox was non-functional (POST handler never read it). Now reads `form.get("incremental")`, calls `prepare_incremental()`, and passes `scope`/`changed_files` to `run_scan()`
 
 ### Verification
 - **Tests**: 923 passed, 3 skipped
 - **Ruff**: Clean on all modified files
-- **Reviewer**: Ran for Slice 4, all findings addressed
-
-### Key Design Decisions (This Session)
-1. User feedback: "Initial setup where users choose detectors negates silent skipping risk"
-2. User feedback: "Don't replace existing prompts — build NEW detectors with nano baseline"
-3. User decision: Plugin system should be robust (entry_points — ADR-012)
-4. Synthesis gated on standard+ capability; graceful degradation at basic tier
-5. LLM log entries for synthesis use the same `LLMLogEntry` dataclass as judge
-6. Setup flow uses profiles (minimal/standard/full) for non-interactive setup
 
 ### Repository State
 - **Tests**: 923 passing
@@ -71,40 +57,17 @@ Document strategic decisions from user feedback, then implement Phase 9: Configu
 - **Detectors**: 14
 
 ### Commits This Session
-1. `53021c7` — docs(project): strategic direction — Phase 9 plan, ADR-012, VISION-LOCK v4.4
-2. `f584a9c` — feat(config): detector configurability — enable/disable via config, CLI, web UI
-3. `7f2b995` — feat(detectors): entry-points plugin discovery (ADR-012)
-4. `f8bcfa5` — feat(synthesis): finding cluster synthesis via LLM (Phase 9 Slice 4)
-5. `6cc49a1` — fix(synthesis): address reviewer findings — log signature, parsing, tests
-6. `282e70b` — feat(cli): enhanced sentinel init with profiles and detector selection (Phase 9 Slice 5)
-
-### Files Created
-- `src/sentinel/core/synthesis.py`
-- `tests/test_synthesis.py`
-- `docs/architecture/decisions/012-entry-points-plugin-system.md`
-- `roadmap/phases/phase-9-configurability-plugins.md`
-
-### Files Modified
-- `src/sentinel/config.py` — enabled_detectors/disabled_detectors fields
-- `src/sentinel/cli.py` — --detectors, --skip-detectors, --capability flags
-- `src/sentinel/core/runner.py` — detector filtering, synthesis step, entry-points loading
-- `src/sentinel/core/report.py` — synthesis badges and evidence display
-- `src/sentinel/detectors/base.py` — get_detector_info(), load_entrypoint_detectors()
-- `src/sentinel/web/app.py` — provider/capability/detector selection with validation
-- `src/sentinel/web/templates/scan.html` — form redesign
-- `docs/vision/VISION-LOCK.md` — v4.4
-- `docs/reference/open-questions.md` — OQ-011, OQ-012
-- `docs/reference/glossary.md` — 5 new terms
-- `roadmap/README.md` — Phase 9 added
-- `.github/copilot-instructions.md` — ADR-012 added
-- `tests/test_config.py`, `tests/test_cli.py`, `tests/test_runner.py`, `tests/test_web.py`, `tests/test_detectors_base.py`, `tests/test_report.py` — new tests
+1. `65efc71` — docs(contributing): expand detector contribution guide
+2. `1d16fac` — fix(detectors): consistency pass — scope enum, error handling, config routing
+3. `9b1b3da` — docs(readme): major update — 14 detectors, providers, Phase 9 features
+4. `2837068` — docs(consistency): fix architecture, tech-debt, strategy, glossary, web incremental
 
 ### What Remains / Next Priority
 1. **Phase 10**: Advanced tier detectors (intent-drift, arch-drift, CI/CD config drift) — design NEW detectors with nano baseline
-2. **README/CONTRIBUTING fix**: Stale code examples (Severity import that doesn't exist in base.py)
-3. **Judge performance**: Serial bottleneck at ~4s/finding (TD-002)
-4. **OQ-012**: Per-detector model configuration (different models for different detectors)
-5. **PyPI publication**: Packaging ready, needs credentials
+2. **Judge performance**: Serial bottleneck at ~4s/finding (TD-002)
+3. **OQ-012**: Per-detector model configuration (different models for different detectors)
+4. **PyPI publication**: Packaging ready, needs credentials
+5. **Sample regeneration**: Samples directory has stale output; regenerate after next feature phase
 
 ---
 
