@@ -1,10 +1,27 @@
 # Current State — Sentinel
 
-> Last updated: Consistency pass — Post-Phase 9 (code fixes, doc alignment, web bug fixes)
+> Last updated: 2026-04-08 — CI lint fix session
 
-## Consistency Pass Summary
+## Latest Session Summary
 
 ### Current Objective
+Fix CI ruff lint failures, assess remaining work.
+
+### What Was Accomplished
+
+#### CI Lint Fix (Committed: `ea82fb9`)
+- **test_dead_code.py**: Removed unused `pytest` and `_extract_all_names` imports, fixed import sorting (I001, F401)
+- **test_detectors_base.py**: Removed unused `before` variable (F841)
+- **test_provider.py**: Combined nested `with` statements (SIM117) — 2 occurrences
+- **test_runner.py**: Prefixed unused `run` unpacks with `_` (RUF059) — 4 occurrences
+- **test_synthesis.py**: Removed unused `pytest` and `SynthesisResult` imports (F401), replaced list slice with `next()` (RUF015) — 2 occurrences
+- **Verification**: `ruff check src/ tests/` passes clean; 131 affected tests pass
+
+---
+
+## Previous Session: Consistency Pass
+
+### Previous Objective
 Major consistency pass across the entire repo: fix code bugs, align docs with reality, resolve stale content.
 
 ### What Was Accomplished
@@ -63,11 +80,18 @@ Major consistency pass across the entire repo: fix code bugs, align docs with re
 4. `2837068` — docs(consistency): fix architecture, tech-debt, strategy, glossary, web incremental
 
 ### What Remains / Next Priority
-1. **Phase 10**: Advanced tier detectors (intent-drift, arch-drift, CI/CD config drift) — design NEW detectors with nano baseline
-2. **Judge performance**: Serial bottleneck at ~4s/finding (TD-002)
-3. **OQ-012**: Per-detector model configuration (different models for different detectors)
+
+#### Completed Phases
+All phases 0–9 are **complete**. 14 detectors, 3 providers, 923+ tests, full CLI + web UI.
+
+#### Remaining Work (Priority Order)
+1. **Phase 10** (unplanned): Advanced tier detectors (intent-drift, arch-drift, CI/CD config drift) — would require designing NEW detectors with nano baseline
+2. **OQ-012**: Per-detector model configuration — different models/providers for different detectors in same scan
+3. **TD-002**: Judge performance — serial bottleneck at ~4s/finding
 4. **PyPI publication**: Packaging ready, needs credentials
-5. **Sample regeneration**: Samples directory has stale output; regenerate after next feature phase
+5. **Sample regeneration**: Samples directory has stale output
+6. **OQ-006**: SQL/performance anti-pattern detector (low priority, deferred)
+7. **Success criterion #10**: "Findings surface issues the developer didn't already know about" — only partially met
 
 ---
 
