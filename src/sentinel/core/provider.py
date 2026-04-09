@@ -31,6 +31,17 @@ class ModelProvider(Protocol):
     Implementations must support text generation, embedding, and health checks.
     The protocol is provider-agnostic — Ollama, OpenAI-compatible endpoints,
     and custom providers all implement the same interface.
+
+    Error contract (TD-019):
+        generate() — Raises on failure (httpx exceptions, ValueError, etc.).
+            Callers must wrap in try/except. Cloud providers include retry
+            logic for transient failures before raising.
+        embed() — Returns None on failure (all exceptions caught internally).
+            Callers check for None. This asymmetry is intentional: embedding
+            failures are non-critical (context enrichment degrades gracefully),
+            while generation failures are critical (judge/detector LLM calls
+            must surface errors to the pipeline for proper handling).
+        check_health() — Returns False on failure (never raises).
     """
 
     def generate(
@@ -55,6 +66,11 @@ class ModelProvider(Protocol):
 
         Returns:
             LLMResponse with the generated text and optional metrics.
+
+        Raises:
+            httpx.HTTPStatusError: On non-retryable HTTP errors.
+            httpx.TimeoutException: On timeout after retries exhausted.
+            httpx.ConnectError: On connection failure after retries exhausted.
         """
         ...
 
@@ -62,7 +78,8 @@ class ModelProvider(Protocol):
         """Embed a batch of texts into vectors.
 
         Returns a list of embedding vectors (one per input text),
-        or None if embedding is not supported or fails.
+        or None if embedding is not supported or fails. All exceptions
+        are caught internally — callers should check for None.
         """
         ...
 

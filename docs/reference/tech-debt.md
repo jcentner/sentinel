@@ -137,12 +137,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Added `DetectorContext.with_config()` method that returns a shallow copy with config overrides. Runner now creates per-detector context copies instead of mutating `ctx.config` in-place. Eliminates temporal coupling and swap-restore pattern.
 
 ### TD-019: Inconsistent error model in ModelProvider protocol
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: Medium
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: `generate()` propagates httpx exceptions (via `raise_for_status()`), while `embed()` catches all exceptions and returns `None`. Every caller of `generate()` reimplements the same try/except pattern (judge, semantic-drift, test-coherence).
-**Impact**: A forgotten try/except on `generate()` in new code will crash the scan on a network blip. Split error contract is a maintenance trap.
-**Proposed resolution**: Document the contract explicitly in the Protocol docstring. Consider evolving to a result type with an error field, or making `generate()` catch and return `None` for transient failures (matching `embed()`).
+**Resolution**: Documented the error contract explicitly in the `ModelProvider` Protocol docstring. The asymmetry is intentional: `generate()` raises on failure (critical path — judge/detector calls must surface errors), `embed()` returns None (non-critical — context enrichment degrades gracefully), `check_health()` returns False. Each method's docstring now specifies its error behavior and expected exceptions.
 
 ### TD-020: No data lifecycle management for SQLite store
 **Status**: Resolved (Session 23)
