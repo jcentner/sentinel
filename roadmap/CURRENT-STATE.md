@@ -1,53 +1,87 @@
 # Current State — Sentinel
 
-> Last updated: Session 24 — Tech debt remediation (batch 2)
+> Last updated: Session 25 — Full-pipeline eval with replay provider (OQ-013)
 
 ## Latest Session Summary
 
 ### Current Objective
-Resolve remaining tech debt items from the Session 22 systemic review, continuing from Session 23 batch.
+Resolve OQ-013 (eval for judge/synthesis quality) — the highest-priority remaining open question. Implement replay-based full-pipeline eval for deterministic CI testing of the judge and synthesis paths.
 
 ### What Was Accomplished
 
-#### Session 23 Batch (committed at session start)
-14 tech debt items resolved from prior session (committed as `da3dfbd`):
-- TD-013, TD-015, TD-017, TD-018, TD-020, TD-022, TD-023, TD-025, TD-026, TD-027, TD-028, TD-029, TD-035, TD-038
+#### OQ-013: Full-Pipeline Eval with Replay Provider (ADR-014)
 
-#### Session 24 Batch (this session)
-11 additional items resolved:
+**New infrastructure:**
+- `ReplayProvider` (`src/sentinel/core/providers/replay.py`): returns pre-recorded LLM responses matched by SHA-256 prompt hash, with safe default fallback
+- `RecordingProvider` (same file): wraps a real provider, captures all prompt→response pairs to JSON
+- `sentinel eval --full-pipeline`: runs with judge enabled (was always `skip_judge=True`)
+  - `--replay-file`: deterministic replay for CI — no live model needed
+  - `--record-responses`: capture judge responses for later replay
+- Per-detector precision/recall breakdown in ALL eval output (not just full-pipeline)
+- `JudgeEvalResult`: confirmation rate, rejection rate, wrongly-rejected TPs
+- `DetectorEvalResult`: per-detector total/TP/expected/precision/recall
 
-**High severity (0 remaining):**
-- TD-014: CI eval regression gate — added `sentinel eval` step to CI workflow
-- TD-021: Chunks table repo scoping — migration v9, `repo_path` column, all CRUD functions scoped
-- TD-025: Already resolved in Session 23
+**Tests (17 new):**
+- `TestPerDetectorBreakdown`: 4 tests — breakdown present, covers expected detectors, TP sum matches, serialization
+- `TestFullPipelineEval`: 5 tests — judge runs on all, default confirms all, TPs survive judge, judge metrics, replay stats
+- `TestReplayProvider`: 5 tests — hash match, hash miss, from_file, health, embed
+- `TestRecordingProvider`: 3 tests — records interactions, save/reload roundtrip, delegation
 
-**Medium severity (1 remaining: TD-016):**
-- TD-019: ModelProvider error contract documented in Protocol docstring
-- TD-030: Confidence-based finding filtering — `min_confidence` config field
-- TD-031: Fuzzy fingerprints for cross-rename recurrence — migration v10, 8 new tests
-- TD-034: Release workflow — `.github/workflows/release.yml` with PyPI trusted publishing
-- TD-037: Web per-request DB connections — `create_app()` accepts `db_path`
+**Review fixes (reviewer subagent):**
+- Replace `/dev/null` with `os.devnull` for Windows compatibility
+- Clean up duplicate `load_config` imports
+- Add missing ADR-013/ADR-014 to copilot-instructions.md
+- Add missing sections to ADR-014 (Deciders, Alternatives Considered)
 
-**Low severity (4 remaining: TD-002, TD-009, TD-011, TD-024):**
-- TD-033: Removed Google Font dependency — system font stack
-- TD-036: Documented `num_ctx` as Ollama-only in Protocol
-
-**Also resolved:**
-- OQ-015: Marked resolved (implementation shipped in TD-020/Session 23)
+**Doc alignment:**
+- VISION-LOCK bumped to v4.6: quality infra update, test count 923→1013
+- README test count updated
+- ADR index updated with ADR-013 and ADR-014
 
 ### Verification
-- **Tests**: 996 passed, 3 skipped (was 971 at session start → 987 after Session 23 commit → 996 now)
+- **Tests**: 1013 passed, 3 skipped (was 996)
 - **Ruff**: All checks passed
 - **Eval**: 100% precision, 100% recall on sample-repo fixture
-- **Schema**: v10 (was v8 at session start)
+- **Full-pipeline eval**: 32 findings judged, all confirmed, TPs survive judge, 100% replay match on recorded responses
 
 ### Repository State
-- **Tests**: 996 passing
-- **VISION-LOCK**: v4.5 (unchanged — no new features, only fixes)
-- **Tech debt items**: 38 total, 31 resolved, 7 remaining (5 accepted/low + 1 medium + 1 template)
-- **Open questions**: 16 total, 12 resolved, 4 remaining (OQ-006, OQ-013, OQ-014, OQ-016)
-- **ADRs**: 13
+- **Tests**: 1013 passing
+- **VISION-LOCK**: v4.6
+- **Tech debt items**: 38 total, 32 resolved, 6 remaining (5 accepted/low + 1 medium)
+- **Open questions**: 16 total, 13 resolved, 3 remaining (OQ-006, OQ-014, OQ-016)
+- **ADRs**: 14
 - **Schema version**: 10
+- **Detectors**: 14
+
+### Commits This Session
+1. `aba2ef3` — feat(eval): add full-pipeline eval with replay provider (OQ-013, ADR-014)
+2. `7afaa20` — fix(eval): address review findings — os.devnull, import cleanup, ADR updates
+3. `ea7635d` — docs(vision): update VISION-LOCK v4.6, README test count, quality infra
+
+### What Remains / Next Priority
+
+#### Remaining Active Tech Debt (6 items, all low priority)
+- **TD-002** (Low): Sync detector interface — accepted, no parallelism needed yet
+- **TD-009** (Low): VR-002 scheduling — won't implement, use system cron
+- **TD-011** (Low): Detectors duplicate dev tooling — accepted trade-off
+- **TD-016** (Medium): Serial LLM judge bottleneck — optimization, not blocking
+- **TD-024** (Low): JSON error envelope inconsistency — cosmetic
+- **TD-032** (Low): Synthesis gated to standard+ — by design
+
+#### Remaining Open Questions (3 items)
+- **OQ-006** (Low): SQL anti-pattern detector design — deferred
+- **OQ-014** (Medium): Real-world ground truth corpus — needs human input
+- **OQ-016** (Low): generate() protocol evolution — not urgent
+
+#### Recommended Next Work (priority order)
+1. **Stale samples**: samples/ directory has report and JSON from Session 8; regenerate
+2. **PyPI publication**: Release workflow exists, needs `pypi` environment in GitHub settings, tag v0.1.0
+3. **OQ-014 resolution**: Requires human decision on ground truth corpus strategy
+4. **CI full-pipeline eval**: Add `--full-pipeline --replay-file` step to CI once recordings are captured with a real model
+5. **Model comparison benchmarks**: Run benchmarks with different models to quantify quality differences
+6. **TD-016 optimization**: Batch judge prompts (only if scan times become a user complaint)
+
+---
 - **Detectors**: 14
 
 ### Commits This Session
