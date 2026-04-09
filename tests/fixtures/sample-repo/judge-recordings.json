@@ -1,0 +1,237 @@
+{
+  "model": "replay",
+  "recording_count": 33,
+  "recordings": [
+    {
+      "prompt_hash": "1abc48fac8033706",
+      "prompt_preview": "You are a documentation accuracy reviewer. Compare the documentation section below against the actual source code. Determine whether the documentation ACCURATELY describes the code's current behavior, API, parameters, and usage.\n\nFocus on factual accuracy: wrong parameter names, missing parameters, ",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "86712e1d039129eb",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: complexity\n- **Category**: code-quality\n- **Severity (detector's assessment)**: high\n- **Confidence**: 0.95\n- **Title**: Complex",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "8301eef3064b5efd",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: complexity\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.95\n- **Title**: Complex ",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "cb3ea44545696d00",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: dead-code\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.7\n- **Title**: Unused fun",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "0b904e9775cd7c63",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: dead-code\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.7\n- **Title**: Unused fun",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "4849bee5e39dc2b1",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: dead-code\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.7\n- **Title**: Unused con",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "e5ff20766c8334de",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: dead-code\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.7\n- **Title**: Unused con",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "71cf8da66528a86b",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: dead-code\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.7\n- **Title**: Unused con",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "a27c973e8d6f8e83",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: dead-code\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.7\n- **Title**: Unused con",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "dfee6f9ac55e5725",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: dead-code\n- **Category**: code-quality\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.7\n- **Title**: Unused fun",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "25768f67b04fbb0b",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: docs-drift\n- **Category**: docs-drift\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Stale path ",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "e69ea081cd8f8807",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: docs-drift\n- **Category**: docs-drift\n- **Severity (detector's assessment)**: medium\n- **Confidence**: 0.95\n- **Title**: Stale l",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "939b1c7e83788b55",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: docs-drift\n- **Category**: docs-drift\n- **Severity (detector's assessment)**: medium\n- **Confidence**: 0.9\n- **Title**: Dependen",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "9a7aa20148a045f1",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: docs-drift\n- **Category**: docs-drift\n- **Severity (detector's assessment)**: medium\n- **Confidence**: 0.9\n- **Title**: Dependen",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "213d3ff163ca97fb",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: docs-drift\n- **Category**: docs-drift\n- **Severity (detector's assessment)**: medium\n- **Confidence**: 0.95\n- **Title**: Stale l",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "5ac3de6c207c0004",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: lint-runner\n- **Category**: code-quality\n- **Severity (detector's assessment)**: high\n- **Confidence**: 1.0\n- **Title**: F401: `",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "356368fc05f38131",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: lint-runner\n- **Category**: code-quality\n- **Severity (detector's assessment)**: high\n- **Confidence**: 1.0\n- **Title**: F841: L",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "c00f09e5de95c39f",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: stale-env\n- **Category**: config-drift\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Documented",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "ebb450398154f07a",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: stale-env\n- **Category**: config-drift\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Documented",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "da479093589b669d",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: stale-env\n- **Category**: config-drift\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Documented",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "62bc31b63e505998",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: stale-env\n- **Category**: config-drift\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Documented",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "99cc2bf785c6422a",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: stale-env\n- **Category**: config-drift\n- **Severity (detector's assessment)**: medium\n- **Confidence**: 0.75\n- **Title**: Undocu",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "d68db8b6b6e4e3bd",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.9\n- **Title**: TODO: Loa",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "21fd1bf44e636239",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.9\n- **Title**: TODO: Add",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "ae7face0e3fc7629",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: medium\n- **Confidence**: 0.9\n- **Title**: FIXME:",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "d2eeb84c8fc964dd",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: high\n- **Confidence**: 0.9\n- **Title**: HACK: ha",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "75bcdbc2999c236e",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.9\n- **Title**: TODO: thi",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "e0b4a6ea7357c8c5",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: high\n- **Confidence**: 0.9\n- **Title**: XXX: (no",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "1ae993483bc8cca7",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.9\n- **Title**: TODO: add",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "0717985281288bf6",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: todo-scanner\n- **Category**: todo-fixme\n- **Severity (detector's assessment)**: medium\n- **Confidence**: 0.9\n- **Title**: FIXME:",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "a59b5004f50cb53a",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: unused-deps\n- **Category**: dependency\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Unused dep",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "c249292efc5647ae",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: unused-deps\n- **Category**: dependency\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Unused dep",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    },
+    {
+      "prompt_hash": "41832753ce75a8c7",
+      "prompt_preview": "You are a code quality judge. Analyze this finding from an automated code scanner and determine if it represents a real issue worth addressing.\n\n## Finding\n- **Detector**: unused-deps\n- **Category**: dependency\n- **Severity (detector's assessment)**: low\n- **Confidence**: 0.8\n- **Title**: Unused dep",
+      "response": "{\"is_real\": true, \"adjusted_severity\": \"medium\", \"summary\": \"Replay default \\u2014 no matching recording\", \"reasoning\": \"No recorded response for this prompt hash; defaulting to confirmed.\"}",
+      "token_count": 50,
+      "duration_ms": 0.0
+    }
+  ]
+}
