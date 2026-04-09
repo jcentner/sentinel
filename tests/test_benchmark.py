@@ -276,6 +276,45 @@ class TestBenchmarkResult:
         loaded = load_benchmark(path)
         assert loaded["benchmark"]["eval"]["precision"] == 0.75
 
+    def test_toml_special_characters_roundtrip(self, tmp_path: Path) -> None:
+        """Paths and model names with special chars survive roundtrip."""
+        result = self._make_result(
+            repo_path='/tmp/my "special" repo\\path',
+            model='org/model:v1"test',
+        )
+        toml_str = result.to_toml_str()
+
+        path = tmp_path / "bench.toml"
+        path.write_text(toml_str, encoding="utf-8")
+        loaded = load_benchmark(path)
+
+        b = loaded["benchmark"]
+        assert b["repo_path"] == '/tmp/my "special" repo\\path'
+        assert b["model"] == 'org/model:v1"test'
+
+    def test_eval_list_fields_stored_as_counts(self, tmp_path: Path) -> None:
+        """List fields in eval results are stored as _count keys."""
+        result = self._make_result(
+            eval_result={
+                "precision": 0.8,
+                "recall": 0.6,
+                "true_positives": 4,
+                "false_positives_found": 1,
+                "missing": [{"detector": "x", "title": "y"}],
+                "unexpected_fps": ["a", "b"],
+            },
+        )
+        toml_str = result.to_toml_str()
+
+        path = tmp_path / "bench.toml"
+        path.write_text(toml_str, encoding="utf-8")
+        loaded = load_benchmark(path)
+
+        ev = loaded["benchmark"]["eval"]
+        assert ev["missing_count"] == 1
+        assert ev["unexpected_fps_count"] == 2
+        assert ev["precision"] == 0.8
+
 
 class TestSaveBenchmark:
     """Tests for save_benchmark()."""

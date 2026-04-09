@@ -35,7 +35,7 @@ For the full run:
 
 If the target repo contains a `ground-truth.toml` file, the benchmark automatically evaluates against it.
 
-The format is documented in [tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md](../tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md). Key sections:
+The format is documented in [tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md](../../tests/fixtures/SAMPLE-REPO-GROUND-TRUTH.md). Key sections:
 
 ```toml
 exclude_detectors = ["dep-audit", "git-hotspots"]

@@ -21,6 +21,11 @@ from sentinel.models import DetectorContext, Finding, ScopeType
 logger = logging.getLogger(__name__)
 
 
+def _toml_escape(value: str) -> str:
+    """Escape a string for safe inclusion in a TOML basic string literal."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 @dataclass
 class DetectorBenchmark:
     """Stats for a single detector in a benchmark run."""
@@ -54,11 +59,11 @@ class BenchmarkResult:
             f"# Generated: {self.timestamp}",
             "",
             "[benchmark]",
-            f'repo_path = "{self.repo_path}"',
-            f'timestamp = "{self.timestamp}"',
-            f'model = "{self.model}"',
-            f'provider = "{self.provider}"',
-            f'model_capability = "{self.model_capability}"',
+            f'repo_path = "{_toml_escape(self.repo_path)}"',
+            f'timestamp = "{_toml_escape(self.timestamp)}"',
+            f'model = "{_toml_escape(self.model)}"',
+            f'provider = "{_toml_escape(self.provider)}"',
+            f'model_capability = "{_toml_escape(self.model_capability)}"',
             f"total_findings = {self.total_findings}",
             f"total_duration_ms = {self.total_duration_ms:.1f}",
             f"detector_count = {self.detector_count}",
@@ -71,18 +76,20 @@ class BenchmarkResult:
                 if isinstance(value, float):
                     lines.append(f"{key} = {value:.4f}")
                 elif isinstance(value, list):
-                    lines.append(f"{key} = {len(value)}")
+                    lines.append(f"{key}_count = {len(value)}")
+                elif isinstance(value, str):
+                    lines.append(f'{key} = "{_toml_escape(value)}"')
                 else:
                     lines.append(f"{key} = {value}")
             lines.append("")
 
         for det in sorted(self.detectors, key=lambda d: -d.finding_count):
             lines.append("[[benchmark.detectors]]")
-            lines.append(f'name = "{det.name}"')
+            lines.append(f'name = "{_toml_escape(det.name)}"')
             lines.append(f"finding_count = {det.finding_count}")
             lines.append(f"duration_ms = {det.duration_ms:.1f}")
-            lines.append(f'tier = "{det.tier}"')
-            cats = ", ".join(f'"{c}"' for c in det.categories)
+            lines.append(f'tier = "{_toml_escape(det.tier)}"')
+            cats = ", ".join(f'"{_toml_escape(c)}"' for c in det.categories)
             lines.append(f"categories = [{cats}]")
             lines.append("")
 
@@ -232,7 +239,18 @@ def compare_benchmarks(paths: list[str | Path]) -> str:
 
     Returns a markdown-formatted comparison.
     """
-    results = [load_benchmark(p) for p in paths]
+    results = []
+    for p in paths:
+        try:
+            data = load_benchmark(p)
+            if "benchmark" not in data:
+                logger.warning("Skipping %s: missing [benchmark] section", p)
+                continue
+            results.append(data)
+        except Exception:
+            logger.exception("Failed to load benchmark: %s", p)
+            continue
+
     if not results:
         return "No benchmark results to compare."
 

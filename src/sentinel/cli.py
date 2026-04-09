@@ -1220,8 +1220,7 @@ def benchmark(
     saved_path = save_benchmark(result, output_dir)
 
     if output_json:
-        import json as json_mod
-        click.echo(json_mod.dumps({
+        click.echo(json.dumps({
             "benchmark": {
                 "repo_path": result.repo_path,
                 "model": result.model,
