@@ -482,6 +482,78 @@ def create_issues_cmd(
 
 
 @main.command()
+@click.option("--run", "run_id", type=int, default=None, help="Show findings for a specific run ID")
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--detector", default=None, help="Filter by detector name")
+@click.option("--severity", default=None, type=click.Choice(["low", "medium", "high", "critical"]),
+              help="Filter by minimum severity")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def findings(
+    run_id: int | None,
+    repo: str,
+    db: str | None,
+    detector: str | None,
+    severity: str | None,
+    output_json: bool,
+) -> None:
+    """List findings from a scan run.
+
+    If --run is not specified, shows findings from the most recent run.
+    """
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.store.findings import get_findings_by_run
+    from sentinel.store.runs import get_run_history
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        if run_id is None:
+            runs = get_run_history(conn, limit=1)
+            if not runs:
+                if output_json:
+                    click.echo(json.dumps({"error": "No runs found"}))
+                else:
+                    click.echo("No runs found.", err=True)
+                raise SystemExit(1)
+            run_id = runs[0].id
+
+        results = get_findings_by_run(conn, run_id)
+
+        # Apply filters
+        if detector:
+            results = [f for f in results if f.detector == detector]
+        if severity:
+            sev_order = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+            min_sev = sev_order.get(severity, 0)
+            results = [
+                f for f in results
+                if sev_order.get(f.severity.value, 0) >= min_sev
+            ]
+
+        if output_json:
+            click.echo(json.dumps([f.to_dict() for f in results], indent=2))
+        else:
+            if not results:
+                click.echo(f"No findings for run #{run_id}.")
+                return
+
+            click.echo(f"Findings for run #{run_id} ({len(results)} total):\n")
+            click.echo(f"{'ID':>5}  {'Severity':<9}  {'Detector':<20}  {'Title'}")
+            click.echo("-" * 80)
+            for f in results:
+                click.echo(
+                    f"{f.id:>5}  {f.severity.value:<9}  {f.detector:<20}  {f.title[:40]}"
+                )
+    finally:
+        conn.close()
+
+
+@main.command()
 @click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
 @click.option("--db", default=None, help="Database path")
 @click.option("--limit", "-n", default=20, help="Number of runs to show")
@@ -1257,4 +1329,44 @@ def benchmark(
                         f"Missing: {len(result.eval_result['missing'])}")
 
         click.echo(f"\nSaved to: {saved_path}")
+
+
+@main.command()
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--older-than", "retention_days", default=90, type=int,
+              help="Delete data older than N days (default: 90)")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def prune(repo: str, db: str | None, retention_days: int, output_json: bool) -> None:
+    """Remove old scan data to manage database size (TD-020).
+
+    Deletes runs, findings, LLM logs, and persistence entries older
+    than --older-than days. Suppressions are preserved.
+    """
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.store.findings import prune_old_data
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        deleted = prune_old_data(conn, retention_days=retention_days)
+        total = sum(deleted.values())
+
+        if output_json:
+            click.echo(json.dumps({"deleted": deleted, "total": total, "retention_days": retention_days}))
+        else:
+            if total == 0:
+                click.echo(f"Nothing to prune (retention: {retention_days} days).")
+            else:
+                click.echo(f"Pruned data older than {retention_days} days:")
+                for table, count in sorted(deleted.items()):
+                    if count > 0:
+                        click.echo(f"  {table}: {count} rows deleted")
+                click.echo(f"  Total: {total} rows deleted")
+    finally:
+        conn.close()
 

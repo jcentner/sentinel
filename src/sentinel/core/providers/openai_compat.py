@@ -7,6 +7,7 @@ and ``/v1/embeddings`` API surface.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import time
@@ -17,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT = 60.0
 _EMBED_TIMEOUT = 120.0
+# Retry configuration for transient failures (TD-026)
+_MAX_RETRIES = 2
+_RETRY_BACKOFF_BASE = 1.0  # seconds
+_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 
 class OpenAICompatibleProvider:
@@ -80,13 +85,50 @@ class OpenAICompatibleProvider:
             payload["response_format"] = {"type": "json_object"}
 
         t0 = time.monotonic()
-        resp = httpx.post(
-            f"{self.api_base}/v1/chat/completions",
-            json=payload,
-            headers=self._headers(),
-            timeout=_DEFAULT_TIMEOUT,
-        )
-        resp.raise_for_status()
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                resp = httpx.post(
+                    f"{self.api_base}/v1/chat/completions",
+                    json=payload,
+                    headers=self._headers(),
+                    timeout=_DEFAULT_TIMEOUT,
+                )
+                if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_RETRIES:
+                    wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                    # Respect Retry-After header if present
+                    retry_after = resp.headers.get("retry-after")
+                    if retry_after:
+                        with contextlib.suppress(ValueError):
+                            wait = max(wait, float(retry_after))
+                    logger.warning(
+                        "OpenAI request returned %d, retrying in %.1fs (attempt %d/%d)",
+                        resp.status_code, wait, attempt + 1, _MAX_RETRIES,
+                    )
+                    time.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                break
+            except httpx.TimeoutException:
+                if attempt < _MAX_RETRIES:
+                    wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                    logger.warning(
+                        "OpenAI request timed out, retrying in %.1fs (attempt %d/%d)",
+                        wait, attempt + 1, _MAX_RETRIES,
+                    )
+                    time.sleep(wait)
+                    continue
+                raise
+            except httpx.ConnectError:
+                if attempt < _MAX_RETRIES:
+                    wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                    logger.warning(
+                        "OpenAI connection failed, retrying in %.1fs (attempt %d/%d)",
+                        wait, attempt + 1, _MAX_RETRIES,
+                    )
+                    time.sleep(wait)
+                    continue
+                raise
+
         elapsed_ms = (time.monotonic() - t0) * 1000
 
         data = resp.json()

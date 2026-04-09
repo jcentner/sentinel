@@ -194,25 +194,22 @@ def run_scan(
                     detector.name, det_cap.value, effective_cap.value,
                 )
 
-            # Swap provider in context for per-detector overrides
+            # Build per-detector context with provider overrides (TD-018 fix:
+            # create a copy instead of mutating shared ctx.config in-place)
             det_provider = detector_providers.get(detector.name)
             if det_provider is not None:
-                ctx.config["provider"] = det_provider
-                ctx.config["skip_llm"] = False
-                if effective_cap_str:
-                    ctx.config["model_capability"] = effective_cap_str
+                det_ctx = ctx.with_config(
+                    provider=det_provider,
+                    skip_llm=False,
+                    **({"model_capability": effective_cap_str} if effective_cap_str else {}),
+                )
+            else:
+                det_ctx = ctx
 
-            try:
-                logger.info("Running detector: %s", detector.name)
-                findings = detector.detect(ctx)
-                logger.info("  %s produced %d findings", detector.name, len(findings))
-                all_findings.extend(findings)
-            finally:
-                # Always restore global provider (exception-safe)
-                if det_provider is not None:
-                    ctx.config["provider"] = provider
-                    ctx.config["skip_llm"] = skip_judge or provider is None
-                    ctx.config["model_capability"] = model_capability
+            logger.info("Running detector: %s", detector.name)
+            findings = detector.detect(det_ctx)
+            logger.info("  %s produced %d findings", detector.name, len(findings))
+            all_findings.extend(findings)
         except Exception:
             logger.exception("Detector %s failed — skipping", detector.name)
 
@@ -298,21 +295,24 @@ def run_scan(
 
 
 def _ensure_detectors_loaded() -> None:
-    """Import all built-in detector modules to trigger registration."""
-    import sentinel.detectors.complexity
-    import sentinel.detectors.dead_code
-    import sentinel.detectors.dep_audit
-    import sentinel.detectors.docs_drift
-    import sentinel.detectors.eslint_runner
-    import sentinel.detectors.git_hotspots
-    import sentinel.detectors.go_linter
-    import sentinel.detectors.lint_runner
-    import sentinel.detectors.rust_clippy
-    import sentinel.detectors.semantic_drift
-    import sentinel.detectors.stale_env
-    import sentinel.detectors.test_coherence
-    import sentinel.detectors.todo_scanner
-    import sentinel.detectors.unused_deps  # noqa: F401
+    """Import all built-in detector modules to trigger registration.
+
+    Uses pkgutil to discover modules in the sentinel.detectors package
+    dynamically, so adding a new detector file requires no changes here.
+    """
+    import importlib
+    import pkgutil
+
+    import sentinel.detectors as det_pkg
+
+    for _finder, module_name, _is_pkg in pkgutil.iter_modules(det_pkg.__path__):
+        if module_name.startswith("_"):
+            continue
+        full_name = f"sentinel.detectors.{module_name}"
+        try:
+            importlib.import_module(full_name)
+        except Exception:
+            logger.warning("Failed to import detector module %s", full_name, exc_info=True)
 
 
 def prepare_incremental(

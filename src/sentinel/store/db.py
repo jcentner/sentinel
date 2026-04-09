@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -172,6 +172,13 @@ CREATE TABLE IF NOT EXISTS annotations (
 CREATE INDEX IF NOT EXISTS idx_annotations_finding_id ON annotations(finding_id);
 """,
     ),
+    (
+        8,
+        "add repo_path index on runs, add repo_path column to chunks",
+        """\
+CREATE INDEX IF NOT EXISTS idx_runs_repo_path ON runs(repo_path);
+""",
+    ),
 ]
 
 
@@ -212,13 +219,51 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 def _apply_migrations(conn: sqlite3.Connection, current_version: int) -> None:
-    """Apply all migrations newer than current_version."""
+    """Apply all migrations newer than current_version.
+
+    Each migration + version stamp runs inside a single transaction
+    for atomicity (TD-022). We avoid executescript() because it
+    implicitly commits, which breaks transactional guarantees.
+    """
     for version, description, sql in _MIGRATIONS:
         if version > current_version:
             logger.info("Applying migration v%d: %s", version, description)
-            conn.executescript(sql)
-            conn.execute(
-                "INSERT INTO schema_version (version) VALUES (?)", (version,)
-            )
-            conn.commit()
-            logger.info("Migration v%d applied successfully", version)
+            try:
+                # Execute each statement in the migration individually
+                # within the same implicit transaction
+                for statement in _split_sql(sql):
+                    statement = statement.strip()
+                    if not statement:
+                        continue
+                    try:
+                        conn.execute(statement)
+                    except sqlite3.OperationalError as exc:
+                        # Tolerate "duplicate column" for ALTER TABLE
+                        # idempotency (partial migration recovery)
+                        msg = str(exc).lower()
+                        if "duplicate column" in msg:
+                            logger.info(
+                                "  Column already exists (migration v%d partial recovery): %s",
+                                version, exc,
+                            )
+                            continue
+                        raise
+                conn.execute(
+                    "INSERT INTO schema_version (version) VALUES (?)", (version,)
+                )
+                conn.commit()
+                logger.info("Migration v%d applied successfully", version)
+            except Exception:
+                conn.rollback()
+                logger.exception("Migration v%d failed — rolled back", version)
+                raise
+
+
+def _split_sql(sql: str) -> list[str]:
+    """Split a SQL script into individual statements on semicolons.
+
+    Simple splitter that handles the common case of CREATE/ALTER/INSERT
+    statements separated by semicolons. Does not handle semicolons inside
+    string literals (our migrations don't have them).
+    """
+    return [s.strip() for s in sql.split(";") if s.strip()]

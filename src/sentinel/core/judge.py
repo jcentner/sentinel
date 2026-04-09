@@ -133,6 +133,11 @@ def _judge_single(
             logger.debug("Judge summary for '%s': %s", finding.title[:60], summary)
     else:
         logger.debug("Judge returned no parseable judgment for '%s'", finding.title[:60])
+        # Mark the finding so the report can distinguish "judge confirmed"
+        # from "judge failed to parse" (TD-029)
+        finding.context = finding.context or {}
+        finding.context["judge_verdict"] = "inconclusive"
+        verdict = "inconclusive"
 
     _log_llm_entry(
         conn, run_id, _provider_model(provider), finding,

@@ -169,11 +169,15 @@ def load_entrypoint_detectors() -> list[str]:
     ``__init_subclass__`` registration.
 
     Built-in detector names take priority — if an entry-point detector
-    collides with a built-in name, it is skipped with a warning.
+    collides with a built-in name, the built-in class is restored after
+    loading completes (TD-017 fix).
 
     Returns the names of newly registered detectors.
     """
-    builtin_names = set(_REGISTRY.keys())
+    # Snapshot built-in classes BEFORE loading entry-points so we can
+    # restore them if an entry-point overwrites a built-in name via
+    # __init_subclass__ during ep.load().
+    builtin_classes: dict[str, type[Detector]] = dict(_REGISTRY)
     before = set(_REGISTRY.keys())
     loaded: list[str] = []
 
@@ -188,15 +192,18 @@ def load_entrypoint_detectors() -> list[str]:
             )
             continue
 
-    new_names = set(_REGISTRY.keys()) - before
-    for name in sorted(new_names):
-        if name in builtin_names:
+    # Restore any built-in detectors that were overwritten during loading
+    for name, cls in builtin_classes.items():
+        if _REGISTRY.get(name) is not cls:
             logger.warning(
-                "Entry-point detector %r collides with built-in — keeping built-in",
+                "Entry-point detector overwrote built-in %r — restoring built-in",
                 name,
             )
-        else:
-            loaded.append(name)
+            _REGISTRY[name] = cls
+
+    new_names = set(_REGISTRY.keys()) - before
+    for name in sorted(new_names):
+        loaded.append(name)
 
     if loaded:
         logger.info("Loaded entry-point detectors: %s", ", ".join(loaded))

@@ -9,6 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js"></script>
+  <script>
+    // Configure htmx to include CSRF token in all requests
+    document.addEventListener('htmx:configRequest', function(event) {
+      var csrf = document.cookie.split('; ').find(function(c){return c.startsWith('sentinel_csrf=')});
+      if (csrf) event.detail.headers['X-CSRF-Token'] = csrf.split('=')[1];
+    });
+  </script>
   <script>(function(){var t=localStorage.getItem('sentinel-theme')||'dark';document.documentElement.setAttribute('data-theme',t)})();</script>
 </head>
 <body>

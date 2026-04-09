@@ -493,10 +493,20 @@ async def scan_page(request: Request) -> Response:
     if not repo_path:
         return Response("No repo configured", status_code=500)
 
-    repo = Path(repo_path)
+    repo = Path(repo_path).resolve()
     # Only validate path existence for user-supplied paths
     if user_provided and not repo.is_dir():
         return Response(f"Repository path not found: {repo_path}", status_code=400)
+
+    # TD-025: Validate scan path against allowed roots
+    if user_provided:
+        allowed_roots = getattr(request.app.state, "allowed_scan_roots", None)
+        if allowed_roots:
+            repo_resolved = str(repo)
+            if not any(repo_resolved.startswith(str(Path(r).resolve())) for r in allowed_roots):
+                return Response(
+                    "Scan path not within allowed roots", status_code=403
+                )
 
     config = load_config(repo)
 
@@ -655,9 +665,21 @@ async def github_create_issues(request: Request) -> Response:
 
 
 def create_app(
-    db_conn: sqlite3.Connection, repo_path: str | None = None
+    db_conn: sqlite3.Connection,
+    repo_path: str | None = None,
+    *,
+    allowed_scan_roots: list[str] | None = None,
 ) -> Starlette:
-    """Create the Starlette application with the given DB connection."""
+    """Create the Starlette application with the given DB connection.
+
+    Args:
+        db_conn: Shared database connection.
+        repo_path: Default repository path for scans.
+        allowed_scan_roots: If set, only directories under these roots
+            can be scanned via the web UI (TD-025 path validation).
+    """
+    from sentinel.web.csrf import CSRFMiddleware
+
     routes = [
         Route("/", endpoint=index),
         Route("/runs", endpoint=runs_list),
@@ -680,4 +702,12 @@ def create_app(
     app = Starlette(routes=routes)
     app.state.db_conn = db_conn
     app.state.repo_path = repo_path
+    app.state.allowed_scan_roots = allowed_scan_roots
+
+    # Make CSRF token available in all templates via request.state
+    # Templates access it as: {{ request.state.csrf_token }}
+
+    # Add CSRF protection middleware (TD-013)
+    app.add_middleware(CSRFMiddleware)
+
     return app

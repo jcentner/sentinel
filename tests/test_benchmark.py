@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -15,7 +16,14 @@ from sentinel.core.benchmark import (
     save_benchmark,
 )
 from sentinel.detectors.base import Detector
-from sentinel.models import DetectorContext, DetectorTier, Evidence, EvidenceType, Finding, Severity
+from sentinel.models import (
+    DetectorContext,
+    DetectorTier,
+    Evidence,
+    EvidenceType,
+    Finding,
+    Severity,
+)
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "sample-repo"
 
@@ -30,7 +38,7 @@ class _StubDetector(Detector):
     name = "stub-detector"
     description = "test stub"
     tier = DetectorTier.DETERMINISTIC
-    categories = ["test"]
+    categories: ClassVar[list[str]] = ["test"]
 
     def detect(self, context: DetectorContext) -> list[Finding]:
         return [
@@ -53,7 +61,7 @@ class _SlowStubDetector(Detector):
     name = "slow-stub"
     description = "slow test stub"
     tier = DetectorTier.HEURISTIC
-    categories = ["perf"]
+    categories: ClassVar[list[str]] = ["perf"]
 
     def detect(self, context: DetectorContext) -> list[Finding]:
         return [
@@ -86,7 +94,7 @@ class _FailingStubDetector(Detector):
     name = "failing-stub"
     description = "always fails"
     tier = DetectorTier.DETERMINISTIC
-    categories = ["error"]
+    categories: ClassVar[list[str]] = ["error"]
 
     def detect(self, context: DetectorContext) -> list[Finding]:
         msg = "intentional failure"

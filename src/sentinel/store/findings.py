@@ -124,9 +124,25 @@ def compare_runs(
     return new, resolved, persistent
 
 
-def get_known_fingerprints(conn: sqlite3.Connection) -> set[str]:
-    """Return all fingerprints ever seen (for dedup)."""
-    rows = conn.execute("SELECT DISTINCT fingerprint FROM findings").fetchall()
+def get_known_fingerprints(
+    conn: sqlite3.Connection,
+    retention_days: int = 90,
+) -> set[str]:
+    """Return fingerprints seen within the retention window (for dedup).
+
+    Args:
+        conn: Database connection.
+        retention_days: Only consider findings from the last N days.
+            Use 0 to disable the window (return all fingerprints).
+    """
+    if retention_days > 0:
+        rows = conn.execute(
+            "SELECT DISTINCT fingerprint FROM findings "
+            "WHERE created_at >= datetime('now', ?)",
+            (f"-{retention_days} days",),
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT DISTINCT fingerprint FROM findings").fetchall()
     return {row["fingerprint"] for row in rows}
 
 
@@ -224,3 +240,81 @@ def delete_annotation(
         cur = conn.execute("DELETE FROM annotations WHERE id = ?", (annotation_id,))
     conn.commit()
     return cur.rowcount > 0
+
+
+# -------------------------------------------------------------------
+# Data lifecycle (TD-020)
+# -------------------------------------------------------------------
+
+
+def prune_old_data(
+    conn: sqlite3.Connection,
+    retention_days: int = 90,
+) -> dict[str, int]:
+    """Delete data older than retention_days. Returns counts of deleted rows.
+
+    Deletes:
+    - llm_log entries older than retention_days
+    - findings (and their annotations) for runs older than retention_days
+    - runs older than retention_days
+    - finding_persistence entries not seen within retention_days
+
+    Does NOT delete suppressions (they are user decisions, not ephemeral data).
+    """
+    cutoff = f"-{retention_days} days"
+    deleted: dict[str, int] = {}
+
+    # 1. Delete old llm_log entries
+    cur = conn.execute(
+        "DELETE FROM llm_log WHERE timestamp < datetime('now', ?)", (cutoff,)
+    )
+    deleted["llm_log"] = cur.rowcount
+
+    # 2. Find old run IDs
+    old_runs = conn.execute(
+        "SELECT id FROM runs WHERE started_at < datetime('now', ?)", (cutoff,)
+    ).fetchall()
+    old_run_ids = [r["id"] for r in old_runs]
+
+    if old_run_ids:
+        placeholders = ",".join("?" * len(old_run_ids))
+
+        # 3. Delete annotations for findings in old runs
+        cur = conn.execute(
+            f"DELETE FROM annotations WHERE finding_id IN "
+            f"(SELECT id FROM findings WHERE run_id IN ({placeholders}))",
+            old_run_ids,
+        )
+        deleted["annotations"] = cur.rowcount
+
+        # 4. Delete findings in old runs
+        cur = conn.execute(
+            f"DELETE FROM findings WHERE run_id IN ({placeholders})",
+            old_run_ids,
+        )
+        deleted["findings"] = cur.rowcount
+
+        # 5. Delete old runs
+        cur = conn.execute(
+            f"DELETE FROM runs WHERE id IN ({placeholders})",
+            old_run_ids,
+        )
+        deleted["runs"] = cur.rowcount
+    else:
+        deleted["annotations"] = 0
+        deleted["findings"] = 0
+        deleted["runs"] = 0
+
+    # 6. Prune stale persistence entries
+    cur = conn.execute(
+        "DELETE FROM finding_persistence WHERE last_seen < datetime('now', ?)",
+        (cutoff,),
+    )
+    deleted["finding_persistence"] = cur.rowcount
+
+    conn.commit()
+
+    # 7. Vacuum to reclaim space
+    conn.execute("VACUUM")
+
+    return deleted

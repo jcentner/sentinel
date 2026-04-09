@@ -21,6 +21,39 @@ from sentinel.store.runs import complete_run, create_run
 from sentinel.web.app import create_app
 
 
+class CSRFTestClient:
+    """Wrapper around TestClient that automatically handles CSRF tokens."""
+
+    def __init__(self, client: TestClient) -> None:
+        self._client = client
+        self._csrf_token: str | None = None
+
+    def _ensure_csrf(self) -> str:
+        if not self._csrf_token:
+            self._client.get("/")
+            self._csrf_token = self._client.cookies.get("sentinel_csrf", "")
+        return self._csrf_token
+
+    def get(self, *args, **kwargs):
+        resp = self._client.get(*args, **kwargs)
+        # Capture CSRF token from client cookie jar
+        tok = self._client.cookies.get("sentinel_csrf")
+        if tok:
+            self._csrf_token = tok
+        return resp
+
+    def post(self, url, *, data=None, headers=None, **kwargs):
+        token = self._ensure_csrf()
+        h = dict(headers or {})
+        h["X-CSRF-Token"] = token
+        # Client cookie jar already has the CSRF cookie from the GET
+        return self._client.post(url, data=data, headers=h, **kwargs)
+
+    # Delegate attribute access for non-overridden methods
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+
 @pytest.fixture()
 def db_conn() -> sqlite3.Connection:
     """In-memory DB with schema applied."""
@@ -29,10 +62,10 @@ def db_conn() -> sqlite3.Connection:
 
 
 @pytest.fixture()
-def app(db_conn: sqlite3.Connection) -> TestClient:
+def app(db_conn: sqlite3.Connection) -> CSRFTestClient:
     """Starlette test client with an in-memory DB."""
     application = create_app(db_conn)
-    return TestClient(application)
+    return CSRFTestClient(TestClient(application))
 
 
 @pytest.fixture()
@@ -70,11 +103,11 @@ def seeded_db(db_conn: sqlite3.Connection) -> tuple[sqlite3.Connection, int, int
 
 
 @pytest.fixture()
-def seeded_app(seeded_db: tuple[sqlite3.Connection, int, int]) -> tuple[TestClient, int, int]:
+def seeded_app(seeded_db: tuple[sqlite3.Connection, int, int]) -> tuple[CSRFTestClient, int, int]:
     """Test client with seeded data; returns (client, run_id, finding_id)."""
     conn, run_id, finding_id = seeded_db
     application = create_app(conn)
-    return TestClient(application), run_id, finding_id
+    return CSRFTestClient(TestClient(application)), run_id, finding_id
 
 
 # ── Route tests ──────────────────────────────────────────────────────
@@ -184,7 +217,7 @@ class TestRunDetail:
             fingerprint="standalone-fp",
         ))
         complete_run(db_conn, run.id, 4)
-        client = TestClient(create_app(db_conn))
+        client = CSRFTestClient(TestClient(create_app(db_conn)))
         resp = client.get(f"/runs/{run.id}")
         assert resp.status_code == 200
         # Cluster should appear with the directory name
@@ -210,7 +243,7 @@ class TestRunDetail:
                 fingerprint=f"pattern-fp-{i}",
             ))
         complete_run(db_conn, run.id, 3)
-        client = TestClient(create_app(db_conn))
+        client = CSRFTestClient(TestClient(create_app(db_conn)))
         resp = client.get(f"/runs/{run.id}")
         assert resp.status_code == 200
         # Pattern cluster should appear
@@ -256,7 +289,7 @@ class TestRunCompare:
             evidence=[], file_path="requirements.txt", fingerprint="fp-c",
         ))
 
-        client = TestClient(create_app(db_conn))
+        client = CSRFTestClient(TestClient(create_app(db_conn)))
         resp = client.get(f"/runs/{run2.id}/compare/{run1.id}")
         assert resp.status_code == 200
         assert "Run Comparison" in resp.text
@@ -279,7 +312,7 @@ class TestRunCompare:
             title="TODO: test", description="Test",
             evidence=[], file_path="main.py", fingerprint="fp-dropdown",
         ))
-        client = TestClient(create_app(db_conn))
+        client = CSRFTestClient(TestClient(create_app(db_conn)))
         resp = client.get(f"/runs/{run1.id}")
         assert resp.status_code == 200
         assert "Compare with" in resp.text
@@ -365,7 +398,7 @@ class TestFindingActions:
     ) -> None:
         conn, _, finding_id = seeded_db
         application = create_app(conn)
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         client.post(
             f"/findings/{finding_id}/action",
             data={"action": "approve"},
@@ -461,7 +494,7 @@ class TestBulkActions:
     ) -> None:
         conn, run_id, finding_id = seeded_db
         application = create_app(conn)
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         client.post(
             f"/runs/{run_id}/bulk-action",
             data={"action": "approve", "finding_ids": [str(finding_id), str(finding_id + 1)]},
@@ -516,7 +549,7 @@ class TestScanTrigger:
 
         conn, _run_id, _ = seeded_db
         application = create_app(conn, repo_path="/tmp/test-repo")
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
 
         mock_run = RunSummary(id=42, repo_path="/tmp/test-repo")
         monkeypatch.setattr(
@@ -543,7 +576,7 @@ class TestScanTrigger:
 
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path="/tmp/test-repo")
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
 
         mock_run = RunSummary(id=7, repo_path="/tmp/test-repo")
         monkeypatch.setattr(
@@ -569,7 +602,7 @@ class TestScanTrigger:
 
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path="/tmp/test-repo")
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
 
         monkeypatch.setattr(
             "sentinel.core.runner.run_scan",
@@ -635,7 +668,7 @@ class TestSecurityGuards:
         complete_run(db_conn, run.id, 1)
 
         application = create_app(db_conn)
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.post(
             f"/findings/{fid}/action",
             data={"action": "suppress"},
@@ -655,7 +688,7 @@ class TestScanForm:
     ) -> None:
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path="/tmp/test-repo")
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.get("/scan")
         assert resp.status_code == 200
         assert "/tmp/test-repo" in resp.text
@@ -684,7 +717,7 @@ class TestScanFormValidation:
     ) -> None:
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path="/tmp/test-repo")
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.post("/scan", data={"provider": "bad-provider"})
         assert resp.status_code == 400
         assert "Invalid provider" in resp.text
@@ -694,7 +727,7 @@ class TestScanFormValidation:
     ) -> None:
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path="/tmp/test-repo")
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.post("/scan", data={"capability": "turbo"})
         assert resp.status_code == 400
         assert "Invalid capability" in resp.text
@@ -704,7 +737,7 @@ class TestScanFormValidation:
     ) -> None:
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path="/tmp/test-repo")
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.post("/scan", data={"detectors": "../evil"})
         assert resp.status_code == 400
         assert "Invalid detector name" in resp.text
@@ -723,7 +756,7 @@ class TestGitHubPage:
         update_finding_status(conn, finding_id, FindingStatus.APPROVED)
 
         application = create_app(conn)
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.get("/github")
         assert resp.status_code == 200
         assert "Approved Findings" in resp.text
@@ -736,7 +769,7 @@ class TestGitHubPage:
         update_finding_status(conn, finding_id, FindingStatus.APPROVED)
 
         application = create_app(conn)
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.post(
             "/github/create-issues",
             data={"dry_run": "true"},
@@ -751,7 +784,7 @@ class TestGitHubPage:
         update_finding_status(conn, finding_id, FindingStatus.APPROVED)
 
         application = create_app(conn)
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.post(
             "/github/create-issues",
             data={"dry_run": "false"},
@@ -794,7 +827,7 @@ class TestSettingsPage:
     ) -> None:
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path=str(tmp_path))
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.get("/settings")
         assert resp.status_code == 200
         assert "model" in resp.text
@@ -806,7 +839,7 @@ class TestSettingsPage:
         (tmp_path / "sentinel.toml").write_text('[sentinel]\nmodel = "custom-model"\n')
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path=str(tmp_path))
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.get("/settings")
         assert resp.status_code == 200
         assert "sentinel.toml found" in resp.text
@@ -842,7 +875,7 @@ class TestEvalPage:
     ) -> None:
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path=str(tmp_path))
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
         resp = client.post("/eval", data={"repo_path": str(tmp_path)})
         assert resp.status_code == 200
         assert "not found" in resp.text
@@ -862,7 +895,7 @@ class TestEvalPage:
 
         conn, _, _ = seeded_db
         application = create_app(conn, repo_path=str(tmp_path))
-        client = TestClient(application)
+        client = CSRFTestClient(TestClient(application))
 
         mock_result = EvalResult(
             total_findings=10,
@@ -911,7 +944,7 @@ class TestEvalHistoryPage:
         from sentinel.store.eval_store import save_eval_result
         save_eval_result(db_conn, "/tmp/repo", 15, 15, 0, 0, 1.0, 1.0)
         save_eval_result(db_conn, "/tmp/repo", 12, 10, 1, 2, 0.833, 0.833)
-        client = TestClient(create_app(db_conn))
+        client = CSRFTestClient(TestClient(create_app(db_conn)))
         resp = client.get("/eval/history")
         assert resp.status_code == 200
         assert "Evaluation History" in resp.text
@@ -926,7 +959,7 @@ class TestEvalHistoryPage:
         from sentinel.store.eval_store import save_eval_result
         save_eval_result(db_conn, "/tmp/repo", 15, 15, 0, 0, 1.0, 1.0)
         save_eval_result(db_conn, "/tmp/repo", 12, 10, 1, 2, 0.833, 0.833)
-        client = TestClient(create_app(db_conn))
+        client = CSRFTestClient(TestClient(create_app(db_conn)))
         resp = client.get("/eval/history")
         assert resp.status_code == 200
         assert "eval-chart-svg" in resp.text
@@ -940,7 +973,7 @@ class TestEvalHistoryPage:
         """No chart when only 1 eval result exists."""
         from sentinel.store.eval_store import save_eval_result
         save_eval_result(db_conn, "/tmp/repo", 15, 15, 0, 0, 1.0, 1.0)
-        client = TestClient(create_app(db_conn))
+        client = CSRFTestClient(TestClient(create_app(db_conn)))
         resp = client.get("/eval/history")
         assert resp.status_code == 200
         assert "eval-chart-svg" not in resp.text
@@ -1010,7 +1043,7 @@ class TestAnnotations:
 
         conn, _, finding_id = seeded_db
         aid = add_annotation(conn, finding_id, "Delete me")
-        client = TestClient(create_app(conn))
+        client = CSRFTestClient(TestClient(create_app(conn)))
 
         resp = client.post(
             f"/findings/{finding_id}/annotations/{aid}/delete",
@@ -1029,7 +1062,7 @@ class TestAnnotations:
         conn, _, finding_id = seeded_db
         add_annotation(conn, finding_id, "Keep this")
         aid2 = add_annotation(conn, finding_id, "Delete this")
-        client = TestClient(create_app(conn))
+        client = CSRFTestClient(TestClient(create_app(conn)))
 
         resp = client.post(
             f"/findings/{finding_id}/annotations/{aid2}/delete",

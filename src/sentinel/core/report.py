@@ -159,6 +159,8 @@ def _format_finding_line(finding: Finding) -> str:
             badges += f" ♻️ ×{occ}"
         if finding.context.get("judge_verdict") == "likely_false_positive":
             badges += " ⚠️ FP?"
+        elif finding.context.get("judge_verdict") == "inconclusive":
+            badges += " ❓ unverified"
         synth = finding.context.get("synthesis")
         if synth and synth.get("redundant"):
             badges += " 🔄 redundant"

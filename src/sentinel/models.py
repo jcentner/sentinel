@@ -155,6 +155,23 @@ class DetectorContext:
     conn: Any = None
     run_id: int | None = None
 
+    def with_config(self, **overrides: Any) -> DetectorContext:
+        """Return a shallow copy with config dict entries overridden.
+
+        The original context is unchanged. Useful for per-detector
+        provider swaps without mutating shared state (TD-018).
+        """
+        new_config = {**self.config, **overrides}
+        return DetectorContext(
+            repo_root=self.repo_root,
+            scope=self.scope,
+            changed_files=self.changed_files,
+            target_paths=self.target_paths,
+            config=new_config,
+            conn=self.conn,
+            run_id=self.run_id,
+        )
+
 
 @dataclass
 class RunSummary:
