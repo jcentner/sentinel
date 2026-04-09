@@ -279,6 +279,49 @@ class TestDetectorFiltering:
         assert len(findings) == 1
         assert "nonexistent" in caplog.text
 
+    def test_min_confidence_filters_report(self, db_conn, repo):
+        """Findings below min_confidence are stored but excluded from report."""
+        low_conf = Finding(
+            detector="mock-detector", category="test",
+            severity=Severity.MEDIUM, confidence=0.2,
+            title="Low confidence finding",
+            description="Should be filtered from report",
+            evidence=[], file_path="x.py", line_start=1,
+        )
+        high_conf = _sample_finding(title="High confidence finding")
+
+        det = _MockDetector([low_conf, high_conf])
+        _run, findings, report = run_scan(
+            str(repo), db_conn,
+            detectors=[det],
+            skip_judge=True,
+            min_confidence=0.5,
+        )
+        # Both findings are persisted in the DB
+        assert len(findings) == 2
+        # But the report only contains the high-confidence one
+        assert "High confidence finding" in report
+        assert "Low confidence finding" not in report
+
+    def test_min_confidence_zero_shows_all(self, db_conn, repo):
+        """min_confidence=0 (default) shows all findings."""
+        low_conf = Finding(
+            detector="mock-detector", category="test",
+            severity=Severity.LOW, confidence=0.1,
+            title="Very low",
+            description="Still shown",
+            evidence=[], file_path="x.py", line_start=1,
+        )
+        det = _MockDetector([low_conf])
+        _run, findings, report = run_scan(
+            str(repo), db_conn,
+            detectors=[det],
+            skip_judge=True,
+            min_confidence=0.0,
+        )
+        assert len(findings) == 1
+        assert "Very low" in report
+
 
 # ── Per-detector provider (OQ-012) ──────────────────────────────────
 

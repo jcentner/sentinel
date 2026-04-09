@@ -226,6 +226,7 @@ def _execute_scan(
         output_dir=config.output_dir,
         num_ctx=config.num_ctx,
         model_capability=config.model_capability,
+        min_confidence=config.min_confidence,
         enabled_detectors=config.enabled_detectors or None,
         disabled_detectors=config.disabled_detectors or None,
         sentinel_config=config if config.detector_providers else None,

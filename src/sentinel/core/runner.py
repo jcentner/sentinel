@@ -83,6 +83,7 @@ def run_scan(
     detectors_dir: str = "",
     num_ctx: int = 2048,
     model_capability: str = "basic",
+    min_confidence: float = 0.0,
     enabled_detectors: list[str] | None = None,
     disabled_detectors: list[str] | None = None,
     sentinel_config: SentinelConfig | None = None,
@@ -284,11 +285,21 @@ def run_scan(
     # 10. Complete run
     complete_run(conn, run.id, finding_count=len(deduped))
 
-    # 11. Generate report
+    # 11. Generate report (filter low-confidence findings for readability)
+    report_findings = deduped
+    if min_confidence > 0:
+        report_findings = [f for f in deduped if f.confidence >= min_confidence]
+        filtered_count = len(deduped) - len(report_findings)
+        if filtered_count:
+            logger.info(
+                "Filtered %d findings below confidence threshold %.0f%%",
+                filtered_count, min_confidence * 100,
+            )
+
     if output_path is None:
         output_path = str(Path(repo_root) / output_dir / f"report-{run.id}.md")
 
-    report = generate_report(deduped, run, output_path=output_path)
+    report = generate_report(report_findings, run, output_path=output_path)
     logger.info("Report written to %s", output_path)
 
     return run, deduped, report

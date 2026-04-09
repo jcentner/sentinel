@@ -207,12 +207,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Parse failures now set `judge_verdict = "inconclusive"` on the finding context. Report shows `❓ unverified` badge to distinguish from "judge confirmed" findings.
 
 ### TD-030: No confidence-based finding filtering
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: Medium
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: The judge marks likely FPs with confidence ≤ 0.3 and the report shows `⚠️ FP?` badges, but all findings still appear in the report body and count toward the total. No configurable threshold filters low-confidence findings before reporting.
-**Impact**: Contradicts the <2-minute scannability target. A run with 30 findings where 10 are `FP?` still shows 30 items to scan.
-**Proposed resolution**: Add configurable `min_confidence` threshold (e.g., 0.4) between judge and persistence. Low-confidence findings stored as `SUPPRESSED` for audit trail but excluded from the morning report.
+**Resolution**: Added `min_confidence` config field (default 0.0). Findings below threshold are still persisted for audit trail but excluded from the morning report. Filtered count logged. Configurable via `sentinel.toml` or programmatically. 2 new tests.
 
 ### TD-031: File renames break fingerprints with no fuzzy fallback
 **Status**: Active
