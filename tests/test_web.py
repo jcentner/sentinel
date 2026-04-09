@@ -798,9 +798,10 @@ class TestThemeAndDesign:
         resp = app.get("/runs")
         assert 'data-theme="dark"' in resp.text
 
-    def test_google_fonts_loaded(self, app: TestClient) -> None:
+    def test_no_external_font_dependencies(self, app: TestClient) -> None:
+        """Web UI should not load external fonts (local-first, TD-033)."""
         resp = app.get("/runs")
-        assert "Bricolage+Grotesque" in resp.text
+        assert "fonts.googleapis.com" not in resp.text
 
     def test_app_js_served(self, app: TestClient) -> None:
         resp = app.get("/static/app.js")

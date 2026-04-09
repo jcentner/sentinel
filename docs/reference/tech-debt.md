@@ -227,12 +227,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Consider a simplified synthesis prompt ("are these the same issue?" → yes/no) that could work at `basic` tier. Reserve full root-cause analysis for `standard+`.
 
 ### TD-033: External Google Font dependency in web UI
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: Low
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: `base.html` loads Bricolage Grotesque and JetBrains Mono from Google Fonts over HTTPS. This contradicts the "works offline" spirit of local-first design.
-**Impact**: Web UI typography breaks when offline. Inconsistent with the product's local-first promise.
-**Proposed resolution**: Bundle the font files as static assets in the web package, or degrade gracefully to system fonts when offline.
+**Resolution**: Removed Google Fonts `<link>` tags from base.html. CSS body font changed to `system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`. Mono fonts keep `'JetBrains Mono'` in stack (works if locally installed) with `monospace` fallback. Zero external network requests for typography.
 
 ### TD-034: No release/publish CI workflow
 **Status**: Resolved (Session 24)
