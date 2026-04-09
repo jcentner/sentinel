@@ -661,16 +661,29 @@ def index(
               help="Path to ground-truth.toml file (default: <repo>/ground-truth.toml)")
 @click.option("--db", default=None, help="Database path")
 @click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+@click.option("--full-pipeline", is_flag=True, default=False,
+              help="Run with LLM judge enabled (requires --replay-file or a configured provider)")
+@click.option("--replay-file", default=None, type=click.Path(exists=True),
+              help="Path to recorded judge responses for deterministic replay")
+@click.option("--record-responses", default=None, type=click.Path(),
+              help="Record judge responses to this file for later replay")
 def eval(
     repo_path: str,
     ground_truth: str | None,
     db: str | None,
     output_json: bool,
+    full_pipeline: bool,
+    replay_file: str | None,
+    record_responses: str | None,
 ) -> None:
     """Evaluate detector precision/recall against annotated ground truth.
 
     Runs all detectors on REPO_PATH and compares results to GROUND_TRUTH.
     Prints precision, recall, and details of mismatches.
+
+    With --full-pipeline, runs the LLM judge on findings before evaluation.
+    Use --replay-file to provide pre-recorded judge responses (for CI).
+    Use --record-responses to capture judge responses for later replay.
     """
     from sentinel.core.eval import evaluate, load_ground_truth
     from sentinel.core.runner import run_scan
@@ -688,22 +701,51 @@ def eval(
 
     gt = load_ground_truth(gt_path)
 
+    # Resolve provider for full-pipeline mode
+    provider = None
+    recording_provider = None
+    if full_pipeline:
+        if replay_file:
+            from sentinel.core.providers.replay import ReplayProvider
+            provider = ReplayProvider.from_file(replay_file)
+        else:
+            from sentinel.config import load_config
+            from sentinel.core.provider import create_provider
+            config = load_config(repo)
+            provider = create_provider(config)
+            if not provider.check_health():
+                click.echo("Full-pipeline eval requires a healthy model provider.", err=True)
+                click.echo("Use --replay-file for offline evaluation.", err=True)
+                raise SystemExit(1)
+
+        if record_responses:
+            from sentinel.core.providers.replay import RecordingProvider
+            recording_provider = RecordingProvider(provider)
+            provider = recording_provider
+
     # Use the real DB if specified, otherwise default to the repo's configured DB
     # so eval results persist across runs
     if db:
         db_actual = db
     else:
-        from sentinel.config import load_config
-        config = load_config(repo)
+        from sentinel.config import load_config as _load_config
+        config = _load_config(repo)
         db_actual = str(repo / config.db_path)
 
     conn = get_connection(db_actual)
     try:
+        skip_judge = not full_pipeline
         _, findings, _ = run_scan(
-            str(repo), conn, skip_judge=True, output_path="/dev/null",
+            str(repo), conn,
+            skip_judge=skip_judge,
+            provider=provider,
+            output_path="/dev/null",
         )
 
-        result = evaluate(findings, gt)
+        result = evaluate(
+            findings, gt,
+            include_judge_metrics=full_pipeline,
+        )
         passed = result.precision >= 0.70 and result.recall >= 0.90
 
         # Persist eval result
@@ -725,15 +767,29 @@ def eval(
     finally:
         conn.close()
 
+    # Save recordings if requested
+    if recording_provider is not None and record_responses:
+        recording_provider.save(record_responses)
+        if not output_json:
+            click.echo(f"\nRecorded {len(recording_provider.recordings)} responses to {record_responses}")
+
     if output_json:
         data = result.to_dict()
         data["repo"] = str(repo)
         data["passed"] = passed
+        if full_pipeline and replay_file and provider is not None:
+            from sentinel.core.providers.replay import ReplayProvider
+            if isinstance(provider, ReplayProvider):
+                data["replay_match_rate"] = provider.match_rate
+                data["replay_hits"] = provider.hits
+                data["replay_misses"] = provider.misses
         click.echo(json.dumps(data, indent=2))
     else:
         click.echo("")
         click.echo("═══ Sentinel Evaluation ═══")
         click.echo(f"Repo:     {repo}")
+        if full_pipeline:
+            click.echo(f"Mode:     full-pipeline (judge {'replay' if replay_file else 'live'})")
         click.echo(f"Findings: {result.total_findings}")
         click.echo(f"TP:       {result.true_positives}")
         click.echo(f"Missing:  {len(result.missing)}")
@@ -741,6 +797,39 @@ def eval(
         click.echo("")
         click.echo(f"Precision: {result.precision:.0%}")
         click.echo(f"Recall:    {result.recall:.0%}")
+
+        # Per-detector breakdown
+        if result.per_detector:
+            click.echo("")
+            click.echo("Per-detector breakdown:")
+            click.echo(f"  {'Detector':<20} {'Findings':>8} {'TP':>4} {'Expected':>8} {'Prec':>6} {'Recall':>6}")
+            click.echo("  " + "-" * 60)
+            for det_r in result.per_detector.values():
+                click.echo(
+                    f"  {det_r.detector:<20} {det_r.total_findings:>8} "
+                    f"{det_r.true_positives:>4} {det_r.expected:>8} "
+                    f"{det_r.precision:>5.0%} {det_r.recall:>5.0%}"
+                )
+
+        # Judge metrics
+        if result.judge is not None and result.judge.total_judged > 0:
+            j = result.judge
+            click.echo("")
+            click.echo("Judge metrics:")
+            click.echo(f"  Judged:          {j.total_judged}")
+            click.echo(f"  Confirmed:       {j.confirmed} ({j.confirmation_rate:.0%})")
+            click.echo(f"  Rejected:        {j.rejected} ({j.rejection_rate:.0%})")
+            click.echo(f"  Inconclusive:    {j.inconclusive}")
+            if j.expected_tp_rejected:
+                click.echo(f"  ⚠ TPs rejected:  {j.expected_tp_rejected}")
+
+        # Replay stats
+        if full_pipeline and replay_file and provider is not None:
+            from sentinel.core.providers.replay import ReplayProvider
+            if isinstance(provider, ReplayProvider):
+                click.echo("")
+                click.echo(f"Replay: {provider.hits} hits, {provider.misses} misses "
+                           f"({provider.match_rate:.0%} match rate)")
 
         if result.missing:
             click.echo("")

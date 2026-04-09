@@ -137,3 +137,202 @@ class TestFalsePositivePrevention:
             and "README" in f.title
         ]
         assert readme_fps == [], "Valid ../../README.md link was falsely flagged"
+
+
+class TestPerDetectorBreakdown:
+    """Test per-detector precision/recall decomposition."""
+
+    def test_per_detector_results_present(self, eval_result):
+        """Eval result should contain per-detector breakdowns."""
+        assert eval_result.per_detector, "per_detector should be populated"
+
+    def test_per_detector_covers_expected_detectors(self, eval_result, ground_truth):
+        """Every detector in ground truth should have a breakdown entry."""
+        expected_detectors = {e["detector"] for e in ground_truth.get("expected", [])}
+        for det in expected_detectors:
+            assert det in eval_result.per_detector, f"Missing per-detector entry for {det}"
+
+    def test_per_detector_recall_matches_overall(self, eval_result):
+        """Sum of per-detector TPs should equal overall TPs."""
+        total_tp = sum(d.true_positives for d in eval_result.per_detector.values())
+        assert total_tp == eval_result.true_positives
+
+    def test_per_detector_in_to_dict(self, eval_result):
+        """per_detector should appear in serialized output."""
+        data = eval_result.to_dict()
+        assert "per_detector" in data
+        assert len(data["per_detector"]) == len(eval_result.per_detector)
+
+
+class TestFullPipelineEval:
+    """Test full-pipeline evaluation with replay provider."""
+
+    @pytest.fixture(scope="class")
+    def full_pipeline_results(self, ground_truth):
+        """Run full scan with replay provider for judge."""
+        if not FIXTURE_DIR.exists():
+            pytest.skip("sample-repo fixture not found")
+
+        from sentinel.core.providers.replay import ReplayProvider
+
+        # Use a replay provider that confirms all findings
+        replay = ReplayProvider(recordings=[])
+
+        conn = get_connection(":memory:")
+        _, findings, report = run_scan(
+            str(FIXTURE_DIR),
+            conn,
+            skip_judge=False,
+            provider=replay,
+            output_path="/dev/null",
+        )
+        conn.close()
+        return findings, report, replay
+
+    def test_judge_runs_on_all_findings(self, full_pipeline_results):
+        """With full pipeline, every finding should have a judge verdict."""
+        findings, _, _ = full_pipeline_results
+        for f in findings:
+            assert f.context is not None, f"Finding {f.title} has no context"
+            assert "judge_verdict" in f.context, f"Finding {f.title} missing judge_verdict"
+
+    def test_judge_default_confirms_all(self, full_pipeline_results):
+        """Default replay response confirms all findings."""
+        findings, _, _ = full_pipeline_results
+        for f in findings:
+            assert (f.context or {}).get("judge_verdict") == "confirmed", (
+                f"Finding {f.title} not confirmed: {(f.context or {}).get('judge_verdict')}"
+            )
+
+    def test_tps_survive_judge(self, full_pipeline_results, ground_truth):
+        """Expected true positives should still be present after judge."""
+        findings, _, _ = full_pipeline_results
+        result = evaluate(findings, ground_truth, include_judge_metrics=True)
+        assert result.recall >= 0.90, (
+            f"Post-judge recall = {result.recall:.0%}, expected ≥90%"
+        )
+
+    def test_judge_metrics_computed(self, full_pipeline_results, ground_truth):
+        """Judge metrics should be populated in full-pipeline mode."""
+        findings, _, _ = full_pipeline_results
+        result = evaluate(findings, ground_truth, include_judge_metrics=True)
+        assert result.judge is not None
+        assert result.judge.total_judged > 0
+        assert result.judge.confirmed > 0
+        assert result.judge.expected_tp_rejected == 0  # Default replay confirms all
+
+    def test_replay_stats_tracked(self, full_pipeline_results):
+        """Replay provider should track hit/miss counts."""
+        _, _, replay = full_pipeline_results
+        # With empty recordings, all calls should be misses
+        assert replay.misses > 0
+        assert replay.hits == 0
+        assert replay.match_rate == 0.0
+
+
+class TestReplayProvider:
+    """Test ReplayProvider matching and fallback behavior."""
+
+    def test_exact_hash_match(self):
+        """Recordings matched by prompt hash should return recorded response."""
+        import hashlib
+
+        from sentinel.core.providers.replay import ReplayProvider
+
+        prompt = "test prompt content"
+        h = hashlib.sha256(prompt.encode()).hexdigest()[:16]
+        recordings = [{"prompt_hash": h, "response": '{"is_real": false}'}]
+
+        replay = ReplayProvider(recordings)
+        result = replay.generate(prompt)
+        assert result.text == '{"is_real": false}'
+        assert replay.hits == 1
+        assert replay.misses == 0
+
+    def test_hash_miss_returns_default(self):
+        """Unmatched prompts should return the default response."""
+        from sentinel.core.providers.replay import ReplayProvider
+
+        replay = ReplayProvider(recordings=[])
+        result = replay.generate("any prompt")
+        assert "is_real" in result.text
+        assert replay.misses == 1
+
+    def test_from_file(self, tmp_path):
+        """from_file should load recordings from JSON."""
+        import json
+
+        from sentinel.core.providers.replay import ReplayProvider
+
+        recordings_file = tmp_path / "rec.json"
+        data = {"recordings": [
+            {"prompt_hash": "abc123", "response": '{"test": true}'},
+        ]}
+        recordings_file.write_text(json.dumps(data))
+
+        replay = ReplayProvider.from_file(recordings_file)
+        assert "abc123" in replay._responses
+
+    def test_health_always_true(self):
+        """Replay provider should always report healthy."""
+        from sentinel.core.providers.replay import ReplayProvider
+        assert ReplayProvider(recordings=[]).check_health()
+
+    def test_embed_returns_none(self):
+        """Replay provider does not support embeddings."""
+        from sentinel.core.providers.replay import ReplayProvider
+        assert ReplayProvider(recordings=[]).embed(["text"]) is None
+
+
+class TestRecordingProvider:
+    """Test RecordingProvider wrapping and serialization."""
+
+    def test_records_interactions(self):
+        """RecordingProvider should capture prompt hash and response."""
+        from sentinel.core.providers.replay import RecordingProvider
+        from tests.mock_provider import MockProvider
+
+        inner = MockProvider(generate_text='{"is_real": true}')
+        recorder = RecordingProvider(inner)
+
+        recorder.generate("test prompt")
+
+        assert len(recorder.recordings) == 1
+        assert recorder.recordings[0]["response"] == '{"is_real": true}'
+        assert "prompt_hash" in recorder.recordings[0]
+
+    def test_save_and_reload(self, tmp_path):
+        """Saved recordings should be loadable by ReplayProvider."""
+        from sentinel.core.providers.replay import RecordingProvider, ReplayProvider
+        from tests.mock_provider import MockProvider
+
+        inner = MockProvider(generate_text='{"is_real": true, "adjusted_severity": "low"}')
+        recorder = RecordingProvider(inner)
+
+        # Record some interactions
+        recorder.generate("first prompt")
+        recorder.generate("second prompt")
+
+        # Save
+        path = tmp_path / "recordings.json"
+        recorder.save(path)
+
+        # Reload
+        replay = ReplayProvider.from_file(path)
+        assert len(replay._responses) == 2
+
+        # Verify round-trip
+        result = replay.generate("first prompt")
+        assert "is_real" in result.text
+        assert replay.hits == 1
+
+    def test_delegates_to_inner(self):
+        """RecordingProvider should pass through calls to the inner provider."""
+        from sentinel.core.providers.replay import RecordingProvider
+        from tests.mock_provider import MockProvider
+
+        inner = MockProvider(health=True, embed_result=[[1.0, 2.0]])
+        recorder = RecordingProvider(inner)
+
+        assert recorder.check_health() is True
+        assert recorder.embed(["text"]) == [[1.0, 2.0]]

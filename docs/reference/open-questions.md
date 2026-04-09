@@ -42,10 +42,11 @@ Tracked questions that need resolution before or during implementation. Each que
 **Current thinking**: Phase 2. Build as a pluggable detector: SQLFluff for deterministic SQL lint, LLM-assisted prompt for semantic suggestions. Don't build a SQL parser.
 
 ### OQ-013: How should the eval system measure judge and synthesis quality?
-**Status**: Open
+**Status**: Resolved (→ ADR-014, Session 25)
 **Priority**: High
 **Context**: The eval system runs with `skip_judge=True` in both `sentinel eval` and CI tests. The judge, synthesis, and full pipeline — the most business-critical paths — have zero eval coverage. Ground truth only validates raw detector output, not post-judge or post-dedup output. You can't answer "does the morning report contain the right things?" with the current system.
 **Current thinking**: Several options, not mutually exclusive: (1) Record actual LLM responses for the sample-repo fixture and replay them in CI via a mock provider — tests prompt engineering regressions without a live model. (2) Add `--full-pipeline` mode to `eval` that includes judge/dedup/synthesis. (3) Per-detector precision/recall breakdown in `EvalResult` to pinpoint regressions. The replay approach is highest ROI — it creates a deterministic test of the judge path.
+**Resolution**: All three approaches implemented. `sentinel eval --full-pipeline` runs with `skip_judge=False`. `--replay-file` uses ReplayProvider (pre-recorded responses matched by prompt hash) for deterministic CI testing. `--record-responses` wraps a live provider to capture responses for later replay. Per-detector precision/recall breakdown in every eval. Judge metrics (confirmation rate, rejection rate, wrongly-rejected TPs) in full-pipeline mode. See ADR-014.
 
 ### OQ-014: Should there be a ground truth corpus from real-world repos?
 **Status**: Open

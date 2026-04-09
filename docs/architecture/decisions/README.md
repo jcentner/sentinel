@@ -42,11 +42,13 @@ What other options were evaluated and why were they rejected?
 | [010](010-pluggable-model-provider.md) | Pluggable model provider interface | Accepted | 2026-04-07 |
 | [011](011-capability-tier-system.md) | Capability tier system for detectors | Accepted | 2026-04-08 |
 | [012](012-entry-points-plugin-system.md) | Entry-points plugin system for third-party detectors | Accepted | 2026-04-08 |
+| [013](013-per-detector-model-providers.md) | Per-detector model providers | Accepted | 2026-04-09 |
+| [014](014-replay-based-eval.md) | Replay-based eval for judge and synthesis paths | Accepted | 2026-04-10 |
 
 ## Creating a new ADR
 
 1. Copy the template above
-2. Number sequentially (next: 013)
+2. Number sequentially (next: 015)
 3. Create `NNN-short-kebab-title.md`
 4. Add to the index table above
 5. Record the decision in the commit that implements it where possible
