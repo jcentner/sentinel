@@ -243,12 +243,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Already covered by `*.egg-info/` in .gitignore. The directory is not tracked by git (verified via `git ls-files`).
 
 ### TD-036: `num_ctx` is Ollama-specific but in protocol signature
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: Low
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: `num_ctx` (Ollama context window size) is accepted by all three providers in `generate()` but silently ignored by OpenAI and Azure. A user configuring `num_ctx = 8192` for their Azure provider gets no feedback.
-**Impact**: Configuration that appears to work but has no effect. Violates principle of least surprise.
-**Proposed resolution**: Document that `num_ctx` is Ollama-only and ignored by other providers. Add a log warning in cloud providers when `num_ctx` is non-default.
+**Resolution**: Documented in Protocol docstring that `num_ctx` is Ollama-only. Added notes in OpenAI and Azure `generate()` docstrings that it's accepted for protocol compatibility but ignored. The parameter remains in the protocol for Ollama's benefit.
 
 ### TD-037: Web UI shared sqlite3 connection across threads
 **Status**: Resolved (Session 24)

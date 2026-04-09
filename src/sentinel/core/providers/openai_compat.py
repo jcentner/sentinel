@@ -67,7 +67,11 @@ class OpenAICompatibleProvider:
         num_ctx: int = 2048,
         json_output: bool = False,
     ) -> LLMResponse:
-        """Generate text via OpenAI-compatible /v1/chat/completions."""
+        """Generate text via OpenAI-compatible /v1/chat/completions.
+
+        Note: num_ctx is accepted for protocol compatibility but ignored —
+        OpenAI-compatible APIs manage context windows automatically.
+        """
         import httpx
 
         messages: list[dict[str, str]] = []

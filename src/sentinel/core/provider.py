@@ -61,7 +61,8 @@ class ModelProvider(Protocol):
             system: Optional system prompt.
             temperature: Sampling temperature (0.0-1.0).
             max_tokens: Maximum tokens to generate.
-            num_ctx: Context window size hint (provider may ignore).
+            num_ctx: Context window size hint. Only used by Ollama; ignored
+                by OpenAI-compatible and Azure providers (TD-036).
             json_output: Request structured JSON output if supported.
 
         Returns:

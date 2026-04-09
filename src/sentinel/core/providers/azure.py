@@ -145,7 +145,11 @@ class AzureProvider:
         num_ctx: int = 2048,
         json_output: bool = False,
     ) -> LLMResponse:
-        """Generate text via Azure AI Foundry OpenAI v1 API."""
+        """Generate text via Azure AI Foundry OpenAI v1 API.
+
+        Note: num_ctx is accepted for protocol compatibility but ignored —
+        Azure manages context windows automatically.
+        """
         import httpx
 
         messages: list[dict[str, str]] = []
