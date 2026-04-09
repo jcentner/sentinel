@@ -559,6 +559,7 @@ async def scan_page(request: Request) -> Response:
             model_capability=config.model_capability,
             enabled_detectors=config.enabled_detectors or None,
             disabled_detectors=config.disabled_detectors or None,
+            sentinel_config=config if config.detector_providers else None,
         )
 
     try:

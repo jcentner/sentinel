@@ -48,10 +48,10 @@ Tracked questions that need resolution before or during implementation. Each que
 **Resolution**: `sentinel init` enhanced with three mechanisms: (1) `--profile` flag with `minimal` (heuristic-only, no LLM), `standard` (all detectors + basic LLM), and `full` (all detectors + enhanced analysis) presets; (2) `--detectors` flag for explicit comma-separated selection; (3) `--list-detectors` to show available detectors with tiers. Generated config includes `enabled_detectors` list with detector catalog as comments. Default (no flags): all detectors enabled.
 
 ### OQ-012: Should different detectors be able to use different models/providers?
-**Status**: Open
+**Status**: Resolved (→ ADR-013, implementation in config.py, provider.py, runner.py)
 **Priority**: Medium
 **Context**: The user asked: "perhaps we can allow different models for different detectors in the same config?" This would let users run cheap deterministic-adjacent detectors on a local 4B model while routing advanced detectors (intent-drift, arch-drift) to a cloud model like gpt-5.4-nano. Currently, one provider/model pair is used for all LLM calls in a scan.
-**Current thinking**: This is powerful but adds complexity to config and provider wiring. Possible config shape: `[sentinel.detector.semantic-drift] model = "gpt-5.4-nano" provider = "azure"`. The `DetectorContext.config["provider"]` would need to become detector-specific. Alternative: a simpler two-tier approach — a "local" provider for basic detectors and a "cloud" provider for advanced ones. Defer implementation until Phase 9 Slice 5 or later, but design config and context to not preclude it.
+**Resolution**: Implemented via `[sentinel.detector_providers.<name>]` config sections. Each section overrides `provider`, `model`, `api_base`, `api_key_env`, and/or `model_capability` for a specific detector. Empty fields inherit from the global config. The runner resolves per-detector providers with caching (no duplicate connections for identical configs) and restores the global context after each per-detector run. Judge and synthesis always use the global provider.
 
 ### OQ-010: What is the right ModelProvider protocol surface?
 **Status**: Resolved (→ ADR-010, implementation in `src/sentinel/core/provider.py`)

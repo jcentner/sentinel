@@ -115,3 +115,105 @@ def test_rejects_non_string_detector_names(tmp_path):
     )
     with pytest.raises(ConfigError, match="list of strings"):
         load_config(tmp_path)
+
+
+# ── Per-detector provider config (OQ-012) ──────────────────────────
+
+def test_detector_providers_defaults_empty(tmp_path):
+    config = load_config(tmp_path)
+    assert config.detector_providers == {}
+
+
+def test_loads_detector_providers(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        '[sentinel.detector_providers.semantic-drift]\n'
+        'provider = "azure"\n'
+        'model = "gpt-5.4-nano"\n'
+        'api_base = "https://example.services.ai.azure.com"\n'
+    )
+    config = load_config(tmp_path)
+    assert "semantic-drift" in config.detector_providers
+    override = config.detector_providers["semantic-drift"]
+    assert override.provider == "azure"
+    assert override.model == "gpt-5.4-nano"
+    assert override.api_base == "https://example.services.ai.azure.com"
+
+
+def test_detector_providers_partial_override(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        '[sentinel.detector_providers.test-coherence]\n'
+        'model = "llama3:8b"\n'
+    )
+    config = load_config(tmp_path)
+    override = config.detector_providers["test-coherence"]
+    assert override.model == "llama3:8b"
+    assert override.provider == ""  # empty = inherit global
+    assert override.api_base == ""
+
+
+def test_detector_providers_multiple_detectors(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        '[sentinel.detector_providers.semantic-drift]\n'
+        'provider = "azure"\n'
+        'model = "gpt-5.4-nano"\n'
+        '[sentinel.detector_providers.test-coherence]\n'
+        'model = "llama3:8b"\n'
+    )
+    config = load_config(tmp_path)
+    assert len(config.detector_providers) == 2
+    assert config.detector_providers["semantic-drift"].provider == "azure"
+    assert config.detector_providers["test-coherence"].model == "llama3:8b"
+
+
+def test_detector_providers_rejects_unknown_key(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        '[sentinel.detector_providers.semantic-drift]\n'
+        'turbo = true\n'
+    )
+    with pytest.raises(ConfigError, match="unknown key 'turbo'"):
+        load_config(tmp_path)
+
+
+def test_detector_providers_rejects_non_string_value(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        '[sentinel.detector_providers.semantic-drift]\n'
+        'model = 42\n'
+    )
+    with pytest.raises(ConfigError, match="must be a string"):
+        load_config(tmp_path)
+
+
+def test_detector_providers_with_capability_override(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        'model_capability = "basic"\n'
+        '[sentinel.detector_providers.semantic-drift]\n'
+        'provider = "openai"\n'
+        'api_base = "https://api.openai.com"\n'
+        'model_capability = "advanced"\n'
+    )
+    config = load_config(tmp_path)
+    assert config.model_capability == "basic"
+    override = config.detector_providers["semantic-drift"]
+    assert override.model_capability == "advanced"
+
+
+def test_detector_providers_coexists_with_global_config(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        'model = "qwen3.5:4b"\n'
+        'provider = "ollama"\n'
+        '[sentinel.detector_providers.semantic-drift]\n'
+        'provider = "openai"\n'
+        'model = "gpt-5.4-nano"\n'
+        'api_base = "https://api.openai.com"\n'
+    )
+    config = load_config(tmp_path)
+    assert config.provider == "ollama"
+    assert config.model == "qwen3.5:4b"
+    assert config.detector_providers["semantic-drift"].provider == "openai"

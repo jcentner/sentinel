@@ -533,3 +533,97 @@ class TestAzureProvider:
         r = repr(provider)
         assert "AzureProvider" in r
         assert "gpt-5.4-nano" in r
+
+
+# ── Per-detector provider (OQ-012) ───────────────────────────────────
+
+
+class TestCreateProviderForDetector:
+    def test_returns_none_when_no_overrides(self):
+        from sentinel.config import SentinelConfig
+        from sentinel.core.provider import create_provider_for_detector
+
+        config = SentinelConfig()
+        assert create_provider_for_detector("semantic-drift", config) is None
+
+    def test_returns_none_when_detector_not_in_overrides(self):
+        from sentinel.config import ProviderOverride, SentinelConfig
+        from sentinel.core.provider import create_provider_for_detector
+
+        config = SentinelConfig(
+            detector_providers={
+                "test-coherence": ProviderOverride(model="llama3:8b"),
+            },
+        )
+        assert create_provider_for_detector("semantic-drift", config) is None
+
+    def test_returns_none_when_override_matches_global(self):
+        from sentinel.config import ProviderOverride, SentinelConfig
+        from sentinel.core.provider import create_provider_for_detector
+
+        config = SentinelConfig(
+            provider="ollama",
+            model="qwen3.5:4b",
+            detector_providers={
+                "semantic-drift": ProviderOverride(
+                    provider="ollama", model="qwen3.5:4b",
+                ),
+            },
+        )
+        assert create_provider_for_detector("semantic-drift", config) is None
+
+    def test_creates_different_model_same_provider(self):
+        from sentinel.config import ProviderOverride, SentinelConfig
+        from sentinel.core.provider import create_provider_for_detector
+        from sentinel.core.providers.ollama import OllamaProvider
+
+        config = SentinelConfig(
+            provider="ollama",
+            model="qwen3.5:4b",
+            detector_providers={
+                "semantic-drift": ProviderOverride(model="llama3:8b"),
+            },
+        )
+        p = create_provider_for_detector("semantic-drift", config)
+        assert isinstance(p, OllamaProvider)
+        assert p.model == "llama3:8b"
+
+    def test_creates_different_provider(self):
+        from sentinel.config import ProviderOverride, SentinelConfig
+        from sentinel.core.provider import create_provider_for_detector
+        from sentinel.core.providers.openai_compat import OpenAICompatibleProvider
+
+        config = SentinelConfig(
+            provider="ollama",
+            model="qwen3.5:4b",
+            detector_providers={
+                "semantic-drift": ProviderOverride(
+                    provider="openai",
+                    model="gpt-5.4-nano",
+                    api_base="https://api.openai.com",
+                ),
+            },
+        )
+        p = create_provider_for_detector("semantic-drift", config)
+        assert isinstance(p, OpenAICompatibleProvider)
+        assert p.model == "gpt-5.4-nano"
+
+    def test_inherits_global_fields(self):
+        from sentinel.config import ProviderOverride, SentinelConfig
+        from sentinel.core.provider import create_provider_for_detector
+        from sentinel.core.providers.openai_compat import OpenAICompatibleProvider
+
+        config = SentinelConfig(
+            provider="openai",
+            model="gpt-4o-mini",
+            api_base="https://api.openai.com",
+            api_key_env="OPENAI_API_KEY",
+            detector_providers={
+                "semantic-drift": ProviderOverride(model="gpt-5.4-nano"),
+            },
+        )
+        p = create_provider_for_detector("semantic-drift", config)
+        assert isinstance(p, OpenAICompatibleProvider)
+        assert p.model == "gpt-5.4-nano"
+        # api_base inherited from global
+        assert p.api_base == "https://api.openai.com"

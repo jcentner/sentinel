@@ -14,6 +14,39 @@ class ConfigError(ValueError):
 
 
 @dataclass
+class ProviderOverride:
+    """Per-detector provider override configuration.
+
+    Any field left as empty string inherits from the global SentinelConfig.
+    """
+
+    provider: str = ""
+    model: str = ""
+    api_base: str = ""
+    api_key_env: str = ""
+    model_capability: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], detector_name: str, config_file: Path) -> "ProviderOverride":
+        """Create a ProviderOverride from a TOML dict, validating types."""
+        valid_keys = {f.name for f in fields(cls)}
+        for key, value in data.items():
+            if key not in valid_keys:
+                raise ConfigError(
+                    f"{config_file}: unknown key '{key}' in "
+                    f"[sentinel.detector_providers.{detector_name}]. "
+                    f"Valid keys: {', '.join(sorted(valid_keys))}"
+                )
+            if not isinstance(value, str):
+                raise ConfigError(
+                    f"{config_file}: '{key}' in "
+                    f"[sentinel.detector_providers.{detector_name}] "
+                    f"must be a string, got {type(value).__name__}: {value!r}"
+                )
+        return cls(**data)
+
+
+@dataclass
 class SentinelConfig:
     """Runtime configuration for Sentinel."""
 
@@ -34,6 +67,8 @@ class SentinelConfig:
     model_capability: str = "basic"  # none, basic, standard, advanced
     enabled_detectors: list = field(default_factory=list)   # bare list, not list[str] — see _FIELD_TYPES
     disabled_detectors: list = field(default_factory=list)  # bare list, not list[str] — see _FIELD_TYPES
+    # Per-detector provider overrides (OQ-012)
+    detector_providers: dict = field(default_factory=dict)  # dict[str, ProviderOverride]
 
 
 # Expected types for each config field, derived from the dataclass defaults.
@@ -49,6 +84,14 @@ _VALID_CAPABILITIES = frozenset({"none", "basic", "standard", "advanced"})
 def _validate_config(sentinel: dict[str, Any], config_file: Path) -> None:
     """Validate types of sentinel.toml values against the dataclass schema."""
     for key, value in sentinel.items():
+        # detector_providers is a nested dict — validated separately
+        if key == "detector_providers":
+            if not isinstance(value, dict):
+                raise ConfigError(
+                    f"{config_file}: 'detector_providers' must be a table, "
+                    f"got {type(value).__name__}"
+                )
+            continue
         if key not in _FIELD_TYPES:
             raise ConfigError(
                 f"{config_file}: unknown config key '{key}'. "
@@ -96,6 +139,18 @@ def load_config(repo_path: str | Path) -> SentinelConfig:
 
         sentinel = data.get("sentinel", {})
         _validate_config(sentinel, config_file)
+
+        # Parse per-detector provider overrides before setting flat fields
+        raw_dp = sentinel.pop("detector_providers", None)
+        if raw_dp is not None:
+            dp: dict[str, ProviderOverride] = {}
+            for det_name, det_cfg in raw_dp.items():
+                if not isinstance(det_cfg, dict):
+                    raise ConfigError(
+                        f"{config_file}: detector_providers.{det_name} must be a table"
+                    )
+                dp[det_name] = ProviderOverride.from_dict(det_cfg, det_name, config_file)
+            config.detector_providers = dp
 
         for key, value in sentinel.items():
             setattr(config, key, value)

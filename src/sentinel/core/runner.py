@@ -81,6 +81,7 @@ def run_scan(
     model_capability: str = "basic",
     enabled_detectors: list[str] | None = None,
     disabled_detectors: list[str] | None = None,
+    sentinel_config: object | None = None,
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -136,6 +137,30 @@ def run_scan(
         detectors = [d for d in detectors if d.name not in skip_set]
         logger.info("Skipping %d disabled detectors (%d remaining)", before_count - len(detectors), len(detectors))
 
+    # 3c. Build per-detector provider cache (OQ-012)
+    detector_providers: dict[str, ModelProvider] = {}
+    if sentinel_config is not None and not skip_judge:
+        from sentinel.core.provider import create_provider_for_detector
+        for det in detectors:
+            try:
+                det_provider = create_provider_for_detector(det.name, sentinel_config)
+                if det_provider is not None:
+                    detector_providers[det.name] = det_provider
+            except ValueError as exc:
+                logger.warning(
+                    "Could not create per-detector provider for %s: %s — using global",
+                    det.name, exc,
+                )
+
+    # 3d. Resolve per-detector model_capability overrides
+    detector_capabilities: dict[str, str] = {}
+    if sentinel_config is not None:
+        dp_overrides = getattr(sentinel_config, "detector_providers", {})
+        for det_name, override in dp_overrides.items():
+            cap = getattr(override, "model_capability", "")
+            if cap:
+                detector_capabilities[det_name] = cap
+
     all_findings: list[Finding] = []
     raw_cap = ctx.config.get("model_capability", "basic")
     try:
@@ -148,16 +173,41 @@ def run_scan(
     for detector in detectors:
         try:
             det_cap = detector.capability_tier
-            if _TIER_ORDER.get(det_cap, 0) > _TIER_ORDER.get(model_cap, 0):
+            # Use per-detector capability if configured
+            effective_cap_str = detector_capabilities.get(detector.name, "")
+            if effective_cap_str:
+                try:
+                    effective_cap = CapabilityTier(effective_cap_str)
+                except ValueError:
+                    effective_cap = model_cap
+            else:
+                effective_cap = model_cap
+
+            if _TIER_ORDER.get(det_cap, 0) > _TIER_ORDER.get(effective_cap, 0):
                 logger.warning(
                     "Detector %s requires %s capability but model is %s — "
                     "results may be degraded",
-                    detector.name, det_cap.value, model_cap.value,
+                    detector.name, det_cap.value, effective_cap.value,
                 )
+
+            # Swap provider in context for per-detector overrides
+            det_provider = detector_providers.get(detector.name)
+            if det_provider is not None:
+                ctx.config["provider"] = det_provider
+                ctx.config["skip_llm"] = False
+                if effective_cap_str:
+                    ctx.config["model_capability"] = effective_cap_str
+
             logger.info("Running detector: %s", detector.name)
             findings = detector.detect(ctx)
             logger.info("  %s produced %d findings", detector.name, len(findings))
             all_findings.extend(findings)
+
+            # Restore global provider after per-detector run
+            if det_provider is not None:
+                ctx.config["provider"] = provider
+                ctx.config["skip_llm"] = skip_judge or provider is None
+                ctx.config["model_capability"] = model_capability
         except Exception:
             logger.exception("Detector %s failed — skipping", detector.name)
 
