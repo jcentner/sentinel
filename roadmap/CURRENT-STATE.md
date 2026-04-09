@@ -57,6 +57,9 @@ Resolve OQ-013 (eval for judge/synthesis quality) — the highest-priority remai
 1. `aba2ef3` — feat(eval): add full-pipeline eval with replay provider (OQ-013, ADR-014)
 2. `7afaa20` — fix(eval): address review findings — os.devnull, import cleanup, ADR updates
 3. `ea7635d` — docs(vision): update VISION-LOCK v4.6, README test count, quality infra
+4. `57e6adc` — docs(roadmap): update CURRENT-STATE.md for Session 25
+5. `b001a72` — ci(eval): add full-pipeline eval with judge replay to CI
+6. `40a1232` — docs(contributing): fix stale detector registration instructions, update project structure
 
 ### What Remains / Next Priority
 
