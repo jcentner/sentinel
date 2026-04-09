@@ -3,6 +3,7 @@
 **Status**: Accepted
 **Date**: 2026-04-10
 **Supersedes**: —
+**Deciders**: Autonomous builder agent (Session 25)
 **Related**: ADR-008 (eval criteria), OQ-013
 
 ## Context
@@ -36,3 +37,9 @@ Add a **replay-based full-pipeline eval mode** that exercises the judge and synt
 - **Positive**: The judge path now has deterministic CI coverage. Prompt template regressions are detectable. Per-detector breakdown pinpoints precision/recall changes to specific detectors.
 - **Negative**: Replay files must be re-recorded when prompts change or ground truth evolves. Hash-based matching is rigid by design (this is a feature, not a bug).
 - **Trade-off**: The replay default confirms all findings — this is conservative (won't cause false failures) but means hash misses test integration without testing judgment quality.
+
+## Alternatives Considered
+
+1. **Live model in CI**: Run the judge with a real model during CI. Rejected — non-deterministic, requires model access in CI, slow, and flaky.
+2. **Hardcoded mock responses**: Use a single static judge response for all findings. Implemented as the default fallback, but insufficient alone because it doesn't test prompt regression.
+3. **Snapshot testing**: Compare full prompt text against committed snapshots. Rejected — too brittle (any finding content change breaks snapshots), and doesn't test the JSON parsing/severity adjustment logic.

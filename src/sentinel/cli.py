@@ -685,6 +685,9 @@ def eval(
     Use --replay-file to provide pre-recorded judge responses (for CI).
     Use --record-responses to capture judge responses for later replay.
     """
+    import os
+
+    from sentinel.config import load_config
     from sentinel.core.eval import evaluate, load_ground_truth
     from sentinel.core.runner import run_scan
     from sentinel.store.db import get_connection
@@ -709,7 +712,6 @@ def eval(
             from sentinel.core.providers.replay import ReplayProvider
             provider = ReplayProvider.from_file(replay_file)
         else:
-            from sentinel.config import load_config
             from sentinel.core.provider import create_provider
             config = load_config(repo)
             provider = create_provider(config)
@@ -728,8 +730,7 @@ def eval(
     if db:
         db_actual = db
     else:
-        from sentinel.config import load_config as _load_config
-        config = _load_config(repo)
+        config = load_config(repo)
         db_actual = str(repo / config.db_path)
 
     conn = get_connection(db_actual)
@@ -739,7 +740,7 @@ def eval(
             str(repo), conn,
             skip_judge=skip_judge,
             provider=provider,
-            output_path="/dev/null",
+            output_path=os.devnull,
         )
 
         result = evaluate(

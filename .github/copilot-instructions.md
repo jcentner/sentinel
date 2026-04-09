@@ -25,6 +25,8 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - ADR-010: Pluggable model provider interface (Ollama default, OpenAI-compatible supported)
 - ADR-011: Capability tier system for detectors
 - ADR-012: Entry-points plugin system for third-party detectors
+- ADR-013: Per-detector model providers
+- ADR-014: Replay-based eval for judge and synthesis paths
 
 ## Documentation
 
