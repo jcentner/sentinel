@@ -302,14 +302,15 @@ class TestIndexer:
         provider = MockProvider()
         provider.embed = lambda texts: [[0.5] * 4 for _ in texts]
 
-        build_index(str(tmp_path), conn, provider)
-        assert "b.py" in get_indexed_files(conn)
+        repo = str(tmp_path)
+        build_index(repo, conn, provider)
+        assert "b.py" in get_indexed_files(conn, repo_path=repo)
 
         # Delete b.py and re-index
         (tmp_path / "b.py").unlink()
-        stats = build_index(str(tmp_path), conn, provider)
+        stats = build_index(repo, conn, provider)
         assert stats["files_removed"] >= 1
-        assert "b.py" not in get_indexed_files(conn)
+        assert "b.py" not in get_indexed_files(conn, repo_path=repo)
 
         conn.close()
 
@@ -325,6 +326,55 @@ class TestIndexer:
         stats = build_index(str(tmp_path), conn, provider)
         assert stats["files_skipped"] >= 1
         assert chunk_count(conn) == 0
+
+        conn.close()
+
+    def test_multi_repo_isolation(self, tmp_path):
+        """Chunks from different repos are isolated (TD-021 regression test)."""
+        from tests.mock_provider import MockProvider
+
+        # Create two repos with same file names
+        repo_a = tmp_path / "repo_a"
+        repo_b = tmp_path / "repo_b"
+        repo_a.mkdir()
+        repo_b.mkdir()
+        (repo_a / "main.py").write_text("repo A code\n")
+        (repo_b / "main.py").write_text("repo B code\n")
+
+        conn = get_connection(tmp_path / "shared.db")
+        provider = MockProvider()
+        call_count = [0]
+        def counting_embed(texts):
+            call_count[0] += 1
+            return [[float(call_count[0])] * 4 for _ in texts]
+        provider.embed = counting_embed
+
+        # Index both repos into the same DB
+        build_index(str(repo_a), conn, provider)
+        build_index(str(repo_b), conn, provider)
+
+        # Each repo should see only its own files
+        a_files = get_indexed_files(conn, repo_path=str(repo_a))
+        b_files = get_indexed_files(conn, repo_path=str(repo_b))
+        assert a_files == {"main.py"}
+        assert b_files == {"main.py"}
+
+        # Total chunks should be from both repos (not overwritten)
+        assert chunk_count(conn) >= 2
+
+        # Query scoped to repo A should not return repo B content
+        a_results = query_similar(
+            conn, [1.0] * 4, top_k=10, repo_path=str(repo_a),
+        )
+        b_results = query_similar(
+            conn, [1.0] * 4, top_k=10, repo_path=str(repo_b),
+        )
+        a_contents = {r["content"] for r in a_results}
+        b_contents = {r["content"] for r in b_results}
+        assert any("repo A" in c for c in a_contents)
+        assert not any("repo B" in c for c in a_contents)
+        assert any("repo B" in c for c in b_contents)
+        assert not any("repo A" in c for c in b_contents)
 
         conn.close()
 

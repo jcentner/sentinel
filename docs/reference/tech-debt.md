@@ -151,12 +151,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Added `prune_old_data()` in store/findings.py with configurable retention_days. Deletes old llm_log, findings, annotations, runs, and persistence entries. Added `sentinel prune --older-than N` CLI command. Runs VACUUM after deletion.
 
 ### TD-021: `chunks` table has no repo scoping for scan-all
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: High
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: The `chunks` table stores embeddings keyed by `file_path` with no `repo_path` column. In `scan-all` with a shared database, two repos with identically-named files (e.g., `src/main.py`) collide — indexing repo A deletes repo B's chunks via `upsert_chunks`.
-**Impact**: Embedding-based context gathering produces corrupt results for `scan-all` users with overlapping file paths. Data loss is silent.
-**Proposed resolution**: Add a `repo_path` column to the `chunks` table (schema migration v8). Scope all chunk queries by repo. Alternatively, document that `scan-all` doesn't support embedding indexes and skip indexing in multi-repo mode.
+**Resolution**: Added `repo_path` column to `chunks` table (migration v9). All CRUD functions in `store/embeddings.py` now accept `repo_path` parameter. Indexer threads `repo_root` through to storage and scopes `embed_meta` keys by repo. Context gatherer passes `repo_root` to `query_similar()`. Multi-repo isolation test added.
 
 ### TD-022: Migration framework lacks atomicity
 **Status**: Resolved (Session 23)

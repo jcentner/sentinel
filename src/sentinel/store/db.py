@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -174,9 +174,18 @@ CREATE INDEX IF NOT EXISTS idx_annotations_finding_id ON annotations(finding_id)
     ),
     (
         8,
-        "add repo_path index on runs, add repo_path column to chunks",
+        "add repo_path index on runs",
         """\
 CREATE INDEX IF NOT EXISTS idx_runs_repo_path ON runs(repo_path);
+""",
+    ),
+    (
+        9,
+        "add repo_path scoping to chunks table for scan-all correctness (TD-021)",
+        """\
+ALTER TABLE chunks ADD COLUMN repo_path TEXT NOT NULL DEFAULT '';
+DROP INDEX IF EXISTS idx_chunks_file_path;
+CREATE INDEX IF NOT EXISTS idx_chunks_repo_file ON chunks(repo_path, file_path);
 """,
     ),
 ]

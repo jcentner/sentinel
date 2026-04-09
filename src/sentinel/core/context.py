@@ -63,7 +63,7 @@ def gather_context(
         if use_embeddings:
             assert conn is not None
             assert provider is not None
-            _add_embedding_context(f, conn, provider)
+            _add_embedding_context(f, conn, provider, repo_root=repo_root)
     return findings
 
 
@@ -165,6 +165,8 @@ def _add_embedding_context(
     finding: Finding,
     conn: sqlite3.Connection,
     provider: ModelProvider,
+    *,
+    repo_root: str = "",
 ) -> None:
     """Add semantically similar code chunks as evidence via embeddings."""
     from sentinel.store.embeddings import query_similar
@@ -181,6 +183,7 @@ def _add_embedding_context(
         query_vec,
         top_k=_EMBED_TOP_K,
         exclude_file=finding.file_path,
+        repo_path=repo_root,
     )
 
     for r in results:

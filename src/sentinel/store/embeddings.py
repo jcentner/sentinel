@@ -47,22 +47,29 @@ def upsert_chunks(
     file_path: str,
     chunks: list[dict[str, Any]],
     embed_model: str,
+    *,
+    repo_path: str = "",
 ) -> int:
-    """Insert or replace chunks for a given file.
+    """Insert or replace chunks for a given file within a repo.
 
     Each chunk dict has keys: start_line, end_line, content, embedding.
     Returns the number of chunks written.
     """
     now = datetime.now(UTC).isoformat()
-    # Delete old chunks for this file first (simpler than per-chunk upsert)
-    conn.execute("DELETE FROM chunks WHERE file_path = ?", (file_path,))
+    # Delete old chunks for this file in this repo first
+    conn.execute(
+        "DELETE FROM chunks WHERE repo_path = ? AND file_path = ?",
+        (repo_path, file_path),
+    )
 
     for chunk in chunks:
         conn.execute(
             """INSERT INTO chunks
-               (file_path, start_line, end_line, content_hash, content, embedding, embed_model, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (repo_path, file_path, start_line, end_line, content_hash,
+                content, embedding, embed_model, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
+                repo_path,
                 file_path,
                 chunk["start_line"],
                 chunk["end_line"],
@@ -77,16 +84,28 @@ def upsert_chunks(
     return len(chunks)
 
 
-def delete_file_chunks(conn: sqlite3.Connection, file_path: str) -> int:
-    """Delete all chunks for a given file. Returns rows deleted."""
-    cursor = conn.execute("DELETE FROM chunks WHERE file_path = ?", (file_path,))
+def delete_file_chunks(
+    conn: sqlite3.Connection, file_path: str, *, repo_path: str = "",
+) -> int:
+    """Delete all chunks for a given file in a repo. Returns rows deleted."""
+    cursor = conn.execute(
+        "DELETE FROM chunks WHERE repo_path = ? AND file_path = ?",
+        (repo_path, file_path),
+    )
     conn.commit()
     return cursor.rowcount
 
 
-def clear_all_chunks(conn: sqlite3.Connection) -> int:
-    """Delete all chunks. Returns rows deleted."""
-    cursor = conn.execute("DELETE FROM chunks")
+def clear_all_chunks(
+    conn: sqlite3.Connection, *, repo_path: str | None = None,
+) -> int:
+    """Delete all chunks (optionally scoped to a repo). Returns rows deleted."""
+    if repo_path is not None:
+        cursor = conn.execute(
+            "DELETE FROM chunks WHERE repo_path = ?", (repo_path,)
+        )
+    else:
+        cursor = conn.execute("DELETE FROM chunks")
     conn.execute("DELETE FROM embed_meta")
     conn.commit()
     return cursor.rowcount
@@ -97,10 +116,13 @@ def clear_all_chunks(conn: sqlite3.Connection) -> int:
 
 def get_file_content_hashes(
     conn: sqlite3.Connection,
+    *,
+    repo_path: str = "",
 ) -> dict[str, set[str]]:
-    """Return {file_path: {content_hash, ...}} for all indexed files."""
+    """Return {file_path: {content_hash, ...}} for indexed files in a repo."""
     rows = conn.execute(
-        "SELECT file_path, content_hash FROM chunks"
+        "SELECT file_path, content_hash FROM chunks WHERE repo_path = ?",
+        (repo_path,),
     ).fetchall()
     result: dict[str, set[str]] = {}
     for row in rows:
@@ -108,15 +130,26 @@ def get_file_content_hashes(
     return result
 
 
-def get_indexed_files(conn: sqlite3.Connection) -> set[str]:
-    """Return the set of file paths that have at least one chunk."""
-    rows = conn.execute("SELECT DISTINCT file_path FROM chunks").fetchall()
+def get_indexed_files(
+    conn: sqlite3.Connection, *, repo_path: str = "",
+) -> set[str]:
+    """Return the set of file paths that have at least one chunk in a repo."""
+    rows = conn.execute(
+        "SELECT DISTINCT file_path FROM chunks WHERE repo_path = ?",
+        (repo_path,),
+    ).fetchall()
     return {row["file_path"] for row in rows}
 
 
-def chunk_count(conn: sqlite3.Connection) -> int:
-    """Return the total number of stored chunks."""
-    row = conn.execute("SELECT COUNT(*) AS cnt FROM chunks").fetchone()
+def chunk_count(conn: sqlite3.Connection, *, repo_path: str | None = None) -> int:
+    """Return the total number of stored chunks (optionally scoped to a repo)."""
+    if repo_path is not None:
+        row = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM chunks WHERE repo_path = ?",
+            (repo_path,),
+        ).fetchone()
+    else:
+        row = conn.execute("SELECT COUNT(*) AS cnt FROM chunks").fetchone()
     return int(row["cnt"])
 
 
@@ -125,13 +158,15 @@ def query_similar(
     query_vec: list[float],
     top_k: int = 5,
     exclude_file: str | None = None,
+    *,
+    repo_path: str = "",
 ) -> list[dict[str, Any]]:
-    """Find the top-k most similar chunks to a query vector.
+    """Find the top-k most similar chunks to a query vector within a repo.
 
     Returns a list of dicts with keys: file_path, start_line, end_line,
     content, similarity.
     """
-    total = chunk_count(conn)
+    total = chunk_count(conn, repo_path=repo_path)
     if total > 50_000:
         logger.warning(
             "Embedding index has %d chunks — consider switching to sqlite-vec "
@@ -142,12 +177,14 @@ def query_similar(
     if exclude_file:
         rows = conn.execute(
             "SELECT file_path, start_line, end_line, content, embedding "
-            "FROM chunks WHERE file_path != ?",
-            (exclude_file,),
+            "FROM chunks WHERE repo_path = ? AND file_path != ?",
+            (repo_path, exclude_file),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT file_path, start_line, end_line, content, embedding FROM chunks"
+            "SELECT file_path, start_line, end_line, content, embedding "
+            "FROM chunks WHERE repo_path = ?",
+            (repo_path,),
         ).fetchall()
 
     scored = []

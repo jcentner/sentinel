@@ -148,19 +148,20 @@ def build_index(
         fhash = _file_content_hash(f)
         current_files[rel] = (f, fhash)
 
-    # Get existing indexed files
-    indexed_files = get_indexed_files(conn)
+    # Get existing indexed files for this repo
+    repo_path_str = str(root)
+    indexed_files = get_indexed_files(conn, repo_path=repo_path_str)
 
     # Remove chunks for files that no longer exist
     for old_path in indexed_files - set(current_files.keys()):
-        delete_file_chunks(conn, old_path)
+        delete_file_chunks(conn, old_path, repo_path=repo_path_str)
         stats["files_removed"] += 1
 
     # Check which files need (re-)indexing by comparing stored content hashes
-    # We use the embed_meta table to store per-file hashes
+    # We use the embed_meta table to store per-file hashes (scoped by repo)
     files_to_index: list[tuple[str, Path]] = []
     for rel_path, (abs_path, fhash) in current_files.items():
-        stored_hash = _get_file_hash(conn, rel_path)
+        stored_hash = _get_file_hash(conn, rel_path, repo_path=repo_path_str)
         if stored_hash != fhash:
             files_to_index.append((rel_path, abs_path))
 
@@ -212,9 +213,10 @@ def build_index(
         else:
             # All batches succeeded — store chunks
             n = upsert_chunks(conn, rel_path, all_embedded_chunks,
-                              getattr(provider, 'embed_model', str(provider)))
+                              getattr(provider, 'embed_model', str(provider)),
+                              repo_path=repo_path_str)
             fhash = current_files[rel_path][1]
-            _set_file_hash(conn, rel_path, fhash)
+            _set_file_hash(conn, rel_path, fhash, repo_path=repo_path_str)
             stats["files_indexed"] += 1
             stats["chunks_created"] += n
             logger.debug("Indexed %s: %d chunks", rel_path, n)
@@ -228,19 +230,23 @@ def build_index(
     return stats
 
 
-def _get_file_hash(conn: sqlite3.Connection, file_path: str) -> str | None:
-    """Get stored content hash for a file."""
+def _get_file_hash(
+    conn: sqlite3.Connection, file_path: str, *, repo_path: str = "",
+) -> str | None:
+    """Get stored content hash for a file (scoped by repo)."""
     row = conn.execute(
         "SELECT value FROM embed_meta WHERE key = ?",
-        (f"file_hash:{file_path}",),
+        (f"file_hash:{repo_path}:{file_path}",),
     ).fetchone()
     return row["value"] if row else None
 
 
-def _set_file_hash(conn: sqlite3.Connection, file_path: str, fhash: str) -> None:
-    """Store content hash for a file."""
+def _set_file_hash(
+    conn: sqlite3.Connection, file_path: str, fhash: str, *, repo_path: str = "",
+) -> None:
+    """Store content hash for a file (scoped by repo)."""
     conn.execute(
         "INSERT OR REPLACE INTO embed_meta (key, value) VALUES (?, ?)",
-        (f"file_hash:{file_path}", fhash),
+        (f"file_hash:{repo_path}:{file_path}", fhash),
     )
     conn.commit()
