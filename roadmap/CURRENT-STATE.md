@@ -1,8 +1,88 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-09 — Phase 10 depth session
+> Last updated: 2026-04-09 — Systemic review session
 
 ## Latest Session Summary
+
+### Current Objective
+Full systemic review of all 8 major feature areas in Sentinel, documenting findings per repo conventions.
+
+### What Was Accomplished
+
+#### Systemic Review (8 deep-dive analyses)
+Deep-dive architectural and strategic reviews were conducted across:
+1. **Benchmarking & Evaluation** — ground truth robustness, metric usefulness, regression detection
+2. **Detector System** — ABC design, capability tiers, plugin system, value distribution
+3. **Model Provider Abstraction** — protocol design, provider parity, per-detector overrides
+4. **Core Pipeline** — fingerprinting, dedup, judge, synthesis, report
+5. **CLI & Web UI** — command design, AI agent usability, web architecture
+6. **State Store & Configuration** — schema, migrations, config validation, data lifecycle
+7. **Documentation & Coherence** — internal consistency, staleness, authority hierarchy
+8. **GitHub Integration & Packaging** — issue creation, CI/CD, security, PyPI readiness
+
+#### Findings Documented
+- **26 new tech debt items** (TD-013 through TD-038) covering:
+  - 6 High severity: CSRF (TD-013), eval CI gate (TD-014), unbounded fingerprints (TD-015), plugin collision bug (TD-017), data lifecycle (TD-020), chunks repo scoping (TD-021), web security (TD-025)
+  - 12 Medium severity: serial judge (TD-016), mutable context (TD-018), error model (TD-019), migration atomicity (TD-022), missing findings command (TD-023), retry logic (TD-026), detector imports (TD-027), untested LLM paths (TD-028), confidence filtering (TD-030), file rename fingerprints (TD-031), release workflow (TD-034), web connection sharing (TD-037)
+  - 8 Low severity: JSON envelope (TD-024), judge parse visibility (TD-029), synthesis gating (TD-032), Google Fonts (TD-033), stale egg-info (TD-035), num_ctx leak (TD-036), repo_path index (TD-038)
+
+- **4 new open questions** (OQ-013 through OQ-016):
+  - OQ-013 (High): How to measure judge/synthesis quality in eval
+  - OQ-014 (Medium): Real-world ground truth corpus
+  - OQ-015 (High): Data lifecycle strategy for SQLite store
+  - OQ-016 (Low): generate() protocol evolution for message lists
+
+#### Glossary Corrections
+- Fixed init profile names: `minimal/local/cloud` → `minimal/standard/full`
+- Fixed Azure provider description: `api_key` → Entra ID auth
+- Added 6 missing terms: benchmark, per-detector provider, ProviderOverride, ground truth, COMMON_SKIP_DIRS
+
+### Verification
+- All documentation changes follow repo conventions (TD format, OQ format, glossary table)
+- Cross-referenced findings back to specific source files and code paths
+- Severity ratings consistent with impact assessment
+
+### Repository State
+- **Tests**: 971 passing (unchanged — no code changes this session)
+- **VISION-LOCK**: v4.5 (unchanged)
+- **Tech debt items**: 38 total (12 active → 38 active, minus 8 resolved)
+- **Open questions**: 16 total (1 open → 5 open, 11 resolved)
+- **ADRs**: 13
+
+### What Remains / Next Priority (from review)
+
+#### Tier 1 — Must fix before distribution
+1. CSRF protection on web UI (TD-013, TD-025)
+2. Add `sentinel findings --run <id>` command (TD-023)
+3. Web scan path validation (TD-025)
+
+#### Tier 2 — Highest ROI structural improvements
+4. CI eval gate (TD-014)
+5. Fix plugin collision resolution (TD-017)
+6. Time-bound fingerprint query (TD-015)
+7. Per-detector context copies (TD-018)
+8. Data lifecycle / llm_log retention (TD-020, OQ-015)
+9. Chunks table repo scoping (TD-021)
+
+#### Tier 3 — Quality improvements
+10. Document generate() error contract (TD-019)
+11. Single-source-of-truth sweep for docs (vision lock counts, provider counts)
+12. Confidence-based filtering (TD-030)
+13. Batch LLM judge calls (TD-016)
+14. Mock-provider tests for LLM detectors (TD-028)
+15. Dynamic detector package discovery (TD-027)
+16. Cloud provider retry logic (TD-026)
+
+#### Tier 4 — Polish
+17. Release CI workflow (TD-034)
+18. Trim CURRENT-STATE.md historical sessions
+19. Doctor config/model validation
+20. Standardize JSON error envelope (TD-024)
+21. Contributor reading guide
+
+---
+
+## Previous Session Summary
 
 ### Current Objective
 Resolve TD-012, OQ-012, implement benchmarking system, expand test fixture coverage, update project history.

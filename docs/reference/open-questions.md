@@ -41,6 +41,30 @@ Tracked questions that need resolution before or during implementation. Each que
 **Context**: Detecting queries that should use CTEs, N+1 patterns, etc. SQLFluff handles SQL style linting. Semantic anti-patterns (CTE suggestions, cross-file N+1) require understanding intent.
 **Current thinking**: Phase 2. Build as a pluggable detector: SQLFluff for deterministic SQL lint, LLM-assisted prompt for semantic suggestions. Don't build a SQL parser.
 
+### OQ-013: How should the eval system measure judge and synthesis quality?
+**Status**: Open
+**Priority**: High
+**Context**: The eval system runs with `skip_judge=True` in both `sentinel eval` and CI tests. The judge, synthesis, and full pipeline — the most business-critical paths — have zero eval coverage. Ground truth only validates raw detector output, not post-judge or post-dedup output. You can't answer "does the morning report contain the right things?" with the current system.
+**Current thinking**: Several options, not mutually exclusive: (1) Record actual LLM responses for the sample-repo fixture and replay them in CI via a mock provider — tests prompt engineering regressions without a live model. (2) Add `--full-pipeline` mode to `eval` that includes judge/dedup/synthesis. (3) Per-detector precision/recall breakdown in `EvalResult` to pinpoint regressions. The replay approach is highest ROI — it creates a deterministic test of the judge path.
+
+### OQ-014: Should there be a ground truth corpus from real-world repos?
+**Status**: Open
+**Priority**: Medium
+**Context**: The 30-item sample-repo ground truth is self-fulfilling — the fixture was designed to match what detectors can detect. 100% precision/recall proves detectors find planted items, not real bugs. The tsgbuilder benchmark (134 findings from a production repo) has no ground truth, so it only measures counts and timing. No LLM-assisted detectors (`semantic-drift`, `test-coherence`) have ground truth at all.
+**Current thinking**: Annotate 20-30 hand-verified findings from tsgbuilder as a start. Add a "clean repo" fixture (zero expected findings) to directly measure false positive rate. Both break the self-fulfilling prophecy without requiring a large investment.
+
+### OQ-015: What data lifecycle strategy should the SQLite store use?
+**Status**: Open
+**Priority**: High
+**Context**: No mechanism controls data growth (TD-020). `llm_log` stores full prompt+response text per LLM call (~50+ MB/year per repo). `finding_persistence` grows monotonically. The historical fingerprint query (TD-015) loads all fingerprints ever seen. There's no `sentinel prune`, no retention policy, no VACUUM.
+**Current thinking**: Configurable `retention_days` in sentinel.toml (default 90) applied automatically at scan start. `sentinel prune --older-than 90d` for manual cleanup. Time-bound the fingerprint query to the retention window. Auto-VACUUM after significant deletion. The `chunks` table is already managed (delete-replace on upsert).
+
+### OQ-016: Should the generate() protocol evolve to support message lists?
+**Status**: Open
+**Priority**: Low
+**Context**: The `ModelProvider.generate(prompt, system=...)` interface uses a flat prompt string as the lowest common denominator. This works today because all callers construct single-turn prompts. But it closes the door on multi-turn context (few-shot examples as assistant turns), tool use / function calling, and multimodal inputs. The system prompt kwarg is a partial mitigation.
+**Current thinking**: Not urgent — no current caller needs it. Plan for either `generate_chat(messages: list[dict])` or evolving `prompt` to `prompt: str | list[dict[str, str]]` when the first multi-turn use case arrives. Document as a known limitation until then.
+
 ### OQ-011: How should the first-run setup flow guide detector and model selection?
 **Status**: Resolved
 **Priority**: High
