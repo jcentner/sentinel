@@ -18,6 +18,7 @@
 | Apr 7, morning | **Session 19**: Real-world validation on external repo (wyoclear). 7 commits fixing FPs. 614→626 tests |
 | Apr 7, afternoon | **Session 20**: Strategic recalibration. Vision lock v3.0 — cross-artifact analysis as core differentiator |
 | Apr 7 (late) | Template extraction — autonomous workflow extracted into reusable copier template |
+| Apr 9 | **Phase 10**: Git-hotspots enrichment (TD-012), per-detector providers (OQ-012+ADR-013), benchmarking system, sample-repo expansion (7/14 detectors). 630→971 tests |
 
 **Total wall-clock from first code commit to feature-complete MVP: ~12 hours across one day.**
 **Total from brainstorm to 630 tests and strategic maturity: ~10 days, ~20 autonomous sessions.**
@@ -349,3 +350,84 @@ The core product is complete and validated on external repos. What remains is st
 - **Real-world validation on Go/Rust repos** — detectors exist but haven't been battle-tested outside unit tests
 
 The system scans repos, produces useful morning reports, creates GitHub issues after human approval, and — most importantly — finds cross-artifact issues that no other tool catches. The autonomous development workflow that built it is now a reusable template.
+
+## Phase 10: Depth Over Breadth (Apr 9)
+
+After a strategic pause, work resumed with a focus on making the existing system more capable and measurable rather than adding new features.
+
+### TD-012: Git-Hotspots Enrichment
+
+The git-hotspots detector was flagging files with high churn but providing no insight into *why* the churn mattered. A file touched 30 times could be under active development (fine) or a chronic bug target (concerning). The detector now classifies commit messages into categories:
+
+- **fix/bugfix**: `fix`, `bug`, `patch`, `hotfix`, `resolve`, `repair` — and their common misspellings
+- **refactor**: `refactor`, `restructure`, `reorganize`, `rename`, `simplify`, `cleanup`
+- **feature**: `feat`, `feature`, `implement`, `introduce`, `support`
+
+When a file has 15+ commits with >50% classified as bug fixes, severity escalates from LOW to MEDIUM — signaling a chronic problem area rather than routine development. The enrichment adds author count summaries and dominant commit-type context to each finding.
+
+Initial regex patterns were too aggressive — `error`, `issue`, `move`, `add`, `new` all caused false classification. The code review caught this and the patterns were tightened to conservative terms only.
+
+### OQ-012: Per-Detector Model Providers
+
+A long-standing open question: should different detectors use different models? The docs-drift detector works fine with a 4B model, but the semantic analysis detectors might benefit from larger models without slowing down the entire pipeline.
+
+The solution: a `[sentinel.detector_providers]` config section in `sentinel.toml`:
+
+```toml
+[sentinel.detector_providers.semantic-drift]
+provider = "openai"
+model = "gpt-4o-mini"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+model_capability = "advanced"
+```
+
+Each detector can have its own provider, model, and capability tier. Fields not specified inherit from the global config. The runner swaps the provider in the context before each detector runs and restores it afterward — using `try/finally` to prevent provider leaks if a detector crashes.
+
+This was recorded as ADR-013.
+
+### The Code Review That Mattered
+
+Running the reviewer subagent after the TD-012 + OQ-012 slice caught a critical bug: the runner's provider restore wasn't exception-safe. If a detector with a per-detector provider raised an exception, the override provider would leak to all subsequent detectors. Five other issues were caught and fixed in the same pass.
+
+**Key lesson reinforced**: The reviewer subagent pays for itself. The bugs it catches are exactly the kind that surface in production months later as mysterious behavior changes — "why is detector X using the wrong model?"
+
+### Benchmarking System
+
+The project had no way to measure detector performance across models or track it over time. Three components were built:
+
+1. **`sentinel benchmark <repo>`** — a CLI command that runs all detectors with timing, produces per-detector stats, and evaluates against ground truth when available
+2. **TOML output format** — human-readable, machine-parseable results saved to `benchmarks/`
+3. **`--compare` mode** — side-by-side markdown tables comparing multiple benchmark runs
+
+First benchmark results on the sample-repo fixture: **32 findings, 100% precision, 100% recall** (deterministic only). Against tsgbuilder (a real Flask web app): 134 findings across 7 active detectors in 14 seconds.
+
+The reviewer caught TOML string injection (unescaped quotes in file paths would produce invalid TOML) and lossy eval serialization (list data was silently converted to counts). Both were fixed.
+
+### Sample Repo Expansion
+
+The test fixture exercised only 4 of 14 detectors. Added:
+
+- **`processing.py`**: A deliberately complex function (CC=21, 76 lines) and a long function (65 lines) for the complexity detector
+- **`.env.example`**: 4 stale vars + 1 undocumented var for the stale-env detector
+- **`config.py` updates**: `os.getenv`/`os.environ.get` calls to exercise stale-env's cross-reference logic
+
+Ground truth expanded from 17 to 30 expected findings, now covering complexity, stale-env, unused-deps, dead-code, docs-drift, lint-runner, and todo-scanner — **7 of 14 detectors** (was 4/14).
+
+### The Numbers
+
+| Metric | Session 20 (Apr 7) | Current (Apr 9) |
+|--------|---------------------|------------------|
+| Tests passing | 630 | 971 |
+| Detectors | 14 | 14 |
+| Ground truth coverage | 4/14 detectors | 7/14 detectors |
+| Sample repo findings | 17 expected | 30 expected |
+| ADRs | 12 | 13 |
+| Git commits | 155 | ~163 |
+| Benchmark results tracked | 0 | 2 (sample-repo, tsgbuilder) |
+
+### What this session proved
+
+1. **The reviewer-first workflow works.** Three review-fix cycles across this session caught real bugs (exception safety, injection, lossy data) before they could ossify.
+2. **Benchmarking enables data-driven decisions.** Now we can measure whether switching from qwen3.5:4b to a larger model actually improves recall — not just hope it does.
+3. **Fixture expansion is high-leverage testing work.** Going from 4/14 to 7/14 detectors covered by ground truth means future changes to the eval system or detector pipeline have much broader regression coverage.
