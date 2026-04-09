@@ -235,12 +235,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Bundle the font files as static assets in the web package, or degrade gracefully to system fonts when offline.
 
 ### TD-034: No release/publish CI workflow
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: Medium
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: No `.github/workflows/release.yml` exists. CI installs in editable mode only — no wheel build test, no installation-from-wheel smoke test, no PyPI publish step. No security scanning (Dependabot, CodeQL, pip-audit) on Sentinel's own dependencies.
-**Impact**: Packaging bugs won't surface until a user does `pip install local-repo-sentinel`. No path to automated releases. Blocks PyPI publication goal.
-**Proposed resolution**: (1) Add a release workflow: build wheel → install in clean venv → run smoke test → publish on tag. (2) Add Dependabot config. (3) Run `pip-audit` on Sentinel's own deps in CI.
+**Resolution**: Created `.github/workflows/release.yml`. Triggers on `v*` tags. Builds wheel with `python -m build`, installs and smoke-tests the wheel, then publishes to PyPI via trusted publishing (OIDC, no API keys). Requires `pypi` environment to be configured in GitHub repo settings. Dependabot/pip-audit deferred — tracked separately if needed.
 
 ### TD-035: Stale egg-info checked into repo
 **Status**: Resolved (Session 23)
