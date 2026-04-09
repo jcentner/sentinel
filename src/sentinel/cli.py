@@ -1123,3 +1123,139 @@ def doctor(output_json: bool) -> None:
         ok = sum(1 for r in results if r["status"] == "ok")
         click.echo(f"\n{ok}/{len(results)} checks passed")
 
+
+@main.command()
+@click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
+@click.option("--model", default=None, help="Model name (recorded in results)")
+@click.option("--provider", "provider_name", default=None, help="Provider: ollama, openai, azure")
+@click.option("--api-base", default=None, help="API base URL for openai/azure provider")
+@click.option("--skip-judge", is_flag=True, help="Skip LLM-assisted detectors (deterministic only)")
+@click.option("--capability", default=None, help="Model capability tier: none, basic, standard, advanced")
+@click.option("--ground-truth", default=None, type=click.Path(), help="Path to ground-truth.toml for eval")
+@click.option("--output-dir", default="benchmarks", help="Directory to save results (default: benchmarks/)")
+@click.option("--detectors", "detector_names", default=None, help="Comma-separated list of detectors")
+@click.option("--skip-detectors", "skip_detector_names", default=None, help="Comma-separated list to skip")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+@click.option("--compare", multiple=True, type=click.Path(exists=True), help="TOML files to compare (repeatable)")
+def benchmark(
+    repo_path: str,
+    model: str | None,
+    provider_name: str | None,
+    api_base: str | None,
+    skip_judge: bool,
+    capability: str | None,
+    ground_truth: str | None,
+    output_dir: str,
+    detector_names: str | None,
+    skip_detector_names: str | None,
+    output_json: bool,
+    compare: tuple[str, ...],
+) -> None:
+    """Benchmark detectors against a repository with timing and stats.
+
+    Results are saved to TOML files in --output-dir for tracking over time.
+    Use --compare to compare multiple saved benchmarks.
+    """
+    # Compare mode
+    if compare:
+        from sentinel.core.benchmark import compare_benchmarks
+        report = compare_benchmarks(list(compare))
+        click.echo(report)
+        return
+
+    from sentinel.config import load_config
+    from sentinel.core.benchmark import run_benchmark, save_benchmark
+
+    repo = Path(repo_path).resolve()
+    config = load_config(repo)
+
+    # Apply overrides
+    if provider_name:
+        config.provider = provider_name
+    if model:
+        config.model = model
+    if api_base:
+        config.api_base = api_base
+    if capability:
+        config.model_capability = capability
+
+    # Create provider if not skip_judge
+    provider = None
+    if not skip_judge:
+        try:
+            from sentinel.core.provider import create_provider
+            provider = create_provider(config)
+        except ValueError as exc:
+            logging.getLogger(__name__).warning(
+                "Could not create provider: %s — running without LLM", exc,
+            )
+
+    # Parse detector filters
+    enabled = [d.strip() for d in detector_names.split(",") if d.strip()] if detector_names else None
+    disabled = [d.strip() for d in skip_detector_names.split(",") if d.strip()] if skip_detector_names else None
+
+    # Auto-detect ground truth
+    if ground_truth is None:
+        auto_gt = repo / "ground-truth.toml"
+        if auto_gt.exists():
+            ground_truth = str(auto_gt)
+
+    click.echo(f"Benchmarking {repo} with {config.provider}/{config.model}...")
+
+    result = run_benchmark(
+        str(repo),
+        provider=provider,
+        skip_judge=skip_judge,
+        model=config.model,
+        provider_name=config.provider,
+        model_capability=config.model_capability,
+        num_ctx=config.num_ctx,
+        enabled_detectors=enabled,
+        disabled_detectors=disabled,
+        detectors_dir=config.detectors_dir,
+        ground_truth_path=ground_truth,
+    )
+
+    # Save results
+    saved_path = save_benchmark(result, output_dir)
+
+    if output_json:
+        import json as json_mod
+        click.echo(json_mod.dumps({
+            "benchmark": {
+                "repo_path": result.repo_path,
+                "model": result.model,
+                "provider": result.provider,
+                "total_findings": result.total_findings,
+                "total_duration_ms": result.total_duration_ms,
+                "detector_count": result.detector_count,
+                "saved_to": saved_path,
+            },
+            "detectors": [
+                {"name": d.name, "findings": d.finding_count, "duration_ms": d.duration_ms}
+                for d in result.detectors
+            ],
+            "eval": result.eval_result,
+        }, indent=2))
+    else:
+        click.echo(f"\nResults ({result.total_duration_ms:.0f}ms total):")
+        click.echo(f"  Model: {result.model} ({result.provider})")
+        click.echo(f"  Detectors: {result.detector_count}")
+        click.echo(f"  Findings: {result.total_findings}")
+        click.echo("")
+        click.echo("  Per-detector:")
+        for d in sorted(result.detectors, key=lambda x: -x.finding_count):
+            status = f"{d.finding_count} findings" if d.finding_count >= 0 else "FAILED"
+            click.echo(f"    {d.name:25s} {status:>15s} ({d.duration_ms:.0f}ms)")
+
+        if result.eval_result:
+            click.echo("")
+            click.echo("  Eval (ground truth):")
+            click.echo(f"    Precision: {result.eval_result['precision']:.0%}")
+            click.echo(f"    Recall:    {result.eval_result['recall']:.0%}")
+            click.echo(f"    TPs: {result.eval_result['true_positives']}, "
+                        f"FPs: {result.eval_result['false_positives_found']}, "
+                        f"Missing: {len(result.eval_result['missing'])}")
+
+        click.echo(f"\nSaved to: {saved_path}")
+
