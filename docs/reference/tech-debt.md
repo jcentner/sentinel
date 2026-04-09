@@ -105,12 +105,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Added CSRF middleware (`src/sentinel/web/csrf.py`) using HMAC-signed tokens with per-process secrets. Cookie set on GET, validated via X-CSRF-Token header or form field on POST. SameSite=Strict. HTMX configured to auto-include token. All web tests updated with CSRF-aware test client.
 
 ### TD-014: No automated eval regression gate in CI
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: High
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: The eval system can produce precision/recall metrics, but there is no CI step that gates on these metrics. A detector regression (lower precision, new FPs) would only be caught by manual inspection of `sentinel eval-history`.
-**Impact**: Quality regressions can ship undetected. The eval system measures but doesn't protect.
-**Proposed resolution**: Add a CI step that runs `sentinel eval` against the sample-repo fixture and fails the build if precision or recall drops below configured thresholds. The `eval` command already exits non-zero on target miss — just needs CI integration.
+**Resolution**: Added `sentinel eval tests/fixtures/sample-repo --json-output eval-result.json` step to `.github/workflows/ci.yml`. Runs after tests, exits non-zero if precision < 70% or recall < 90%. Eval result uploaded as CI artifact.
 
 ### TD-015: Unbounded historical fingerprint query
 **Status**: Resolved (Session 23)

@@ -39,9 +39,19 @@ jobs:
       - name: Run tests with coverage
         run: pytest --tb=short -q --cov=sentinel --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
+      - name: Eval regression gate
+        run: sentinel eval tests/fixtures/sample-repo --json-output eval-result.json
+
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
+
+      - name: Upload eval result
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-result
+          path: eval-result.json

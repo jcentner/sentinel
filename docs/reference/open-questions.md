@@ -54,10 +54,10 @@ Tracked questions that need resolution before or during implementation. Each que
 **Current thinking**: Annotate 20-30 hand-verified findings from tsgbuilder as a start. Add a "clean repo" fixture (zero expected findings) to directly measure false positive rate. Both break the self-fulfilling prophecy without requiring a large investment.
 
 ### OQ-015: What data lifecycle strategy should the SQLite store use?
-**Status**: Open
+**Status**: Resolved (TD-020, Session 23)
 **Priority**: High
 **Context**: No mechanism controls data growth (TD-020). `llm_log` stores full prompt+response text per LLM call (~50+ MB/year per repo). `finding_persistence` grows monotonically. The historical fingerprint query (TD-015) loads all fingerprints ever seen. There's no `sentinel prune`, no retention policy, no VACUUM.
-**Current thinking**: Configurable `retention_days` in sentinel.toml (default 90) applied automatically at scan start. `sentinel prune --older-than 90d` for manual cleanup. Time-bound the fingerprint query to the retention window. Auto-VACUUM after significant deletion. The `chunks` table is already managed (delete-replace on upsert).
+**Resolution**: Implemented via TD-020 and TD-015 fixes. `prune_old_data()` in `store/findings.py` deletes old llm_log, annotations, findings, runs, and persistence entries with configurable `retention_days` (default 90). `sentinel prune --older-than N` CLI command for manual cleanup. `get_known_fingerprints()` time-bounded to retention window. VACUUM runs after deletion. Suppressions (user decisions) are preserved.
 
 ### OQ-016: Should the generate() protocol evolve to support message lists?
 **Status**: Open
