@@ -31,6 +31,27 @@ Used by the eval test to measure precision@k and recall.
 15. **src/myapp/config.py:5** — Unused constant: `SECRET_KEY` (never imported elsewhere)
 16. **src/myapp/config.py:6** — Unused constant: `DEBUG` (never imported elsewhere)
 17. **src/myapp/main.py:27** — Unused function: `helper` (never imported elsewhere)
+18. **src/myapp/processing.py** — Unused function: `process_records` (never imported)
+19. **src/myapp/processing.py** — Unused function: `long_report_generator` (never imported)
+20. **src/myapp/config.py** — Unused constant: `REDIS_URL` (never imported elsewhere)
+
+### complexity: high cyclomatic complexity and long functions
+21. **src/myapp/processing.py** — `process_records` CC=21, 76 lines (HIGH)
+22. **src/myapp/processing.py** — `long_report_generator` 65 lines (LOW)
+
+### stale-env: documented vars not used in code
+23. **`.env.example`** — `ENABLE_CACHE` documented but never referenced in source
+24. **`.env.example`** — `LOG_LEVEL` documented but never referenced in source
+25. **`.env.example`** — `MY_API_KEY` documented but never referenced in source
+26. **`.env.example`** — `WEBHOOK_SECRET` documented but never referenced in source
+
+### stale-env: undocumented env var
+27. **`.env.example`** — `REDIS_URL` used in code but not documented in `.env.example`
+
+### unused-deps: declared dependencies not imported in source
+28. **pyproject.toml** — `click` declared but never imported
+29. **pyproject.toml** — `httpx` declared but never imported
+30. **pyproject.toml** — `sqlalchemy` declared but never imported
 
 ## Expected TRUE NEGATIVES (scanner should NOT find these)
 
@@ -56,4 +77,6 @@ Used by the eval test to measure precision@k and recall.
 
 ## Stretch goals (known limitations, may not detect)
 
-(None remaining — indented fence parsing was implemented in Session 4.)
+### Detectors excluded from eval (by design)
+- **dep-audit**: Requires real `pip-audit` execution against installed packages
+- **git-hotspots**: Requires git history with multiple commits (fixture is flat directory)

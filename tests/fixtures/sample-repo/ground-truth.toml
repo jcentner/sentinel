@@ -110,6 +110,76 @@ detector = "dead-code"
 file_path = "main.py"
 title = "helper"
 
+# dead-code: new findings from processing.py and config.py
+[[expected]]
+detector = "dead-code"
+file_path = "processing.py"
+title = "process_records"
+
+[[expected]]
+detector = "dead-code"
+file_path = "processing.py"
+title = "long_report_generator"
+
+[[expected]]
+detector = "dead-code"
+file_path = "config.py"
+title = "REDIS_URL"
+
+# complexity: high cyclomatic complexity and long functions
+[[expected]]
+detector = "complexity"
+file_path = "processing.py"
+title = "process_records"
+
+[[expected]]
+detector = "complexity"
+file_path = "processing.py"
+title = "long_report_generator"
+
+# stale-env: documented vars not used in code
+[[expected]]
+detector = "stale-env"
+file_path = ".env.example"
+title = "ENABLE_CACHE"
+
+[[expected]]
+detector = "stale-env"
+file_path = ".env.example"
+title = "LOG_LEVEL"
+
+[[expected]]
+detector = "stale-env"
+file_path = ".env.example"
+title = "MY_API_KEY"
+
+[[expected]]
+detector = "stale-env"
+file_path = ".env.example"
+title = "WEBHOOK_SECRET"
+
+# stale-env: env var used in code but not documented
+[[expected]]
+detector = "stale-env"
+file_path = ".env.example"
+title = "REDIS_URL"
+
+# unused-deps: declared dependencies not imported in source
+[[expected]]
+detector = "unused-deps"
+file_path = "pyproject.toml"
+title = "click"
+
+[[expected]]
+detector = "unused-deps"
+file_path = "pyproject.toml"
+title = "httpx"
+
+[[expected]]
+detector = "unused-deps"
+file_path = "pyproject.toml"
+title = "sqlalchemy"
+
 # ── Known false positive patterns (should NOT appear) ────────────
 
 # Code block content should not be flagged
