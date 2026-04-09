@@ -35,10 +35,16 @@ src/sentinel/
 │   ├── dedup.py            # Fingerprinting and deduplication
 │   ├── report.py           # Markdown report generator
 │   ├── clustering.py       # Pattern + directory clustering
-│   ├── provider.py         # Pluggable model provider (Ollama, OpenAI-compat)
+│   ├── provider.py         # ModelProvider protocol + factory
 │   ├── eval.py             # Precision/recall evaluation
+│   ├── benchmark.py        # Detector benchmarking
 │   ├── indexer.py          # Embedding index builder
-│   └── ollama.py           # Ollama API client (low-level)
+│   ├── ollama.py           # Ollama API client (low-level)
+│   └── providers/
+│       ├── ollama.py       # OllamaProvider
+│       ├── openai_compat.py # OpenAI-compatible provider
+│       ├── azure.py        # Azure AI Foundry provider (Entra ID)
+│       └── replay.py       # ReplayProvider + RecordingProvider for eval
 ├── detectors/
 │   ├── base.py             # Detector ABC + auto-registry + plugin loading
 │   ├── complexity.py       # Cyclomatic complexity
@@ -65,6 +71,7 @@ src/sentinel/
 │   └── persistence.py      # State persistence helpers
 └── web/
     ├── app.py              # Starlette web UI
+    ├── csrf.py             # HMAC-based CSRF protection
     ├── templates/           # Jinja2 templates
     └── static/              # CSS, JS, htmx
 ```
@@ -72,7 +79,7 @@ src/sentinel/
 ## Adding a Detector
 
 Detectors auto-register via `__init_subclass__`. There are two paths:
-- **Built-in detector** (PR to this repo): create a file + one import line
+- **Built-in detector** (PR to this repo): create a file in `src/sentinel/detectors/` — it is auto-discovered
 - **External plugin** (separate pip package): publish with an `entry_points` declaration
 
 ### Minimal implementation
@@ -181,26 +188,15 @@ class MyDetector(Detector):
         ]
 ```
 
-### Register the detector in the runner
+### Auto-discovery
 
-**This step is required** — without it your detector exists but never runs.
-
-Add one import line to `_ensure_detectors_loaded()` in `src/sentinel/core/runner.py`:
-
-```python
-def _ensure_detectors_loaded() -> None:
-    import sentinel.detectors.complexity
-    import sentinel.detectors.dead_code
-    # ... existing imports ...
-    import sentinel.detectors.my_detector      # ← add this
-```
+Built-in detectors are **auto-discovered** — the runner uses `pkgutil.iter_modules()` to find and import all modules in `src/sentinel/detectors/`. Simply creating a file with a `Detector` subclass in that directory is enough. No manual import or registration step is needed.
 
 ### PR checklist
 
 | File | Change | Required? |
 |------|--------|-----------|
 | `src/sentinel/detectors/my_detector.py` | New detector implementation | Yes |
-| `src/sentinel/core/runner.py` | Add import to `_ensure_detectors_loaded()` | Yes |
 | `tests/detectors/test_my_detector.py` | Tests (see Testing below) | Yes |
 | `docs/architecture/detector-interface.md` | Add row to detector table | Yes |
 | `pyproject.toml` | Add external tool to `[project.optional-dependencies]` | If wrapping an external tool |
