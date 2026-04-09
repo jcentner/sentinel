@@ -18,6 +18,23 @@ ruff check src/ tests/   # Lint
 mypy src/sentinel/ --strict  # Type check
 ```
 
+## Codebase Reading Guide
+
+New to the codebase? Read these files in order to understand how Sentinel works:
+
+1. **`src/sentinel/models.py`** — Core data types (`Finding`, `Evidence`, `DetectorContext`). Everything flows through these.
+2. **`src/sentinel/detectors/base.py`** — The `Detector` ABC and auto-registry. Shows the contract every detector implements.
+3. **`src/sentinel/detectors/todo_scanner.py`** — The simplest detector. Read this as a concrete example before the abstract interfaces.
+4. **`src/sentinel/core/runner.py`** — The pipeline orchestrator. Shows how detectors → fingerprint → dedup → judge → report fit together.
+5. **`src/sentinel/core/provider.py`** — The `ModelProvider` protocol and factory. How LLM calls are abstracted.
+6. **`src/sentinel/cli.py`** — All user-facing commands. Entry point for understanding what the tool does from a user perspective.
+
+For deeper dives:
+- **Store layer**: Start with `store/db.py` (migrations), then `store/findings.py` (CRUD)
+- **LLM paths**: `core/judge.py` → `core/synthesis.py` → `core/context.py`
+- **Eval system**: `core/eval.py` → `core/benchmark.py` (benchmark reuses eval's `evaluate()`)
+- **Web UI**: `web/app.py` (routes) → `web/templates/` (Jinja2)
+
 ## Project Structure
 
 ```

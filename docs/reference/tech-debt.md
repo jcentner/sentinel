@@ -260,6 +260,14 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Introduced**: Session 22 (identified via systemic review)
 **Resolution**: Added `CREATE INDEX IF NOT EXISTS idx_runs_repo_path ON runs(repo_path)` in schema migration v8.
 
+### TD-039: Doc data duplication (hardcoded counts)
+**Status**: Active
+**Severity**: Low
+**Introduced**: Session 22 (identified via systemic review, H9)
+**Description**: Test count (1013), detector count (14), and schema version are hardcoded in 2-4 files each (README, VISION-LOCK, CURRENT-STATE, overview.md). Changes require manual multi-file updates.
+**Impact**: Counts go stale silently. Already caught overview.md citing "SQLite v7" when actual schema is v10 (fixed in Session 26).
+**Proposed resolution**: Accept for now. Building a single-source mechanism is over-engineered for the current project size. Mitigated by the reviewer subagent's post-implementation consistency checks and the doc-sync checklist in the autonomous builder workflow.
+
 ## Won't Fix
 
 (None yet)

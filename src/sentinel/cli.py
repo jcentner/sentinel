@@ -1220,10 +1220,10 @@ _TOOL_CHECKS: list[tuple[str, list[str], str]] = [
 @main.command()
 @click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
 def doctor(output_json: bool) -> None:
-    """Check system dependencies and report what's available.
+    """Check system dependencies, configuration, and report what's available.
 
     Verifies that external tools used by detectors are installed
-    and accessible. Also checks Ollama connectivity.
+    and accessible. Also checks Ollama connectivity and sentinel.toml validity.
     """
     import shutil
     import subprocess as sp
@@ -1268,6 +1268,32 @@ def doctor(output_json: bool) -> None:
         except ImportError:
             results.append({"tool": pkg, "status": "missing", "version": "", "description": desc})
 
+    # Check sentinel.toml config
+    from sentinel.config import ConfigError, load_config
+
+    try:
+        cfg = load_config(".")
+        results.append({
+            "tool": "sentinel.toml",
+            "status": "ok",
+            "version": f"provider={cfg.provider}, model={cfg.model}",
+            "description": "Project configuration",
+        })
+    except ConfigError as exc:
+        results.append({
+            "tool": "sentinel.toml",
+            "status": "error",
+            "version": str(exc),
+            "description": "Project configuration — validation failed",
+        })
+    except FileNotFoundError:
+        results.append({
+            "tool": "sentinel.toml",
+            "status": "missing",
+            "version": "",
+            "description": "Project configuration — run 'sentinel init' to create",
+        })
+
     if output_json:
         click.echo(json.dumps({"checks": results}, indent=2))
     else:
@@ -1276,7 +1302,7 @@ def doctor(output_json: bool) -> None:
             icon = "✓" if r["status"] == "ok" else "✗"
             version_str = f" ({r['version']})" if r["version"] else ""
             click.echo(f"  {icon} {r['tool']:20s}{version_str}")
-            if r["status"] == "missing":
+            if r["status"] in ("missing", "error"):
                 click.echo(f"    └─ {r['description']}")
         ok = sum(1 for r in results if r["status"] == "ok")
         click.echo(f"\n{ok}/{len(results)} checks passed")

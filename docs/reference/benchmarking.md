@@ -100,3 +100,17 @@ Use `--json-output` for machine-readable JSON instead of the human-friendly CLI 
 - **Timing varies**: First runs are slower due to filesystem caching. Run 2-3 times for stable numbers.
 - **Deterministic vs LLM**: `--skip-judge` runs only deterministic/heuristic detectors. Without it, LLM-assisted detectors (semantic-drift, test-coherence, docs-drift) also use the model.
 - **dep-audit is slow**: It runs `pip-audit` which queries PyPI. Consider `--skip-detectors dep-audit` for faster iteration.
+
+## Benchmark vs Eval
+
+Sentinel has two evaluation commands with different purposes:
+
+| | `sentinel benchmark` | `sentinel eval` |
+|---|---|---|
+| **Purpose** | Raw detector performance profiling | Full pipeline quality measurement |
+| **Pipeline** | Detectors only (no dedup, no persistence, no judge) | Full pipeline via `run_scan()` (dedup, persistence, optional judge) |
+| **Timing** | Per-detector wall-clock timing | Not measured |
+| **Judge** | Never runs | Runs with `--full-pipeline` |
+| **Output** | TOML benchmark files in `benchmarks/` | Precision/recall summary to terminal |
+
+Both commands share the same `evaluate()` function from `src/sentinel/core/eval.py` for computing precision, recall, and per-detector metrics against ground truth. The evaluation logic is identical — only the pipeline that produces findings differs.
