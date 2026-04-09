@@ -1,8 +1,14 @@
-"""Git hotspots detector — flags files with unusually high churn."""
+"""Git hotspots detector — flags files with unusually high churn.
+
+Enriched with commit-message analysis to classify *why* a file is churning
+(bug-fix heavy, refactor heavy, feature-add heavy) and author concentration
+to flag bus-factor risk.
+"""
 
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from collections import Counter
 from pathlib import Path
@@ -29,6 +35,21 @@ _DEFAULT_MIN_COMMITS = 10
 _DEFAULT_STDEV_THRESHOLD = 2.0
 
 _SKIP_DIRS = COMMON_SKIP_DIRS
+
+# ── Commit message classification patterns ─────────────────────────
+
+_FIX_PATTERNS = re.compile(
+    r"\b(fix|bug|patch|hotfix|revert|regression|broke|crash|error|issue)\b",
+    re.IGNORECASE,
+)
+_REFACTOR_PATTERNS = re.compile(
+    r"\b(refactor|rename|restructure|reorganize|cleanup|clean[- ]?up|simplif|extract|move)\b",
+    re.IGNORECASE,
+)
+_FEATURE_PATTERNS = re.compile(
+    r"\b(feat|feature|add|implement|introduce|new|support|enable)\b",
+    re.IGNORECASE,
+)
 
 
 class GitHotspotsDetector(Detector):
@@ -71,9 +92,13 @@ class GitHotspotsDetector(Detector):
             logger.info("Not a git repository, skipping git-hotspots")
             return []
 
-        file_commits, file_authors = _collect_churn(repo_root, days)
-        if not file_commits:
+        churn = _collect_churn(repo_root, days)
+        if not churn:
             return []
+
+        file_commits: Counter[str] = Counter(
+            {path: data.commits for path, data in churn.items()}
+        )
 
         hotspots = _identify_hotspots(
             file_commits, min_commits, stdev_threshold
@@ -83,9 +108,10 @@ class GitHotspotsDetector(Detector):
 
         findings: list[Finding] = []
         for file_path, commit_count in hotspots:
-            authors = file_authors.get(file_path, set())
+            data = churn[file_path]
             finding = _build_finding(
-                file_path, commit_count, authors, days, repo_root
+                file_path, commit_count, data.authors, data.messages,
+                days, repo_root,
             )
             findings.append(finding)
 
@@ -97,17 +123,28 @@ def _is_git_repo(repo_root: str) -> bool:
     return (Path(repo_root) / ".git").is_dir()
 
 
+class _ChurnData:
+    """Aggregated churn data for a single file."""
+
+    __slots__ = ("authors", "commits", "messages")
+
+    def __init__(self) -> None:
+        self.commits: int = 0
+        self.authors: set[str] = set()
+        self.messages: list[str] = []
+
+
 def _collect_churn(
     repo_root: str, days: int
-) -> tuple[Counter[str], dict[str, set[str]]]:
-    """Run git log and count commits per file + collect distinct authors."""
+) -> dict[str, _ChurnData]:
+    """Run git log and collect per-file commit stats + messages."""
     _COMMIT_SEP = "__SENTINEL_COMMIT__"
     try:
         result = subprocess.run(
             [
                 "git", "log",
                 f"--since={days} days ago",
-                f"--pretty=format:{_COMMIT_SEP}%an",
+                f"--pretty=format:{_COMMIT_SEP}%an\t%s",
                 "--name-only",
             ],
             capture_output=True,
@@ -117,22 +154,24 @@ def _collect_churn(
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         logger.warning("git log failed or timed out")
-        return Counter(), {}
+        return {}
 
     if result.returncode != 0:
         logger.warning("git log returned non-zero: %s", result.stderr[:200])
-        return Counter(), {}
+        return {}
 
-    file_commits: Counter[str] = Counter()
-    file_authors: dict[str, set[str]] = {}
+    churn: dict[str, _ChurnData] = {}
 
-    current_author = None
+    current_author: str | None = None
+    current_message: str = ""
     for line in result.stdout.splitlines():
         line = line.strip()
         if not line:
             continue
         if line.startswith(_COMMIT_SEP):
-            current_author = line[len(_COMMIT_SEP):]
+            parts = line[len(_COMMIT_SEP):].split("\t", 1)
+            current_author = parts[0]
+            current_message = parts[1] if len(parts) > 1 else ""
             continue
         if current_author is None:
             continue
@@ -140,10 +179,15 @@ def _collect_churn(
         file_path = line
         if _should_skip(file_path):
             continue
-        file_commits[file_path] += 1
-        file_authors.setdefault(file_path, set()).add(current_author)
+        data = churn.get(file_path)
+        if data is None:
+            data = _ChurnData()
+            churn[file_path] = data
+        data.commits += 1
+        data.authors.add(current_author)
+        data.messages.append(current_message)
 
-    return file_commits, file_authors
+    return churn
 
 
 def _should_skip(file_path: str) -> bool:
@@ -187,10 +231,64 @@ _DOC_EXTENSIONS = frozenset({
 })
 
 
+def classify_churn(messages: list[str]) -> dict[str, int]:
+    """Classify commit messages into churn categories.
+
+    Returns counts for: fix, refactor, feature, other.
+    """
+    counts: dict[str, int] = {"fix": 0, "refactor": 0, "feature": 0, "other": 0}
+    for msg in messages:
+        if _FIX_PATTERNS.search(msg):
+            counts["fix"] += 1
+        elif _REFACTOR_PATTERNS.search(msg):
+            counts["refactor"] += 1
+        elif _FEATURE_PATTERNS.search(msg):
+            counts["feature"] += 1
+        else:
+            counts["other"] += 1
+    return counts
+
+
+def _churn_insight(categories: dict[str, int], total: int) -> str:
+    """Produce a human-readable churn insight from classified messages."""
+    if total == 0:
+        return "No commit messages to analyze."
+
+    dominant = max(categories, key=lambda k: categories[k])
+    pct = round(100 * categories[dominant] / total)
+
+    insights = {
+        "fix": (
+            f"{pct}% of commits are bug-fixes or patches — this file may be "
+            f"fragile or poorly tested. Consider adding targeted tests."
+        ),
+        "refactor": (
+            f"{pct}% of commits are refactoring/restructuring — this file may "
+            f"be accumulating complexity that warrants decomposition."
+        ),
+        "feature": (
+            f"{pct}% of commits add features — active development area. "
+            f"Verify test coverage is keeping pace."
+        ),
+        "other": (
+            "Commit messages don't indicate a clear pattern. "
+            "Review git log for this file to understand the churn."
+        ),
+    }
+    # Only emphasize the pattern if it's meaningfully dominant (>40%)
+    if pct <= 40:
+        return (
+            "Churn is mixed across categories (no dominant pattern). "
+            "Review git log for this file to understand the churn."
+        )
+    return insights[dominant]
+
+
 def _build_finding(
     file_path: str,
     commit_count: int,
     authors: set[str],
+    messages: list[str],
     days: int,
     repo_root: str,
 ) -> Finding:
@@ -201,24 +299,49 @@ def _build_finding(
 
     is_doc_file = Path(file_path).suffix.lower() in _DOC_EXTENSIONS
 
+    # Classify commit messages
+    categories = classify_churn(messages)
+
+    # Severity: escalate if high-churn + bug-fix heavy
     severity = Severity.LOW
-    if commit_count >= 30 and not is_doc_file:
-        severity = Severity.MEDIUM
+    if not is_doc_file:
+        fix_ratio = categories["fix"] / max(commit_count, 1)
+        if commit_count >= 30 or (commit_count >= 15 and fix_ratio > 0.5):
+            severity = Severity.MEDIUM
 
     confidence = min(0.5 + (commit_count / 100), 0.85)
+    # Bug-fix-heavy churn increases confidence (it's a real signal)
+    if categories["fix"] > categories["feature"] and categories["fix"] >= 3:
+        confidence = min(confidence + 0.1, 0.90)
     # Documentation files naturally churn — reduce confidence significantly
     if is_doc_file:
         confidence = min(confidence, 0.30)
 
+    # Build actionable description
+    insight = _churn_insight(categories, commit_count)
+    author_note = ""
+    if len(authors) == 1:
+        author_note = (
+            " Only one author has touched this file — potential bus-factor risk."
+        )
+    elif len(authors) >= 5:
+        author_note = (
+            f" {len(authors)} distinct authors — high coordination overhead."
+        )
+
     description = (
         f"This file has been modified {commit_count} times in the last {days} days "
-        f"by {len(authors)} author(s). High-churn files are more likely to contain "
-        f"regressions, merge conflicts, or accumulated complexity."
+        f"by {len(authors)} author(s). {insight}{author_note}"
     )
 
+    # Build detailed evidence
+    cat_str = ", ".join(
+        f"{k}: {v}" for k, v in sorted(categories.items()) if v > 0
+    )
     evidence_content = (
         f"Commits: {commit_count} in {days} days\n"
         f"Authors: {author_str}\n"
+        f"Commit types: {cat_str}\n"
     )
 
     # Try to get the file size as additional context

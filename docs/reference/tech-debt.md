@@ -41,12 +41,12 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Accepted as-is — these detectors are cheap to maintain and useful for repos without CI linting. New development investment should focus on cross-artifact semantic detectors (Phase 5) that provide analysis nothing else does. No need to remove existing detectors.
 
 ### TD-012: git-hotspots provides statistics without insight
-**Status**: Active
+**Status**: Resolved (Session 21)
 **Severity**: Low
 **Introduced**: Session 19 (identified via critical analysis)
 **Description**: The git-hotspots detector correctly identifies high-churn files but doesn't explain *why* the churn matters. A file changed 50 times could be healthy (frequently improved) or problematic (constantly breaking). Without context about *what* changed, churn alone is weak signal.
 **Impact**: Findings are technically accurate but not actionable. Developers see "this file changed a lot" and shrug.
-**Proposed resolution**: Consider enriching with commit message analysis or pairing with other signals (e.g., "high churn + high complexity" or "high churn + failing tests"). Low priority — focus new investment on semantic detectors first.
+**Resolution**: Enriched with commit message classification (fix/refactor/feature/other), author concentration analysis (bus-factor, coordination overhead), and actionable insights in descriptions. Bug-fix-heavy churn escalates severity. Evidence now includes commit type breakdown.
 
 ## Resolved
 
