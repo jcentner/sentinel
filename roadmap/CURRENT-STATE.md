@@ -1,97 +1,96 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-08 — CI lint fix session
+> Last updated: 2026-04-09 — Phase 10 depth session
 
 ## Latest Session Summary
 
 ### Current Objective
-Fix CI ruff lint failures, assess remaining work.
+Resolve TD-012, OQ-012, implement benchmarking system, expand test fixture coverage, update project history.
 
 ### What Was Accomplished
 
-#### CI Lint Fix (Committed: `ea82fb9`)
-- **test_dead_code.py**: Removed unused `pytest` and `_extract_all_names` imports, fixed import sorting (I001, F401)
-- **test_detectors_base.py**: Removed unused `before` variable (F841)
-- **test_provider.py**: Combined nested `with` statements (SIM117) — 2 occurrences
-- **test_runner.py**: Prefixed unused `run` unpacks with `_` (RUF059) — 4 occurrences
-- **test_synthesis.py**: Removed unused `pytest` and `SynthesisResult` imports (F401), replaced list slice with `next()` (RUF015) — 2 occurrences
-- **Verification**: `ruff check src/ tests/` passes clean; 131 affected tests pass
+#### TD-012: Git-Hotspots Enrichment (Committed: `b6a49f8`)
+- Commit message classification (fix/refactor/feature/other) with conservative regex patterns
+- Author count insights and dominant commit-type context in findings
+- Severity escalation: 15+ commits with >50% bug fixes → MEDIUM
+- 30 tests, all passing
 
----
+#### OQ-012: Per-Detector Model Providers (Committed: `4ad62f2`, ADR-013)
+- `ProviderOverride` dataclass in config.py with capability validation
+- `[sentinel.detector_providers.<name>]` TOML config sections
+- `create_provider_for_detector()` factory with global field inheritance
+- Runner swaps provider per detector with exception-safe `try/finally` restore
+- 20 new tests (config, provider, runner)
 
-## Previous Session: Consistency Pass
+#### Code Review Fixes (Committed: `e066af7`)
+- Critical: exception-safe context restore in runner (try/finally)
+- Major: proper SentinelConfig typing (replaced `object | None`)
+- Tightened regex patterns (removed overly broad `error`, `issue`, `move`, `add`, `new`)
+- 3 new runner integration tests
 
-### Previous Objective
-Major consistency pass across the entire repo: fix code bugs, align docs with reality, resolve stale content.
+#### Benchmarking System (Committed: `c5fb7c4`, `b819eaf`)
+- `sentinel benchmark <repo>` CLI with --model, --provider, --compare, --ground-truth
+- DetectorBenchmark + BenchmarkResult dataclasses with TOML serialization
+- `_toml_escape()` for safe string handling (review fix)
+- Lossy list→count conversion made explicit with `_count` suffix (review fix)
+- compare_benchmarks with graceful error handling (review fix)
+- 16 tests including special chars roundtrip and eval count serialization
 
-### What Was Accomplished
+#### Sample Repo Expansion (Committed: `6a5d260`)
+- `processing.py`: CC=21 function + 65-line function for complexity detector
+- `.env.example`: 4 stale vars + 1 undocumented var for stale-env detector
+- `config.py`: os.getenv/os.environ.get calls for stale-env cross-reference
+- Ground truth: 17 → 30 expected findings (7/14 detectors covered, was 4/14)
 
-#### Code Fixes (Committed: `1d16fac`)
-- **Scope enum standardization**: 8 detectors updated with `ScopeType` import; 13 string comparisons (`scope.value == "..."`) replaced with proper enum comparisons (`scope == ScopeType.INCREMENTAL`)
-- **Missing scope guards**: `unused_deps` (2 locations) and `stale_env` (1 location) now check `scope == ScopeType.INCREMENTAL` before filtering by `changed_files`
-- **Error handling**: `git_hotspots.detect()` wrapped in try/except (was the only detector violating base class contract)
-- **output_dir bug**: `run_scan()` now accepts `output_dir` param; CLI and web pass it through (was hardcoding `.sentinel`)
-- **Web config passthrough**: `_do_scan()` now passes `num_ctx`, `detectors_dir`, `embed_chunk_size`, `embed_chunk_overlap`, `output_dir` to `run_scan()`
-- **Dead code**: Removed unused `_INIT_TEMPLATE` (32 lines)
-- **CLI help**: Fixed exit code docs, corrected `--json-output` claim
+#### Benchmark Baselines (Committed: `890cc59`)
+- sample-repo: 32 findings, 100% precision, 100% recall
+- tsgbuilder: 134 findings across 7 active detectors in 14s
+- docs/reference/benchmarking.md: usage guide
 
-#### README Update (Committed: `9b1b3da`)
-- Detector count 10→14, test count 680→923
-- Feature list expanded with Phase 9 features (synthesis, plugins, configurability, capability tiers, setup flow)
-- Options table: added 5 missing flags (`--provider`, `--api-base`, `--capability`, `--detectors`, `--skip-detectors`)
-- Config example: added 7 missing fields
-- Prerequisites: mention Azure/OpenAI alongside Ollama
-- Init examples: show `--profile` and `--list-detectors`
-- Exit codes: documented code 2
-
-#### CONTRIBUTING.md Update (Committed: `65efc71`)
-- Full working detector template with imports, class, tests
-- Runner import step, PR checklist, capability tier guide
-- Entry-points plugin instructions, incremental scope table
-
-#### Doc Consistency Fixes (Committed: `2837068`)
-- **overview.md**: Added missing synthesis + embed index pipeline steps; new "Finding Cluster Synthesis" component section
-- **detector-interface.md**: Fixed `capability` → `capability_tier`, added `none` tier, removed duplicate `complexity` from Phase 2+ table
-- **tech-debt.md**: Moved 8 resolved items (TD-001, TD-003–008, TD-010) from Active to Resolved section; cleaned up stale content
-- **strategy.md**: Added 3 missing detectors (dead-code, stale-env, unused-deps) to value tier table
-- **VISION-LOCK.md**: Fixed command count 14→13
-- **glossary.md**: Added Azure AI provider, init profile terms; updated model provider entry to include Azure AI
-- **samples/README.md**: Marked samples as stale with regeneration instructions
-
-#### Web Bug Fix (Committed: `2837068`)
-- **Incremental checkbox**: Form checkbox was non-functional (POST handler never read it). Now reads `form.get("incremental")`, calls `prepare_incremental()`, and passes `scope`/`changed_files` to `run_scan()`
+#### Blog Post Update (Committed: `3214f6c`)
+- Phase 10 narrative appended to docs/analysis/project-history.md
+- Timeline table updated
 
 ### Verification
-- **Tests**: 923 passed, 3 skipped
+- **Tests**: 971 passed, 3 skipped
 - **Ruff**: Clean on all modified files
+- **Eval**: 100% precision, 100% recall on sample-repo fixture
 
 ### Repository State
-- **Tests**: 923 passing
-- **VISION-LOCK**: v4.5 (Phase 9 complete)
-- **Phase 9**: Complete (all 5 slices)
+- **Tests**: 971 passing
+- **VISION-LOCK**: v4.5
 - **Providers**: 3 (ollama, openai, azure)
-- **ADRs**: 12 (001–012)
+- **ADRs**: 13 (001–013)
 - **Detectors**: 14
+- **Ground truth coverage**: 7/14 detectors
 
 ### Commits This Session
-1. `65efc71` — docs(contributing): expand detector contribution guide
-2. `1d16fac` — fix(detectors): consistency pass — scope enum, error handling, config routing
-3. `9b1b3da` — docs(readme): major update — 14 detectors, providers, Phase 9 features
-4. `2837068` — docs(consistency): fix architecture, tech-debt, strategy, glossary, web incremental
+1. `b6a49f8` — feat(detectors): enrich git-hotspots with commit classification (TD-012)
+2. `4ad62f2` — feat(config): per-detector model provider overrides (OQ-012)
+3. `e066af7` — fix(runner): exception-safe provider restore, tighter regex, typing
+4. `c5fb7c4` — feat(core): add benchmarking module with CLI and tests
+5. `6a5d260` — test(fixtures): expand sample-repo with complexity, stale-env, unused-deps
+6. `890cc59` — docs(benchmarks): add baseline results and benchmarking guide
+7. `b819eaf` — fix(benchmark): TOML string escaping, lossy eval serialization
+8. `3214f6c` — docs(analysis): append Phase 10 session to project history
 
 ### What Remains / Next Priority
 
-#### Completed Phases
-All phases 0–9 are **complete**. 14 detectors, 3 providers, 923+ tests, full CLI + web UI.
+#### Completed Items
+- TD-012: Resolved ✅
+- OQ-012: Resolved ✅ (ADR-013)
+- Benchmarking system: Implemented ✅
+- Sample repo expansion: 7/14 detectors covered ✅
+- Blog post update: Done ✅
 
 #### Remaining Work (Priority Order)
-1. **Phase 10** (unplanned): Advanced tier detectors (intent-drift, arch-drift, CI/CD config drift) — would require designing NEW detectors with nano baseline
-2. **OQ-012**: Per-detector model configuration — different models/providers for different detectors in same scan
-3. **TD-002**: Judge performance — serial bottleneck at ~4s/finding
-4. **PyPI publication**: Packaging ready, needs credentials
-5. **Sample regeneration**: Samples directory has stale output
-6. **OQ-006**: SQL/performance anti-pattern detector (low priority, deferred)
-7. **Success criterion #10**: "Findings surface issues the developer didn't already know about" — only partially met
+1. **Model comparison benchmarks**: Run benchmarks with different models (4B vs 9B vs cloud) to quantify differences
+2. **TD-002**: Judge performance — serial bottleneck at ~4s/finding
+3. **Sample regeneration**: Samples directory has stale output
+4. **Semantic docs-drift detector** (OQ-008): highest-value planned feature
+5. **Test-code coherence testing**: verify with capable models
+6. **PyPI publication**: Packaging ready, needs credentials
+7. **Real-world Go/Rust validation**: detectors exist but untested on real repos
 
 ---
 
