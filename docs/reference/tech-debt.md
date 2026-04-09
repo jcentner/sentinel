@@ -259,12 +259,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Document that `num_ctx` is Ollama-only and ignored by other providers. Add a log warning in cloud providers when `num_ctx` is non-default.
 
 ### TD-037: Web UI shared sqlite3 connection across threads
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: Medium
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: `create_app()` in `web/app.py` takes a single `sqlite3.Connection` stored on `app.state`. All request handlers share it. SQLite serializes writes. If a user triggers a scan from the web UI while another request writes, they contend on the same connection.
-**Impact**: Potential write contention or `OperationalError: database is locked` under concurrent web use. Already uses `check_same_thread=False` indicating awareness.
-**Proposed resolution**: Switch to a connection-per-request factory or a connection pool. Each request opens and closes its own connection.
+**Resolution**: `create_app()` now accepts `db_path` parameter for production use. When set, `_get_conn()` opens a fresh per-call connection with `check_same_thread=True`. `_open_db()` context manager ensures cleanup. Tests continue using shared `db_conn` for performance. CLI `serve` command passes `db_path` instead of shared connection.
 
 ### TD-038: Missing index on `runs.repo_path`
 **Status**: Resolved (Session 23)

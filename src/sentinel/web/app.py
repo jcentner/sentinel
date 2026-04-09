@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sqlite3
 from pathlib import Path
@@ -14,6 +15,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from sentinel.models import Finding, FindingStatus, RunSummary
+from sentinel.store.db import get_connection
 from sentinel.store.findings import (
     Annotation,
     add_annotation,
@@ -35,8 +37,34 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
 def _get_conn(app: Starlette) -> sqlite3.Connection:
-    """Retrieve the shared DB connection from app state."""
+    """Get a DB connection — per-request if db_path is set, shared otherwise.
+
+    When db_path is set (production), opens a fresh connection for thread
+    safety (TD-037). Caller must close it or use _open_db().
+    When db_conn is set (tests), returns the shared connection as-is.
+    """
+    db_path: str = getattr(app.state, "db_path", "")
+    if db_path:
+        return get_connection(db_path, check_same_thread=True)
     return app.state.db_conn  # type: ignore[no-any-return]
+
+
+@contextlib.contextmanager
+def _open_db(app: Starlette):
+    """Context manager for a scoped database connection.
+
+    Closes the connection on exit when using per-request mode (db_path).
+    No-op close when using shared connection mode (tests).
+    """
+    db_path: str = getattr(app.state, "db_path", "")
+    if db_path:
+        conn = get_connection(db_path, check_same_thread=True)
+        try:
+            yield conn
+        finally:
+            conn.close()
+    else:
+        yield app.state.db_conn
 
 
 # ── Route handlers ───────────────────────────────────────────────────
@@ -665,16 +693,20 @@ async def github_create_issues(request: Request) -> Response:
 
 
 def create_app(
-    db_conn: sqlite3.Connection,
+    db_conn: sqlite3.Connection | None = None,
     repo_path: str | None = None,
     *,
+    db_path: str | None = None,
     allowed_scan_roots: list[str] | None = None,
 ) -> Starlette:
-    """Create the Starlette application with the given DB connection.
+    """Create the Starlette application.
 
     Args:
-        db_conn: Shared database connection.
+        db_conn: Fixed database connection (for tests). Mutually exclusive
+            with db_path.
         repo_path: Default repository path for scans.
+        db_path: Path to SQLite database. When set, opens per-request
+            connections for thread safety (TD-037). Preferred for production.
         allowed_scan_roots: If set, only directories under these roots
             can be scanned via the web UI (TD-025 path validation).
     """
@@ -700,7 +732,8 @@ def create_app(
     ]
 
     app = Starlette(routes=routes)
-    app.state.db_conn = db_conn
+    app.state.db_conn = db_conn  # May be None when db_path is used
+    app.state.db_path = db_path or ""
     app.state.repo_path = repo_path
     app.state.allowed_scan_roots = allowed_scan_roots
 

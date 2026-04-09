@@ -833,20 +833,15 @@ def serve(
         raise SystemExit(1) from None
 
     from sentinel.config import load_config
-    from sentinel.store.db import get_connection
     from sentinel.web.app import create_app
 
     repo = Path(repo_path).resolve()
     config = load_config(repo)
     db_path = db or str(repo / config.db_path)
-    conn = get_connection(db_path, check_same_thread=False)
 
-    app = create_app(conn, repo_path=str(repo))
+    app = create_app(repo_path=str(repo), db_path=db_path)
     click.echo(f"Sentinel web UI: http://{host}:{port}")
-    try:
-        uvicorn.run(app, host=host, port=port, log_level="warning")
-    finally:
-        conn.close()
+    uvicorn.run(app, host=host, port=port, log_level="warning")
 
 
 @main.command("scan-all")
