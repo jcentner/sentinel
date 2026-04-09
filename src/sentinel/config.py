@@ -73,10 +73,10 @@ class SentinelConfig:
     num_ctx: int = 2048
     model_capability: str = "basic"  # none, basic, standard, advanced
     min_confidence: float = 0.0  # Findings below this threshold excluded from report (0 = show all)
-    enabled_detectors: list = field(default_factory=list)   # bare list, not list[str] — see _FIELD_TYPES
-    disabled_detectors: list = field(default_factory=list)  # bare list, not list[str] — see _FIELD_TYPES
+    enabled_detectors: list = field(default_factory=list)  # type: ignore[type-arg]
+    disabled_detectors: list = field(default_factory=list)  # type: ignore[type-arg]
     # Per-detector provider overrides (OQ-012)
-    detector_providers: dict = field(default_factory=dict)  # dict[str, ProviderOverride]
+    detector_providers: dict = field(default_factory=dict)  # type: ignore[type-arg]
 
 
 # Expected types for each config field, derived from the dataclass defaults.

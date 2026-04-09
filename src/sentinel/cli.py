@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +16,7 @@ from sentinel import __version__
 
 if TYPE_CHECKING:
     from sentinel.config import SentinelConfig
+    from sentinel.core.provider import ModelProvider
 
 
 @click.group()
@@ -523,6 +526,7 @@ def findings(
                 raise SystemExit(1)
             run_id = runs[0].id
 
+        assert run_id is not None  # guaranteed by get_run_history check above
         results = get_findings_by_run(conn, run_id)
 
         # Apply filters
@@ -705,8 +709,8 @@ def eval(
     gt = load_ground_truth(gt_path)
 
     # Resolve provider for full-pipeline mode
-    provider = None
-    recording_provider = None
+    provider: ModelProvider | None = None
+    recording_provider: ModelProvider | None = None
     if full_pipeline:
         if replay_file:
             from sentinel.core.providers.replay import ReplayProvider
@@ -720,7 +724,7 @@ def eval(
                 click.echo("Use --replay-file for offline evaluation.", err=True)
                 raise SystemExit(1)
 
-        if record_responses:
+        if record_responses and provider is not None:
             from sentinel.core.providers.replay import RecordingProvider
             recording_provider = RecordingProvider(provider)
             provider = recording_provider
@@ -770,6 +774,8 @@ def eval(
 
     # Save recordings if requested
     if recording_provider is not None and record_responses:
+        from sentinel.core.providers.replay import RecordingProvider
+        assert isinstance(recording_provider, RecordingProvider)
         recording_provider.save(record_responses)
         if not output_json:
             click.echo(f"\nRecorded {len(recording_provider.recordings)} responses to {record_responses}")
@@ -1025,25 +1031,36 @@ if __name__ == "__main__":
 
 
 # Profile definitions: name → (model_capability, detector_filter_fn, description)
-_PROFILES = {
-    "minimal": {
-        "description": "Heuristic-only detectors, no LLM required",
-        "model_capability": "none",
-        "skip_judge": True,
-        "filter": lambda tier: tier == "none",
-    },
-    "standard": {
-        "description": "All detectors with basic LLM support",
-        "model_capability": "basic",
-        "skip_judge": False,
-        "filter": lambda tier: True,
-    },
-    "full": {
-        "description": "All detectors with enhanced LLM analysis",
-        "model_capability": "standard",
-        "skip_judge": False,
-        "filter": lambda tier: True,
-    },
+_ProfileFilter = Callable[[str], bool]
+
+
+@dataclass
+class _Profile:
+    description: str
+    model_capability: str
+    skip_judge: bool
+    filter: _ProfileFilter
+
+
+_PROFILES: dict[str, _Profile] = {
+    "minimal": _Profile(
+        description="Heuristic-only detectors, no LLM required",
+        model_capability="none",
+        skip_judge=True,
+        filter=lambda tier: tier == "none",
+    ),
+    "standard": _Profile(
+        description="All detectors with basic LLM support",
+        model_capability="basic",
+        skip_judge=False,
+        filter=lambda tier: True,
+    ),
+    "full": _Profile(
+        description="All detectors with enhanced LLM analysis",
+        model_capability="standard",
+        skip_judge=False,
+        filter=lambda tier: True,
+    ),
 }
 
 
@@ -1064,9 +1081,9 @@ def _build_init_config(
         skip = False
     elif profile and profile in _PROFILES:
         p = _PROFILES[profile]
-        enabled = [d["name"] for d in all_detectors if p["filter"](d["tier"])]
-        cap = p["model_capability"]
-        skip = p["skip_judge"]
+        enabled = [d["name"] for d in all_detectors if p.filter(d["tier"])]
+        cap = p.model_capability
+        skip = p.skip_judge
     else:
         # Default: all detectors, basic capability
         enabled = [d["name"] for d in all_detectors]
@@ -1157,8 +1174,8 @@ def init(repo_path: str, force: bool, profile: str | None, detector_str: str | N
         click.echo(f"\n{len(detectors)} detectors available.")
         click.echo("\nProfiles:")
         for name, p in _PROFILES.items():
-            count = sum(1 for d in detectors if p["filter"](d["tier"]))
-            click.echo(f"  {name:10s}  {count:2d} detectors — {p['description']}")
+            count = sum(1 for d in detectors if p.filter(d["tier"]))
+            click.echo(f"  {name:10s}  {count:2d} detectors — {p.description}")
         return
 
     if profile and detector_str:
@@ -1181,7 +1198,7 @@ def init(repo_path: str, force: bool, profile: str | None, detector_str: str | N
     click.echo(f"Created {config_path}")
 
     if profile:
-        click.echo(f"Profile: {profile} — {_PROFILES[profile]['description']}")
+        click.echo(f"Profile: {profile} — {_PROFILES[profile].description}")
     elif detector_names:
         click.echo(f"Enabled {len(detector_names)} detectors: {', '.join(detector_names)}")
     else:

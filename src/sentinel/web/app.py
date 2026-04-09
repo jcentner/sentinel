@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import sqlite3
+from collections.abc import Generator
 from pathlib import Path
 
 from starlette.applications import Starlette
@@ -50,7 +51,7 @@ def _get_conn(app: Starlette) -> sqlite3.Connection:
 
 
 @contextlib.contextmanager
-def _open_db(app: Starlette):
+def _open_db(app: Starlette) -> Generator[sqlite3.Connection, None, None]:
     """Context manager for a scoped database connection.
 
     Closes the connection on exit when using per-request mode (db_path).

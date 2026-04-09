@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import logging
 import secrets
+from collections.abc import MutableMapping
 from typing import Any
 
 from starlette.requests import Request
@@ -112,7 +113,7 @@ class CSRFMiddleware:
             if need_cookie:
                 original_send = send
 
-                async def send_with_cookie(message: dict[str, Any]) -> None:
+                async def send_with_cookie(message: MutableMapping[str, Any]) -> None:
                     if message["type"] == "http.response.start":
                         headers = list(message.get("headers", []))
                         cookie_val = (
