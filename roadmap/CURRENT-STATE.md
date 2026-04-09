@@ -1,84 +1,90 @@
 # Current State — Sentinel
 
-> Last updated: 2026-04-09 — Systemic review session
+> Last updated: Session 24 — Tech debt remediation (batch 2)
 
 ## Latest Session Summary
 
 ### Current Objective
-Full systemic review of all 8 major feature areas in Sentinel, documenting findings per repo conventions.
+Resolve remaining tech debt items from the Session 22 systemic review, continuing from Session 23 batch.
 
 ### What Was Accomplished
 
-#### Systemic Review (8 deep-dive analyses)
-Deep-dive architectural and strategic reviews were conducted across:
-1. **Benchmarking & Evaluation** — ground truth robustness, metric usefulness, regression detection
-2. **Detector System** — ABC design, capability tiers, plugin system, value distribution
-3. **Model Provider Abstraction** — protocol design, provider parity, per-detector overrides
-4. **Core Pipeline** — fingerprinting, dedup, judge, synthesis, report
-5. **CLI & Web UI** — command design, AI agent usability, web architecture
-6. **State Store & Configuration** — schema, migrations, config validation, data lifecycle
-7. **Documentation & Coherence** — internal consistency, staleness, authority hierarchy
-8. **GitHub Integration & Packaging** — issue creation, CI/CD, security, PyPI readiness
+#### Session 23 Batch (committed at session start)
+14 tech debt items resolved from prior session (committed as `da3dfbd`):
+- TD-013, TD-015, TD-017, TD-018, TD-020, TD-022, TD-023, TD-025, TD-026, TD-027, TD-028, TD-029, TD-035, TD-038
 
-#### Findings Documented
-- **26 new tech debt items** (TD-013 through TD-038) covering:
-  - 6 High severity: CSRF (TD-013), eval CI gate (TD-014), unbounded fingerprints (TD-015), plugin collision bug (TD-017), data lifecycle (TD-020), chunks repo scoping (TD-021), web security (TD-025)
-  - 12 Medium severity: serial judge (TD-016), mutable context (TD-018), error model (TD-019), migration atomicity (TD-022), missing findings command (TD-023), retry logic (TD-026), detector imports (TD-027), untested LLM paths (TD-028), confidence filtering (TD-030), file rename fingerprints (TD-031), release workflow (TD-034), web connection sharing (TD-037)
-  - 8 Low severity: JSON envelope (TD-024), judge parse visibility (TD-029), synthesis gating (TD-032), Google Fonts (TD-033), stale egg-info (TD-035), num_ctx leak (TD-036), repo_path index (TD-038)
+#### Session 24 Batch (this session)
+11 additional items resolved:
 
-- **4 new open questions** (OQ-013 through OQ-016):
-  - OQ-013 (High): How to measure judge/synthesis quality in eval
-  - OQ-014 (Medium): Real-world ground truth corpus
-  - OQ-015 (High): Data lifecycle strategy for SQLite store
-  - OQ-016 (Low): generate() protocol evolution for message lists
+**High severity (0 remaining):**
+- TD-014: CI eval regression gate — added `sentinel eval` step to CI workflow
+- TD-021: Chunks table repo scoping — migration v9, `repo_path` column, all CRUD functions scoped
+- TD-025: Already resolved in Session 23
 
-#### Glossary Corrections
-- Fixed init profile names: `minimal/local/cloud` → `minimal/standard/full`
-- Fixed Azure provider description: `api_key` → Entra ID auth
-- Added 6 missing terms: benchmark, per-detector provider, ProviderOverride, ground truth, COMMON_SKIP_DIRS
+**Medium severity (1 remaining: TD-016):**
+- TD-019: ModelProvider error contract documented in Protocol docstring
+- TD-030: Confidence-based finding filtering — `min_confidence` config field
+- TD-031: Fuzzy fingerprints for cross-rename recurrence — migration v10, 8 new tests
+- TD-034: Release workflow — `.github/workflows/release.yml` with PyPI trusted publishing
+- TD-037: Web per-request DB connections — `create_app()` accepts `db_path`
+
+**Low severity (4 remaining: TD-002, TD-009, TD-011, TD-024):**
+- TD-033: Removed Google Font dependency — system font stack
+- TD-036: Documented `num_ctx` as Ollama-only in Protocol
+
+**Also resolved:**
+- OQ-015: Marked resolved (implementation shipped in TD-020/Session 23)
 
 ### Verification
-- All documentation changes follow repo conventions (TD format, OQ format, glossary table)
-- Cross-referenced findings back to specific source files and code paths
-- Severity ratings consistent with impact assessment
+- **Tests**: 996 passed, 3 skipped (was 971 at session start → 987 after Session 23 commit → 996 now)
+- **Ruff**: All checks passed
+- **Eval**: 100% precision, 100% recall on sample-repo fixture
+- **Schema**: v10 (was v8 at session start)
 
 ### Repository State
-- **Tests**: 971 passing (unchanged — no code changes this session)
-- **VISION-LOCK**: v4.5 (unchanged)
-- **Tech debt items**: 38 total (12 active → 38 active, minus 8 resolved)
-- **Open questions**: 16 total (1 open → 5 open, 11 resolved)
+- **Tests**: 996 passing
+- **VISION-LOCK**: v4.5 (unchanged — no new features, only fixes)
+- **Tech debt items**: 38 total, 31 resolved, 7 remaining (5 accepted/low + 1 medium + 1 template)
+- **Open questions**: 16 total, 12 resolved, 4 remaining (OQ-006, OQ-013, OQ-014, OQ-016)
 - **ADRs**: 13
+- **Schema version**: 10
+- **Detectors**: 14
 
-### What Remains / Next Priority (from review)
+### Commits This Session
+1. `da3dfbd` — fix(project): resolve 14 tech debt items from Session 23 (staged but uncommitted)
+2. `f8c6059` — ci(eval): add eval regression gate to CI workflow (TD-014)
+3. `48a6ad2` — fix(store): add repo_path scoping to chunks table (TD-021)
+4. `1b49688` — feat(core): add confidence-based finding filtering (TD-030)
+5. `375b037` — fix(web): per-request DB connections for thread safety (TD-037)
+6. `e2a2986` — docs(provider): document error contract in ModelProvider (TD-019)
+7. `2adc109` — ci(release): add PyPI release workflow (TD-034)
+8. `9ebcd4e` — fix(web): remove external Google Font dependency (TD-033)
+9. `a76c083` — feat(dedup): fuzzy fingerprints for cross-rename recurrence (TD-031)
+10. `3400631` — docs(provider): document num_ctx Ollama-only behavior (TD-036)
 
-#### Tier 1 — Must fix before distribution
-1. CSRF protection on web UI (TD-013, TD-025)
-2. Add `sentinel findings --run <id>` command (TD-023)
-3. Web scan path validation (TD-025)
+### What Remains / Next Priority
 
-#### Tier 2 — Highest ROI structural improvements
-4. CI eval gate (TD-014)
-5. Fix plugin collision resolution (TD-017)
-6. Time-bound fingerprint query (TD-015)
-7. Per-detector context copies (TD-018)
-8. Data lifecycle / llm_log retention (TD-020, OQ-015)
-9. Chunks table repo scoping (TD-021)
+#### Remaining Active Tech Debt (7 items, all low priority)
+- **TD-002** (Low): Sync detector interface — accepted, no parallelism needed yet
+- **TD-009** (Low): VR-002 scheduling — won't implement, use system cron
+- **TD-011** (Low): Detectors duplicate dev tooling — accepted trade-off
+- **TD-016** (Medium): Serial LLM judge bottleneck — optimization, not blocking
+- **TD-024** (Low): JSON error envelope inconsistency — cosmetic
+- **TD-032** (Low): Synthesis gated to standard+ — by design
+- Template entry (not a real item)
 
-#### Tier 3 — Quality improvements
-10. Document generate() error contract (TD-019)
-11. Single-source-of-truth sweep for docs (vision lock counts, provider counts)
-12. Confidence-based filtering (TD-030)
-13. Batch LLM judge calls (TD-016)
-14. Mock-provider tests for LLM detectors (TD-028)
-15. Dynamic detector package discovery (TD-027)
-16. Cloud provider retry logic (TD-026)
+#### Remaining Open Questions (4 items)
+- **OQ-006** (Low): SQL anti-pattern detector design — deferred
+- **OQ-013** (High): Eval for judge/synthesis quality — needs human input
+- **OQ-014** (Medium): Real-world ground truth corpus — needs human input
+- **OQ-016** (Low): generate() protocol evolution — not urgent
 
-#### Tier 4 — Polish
-17. Release CI workflow (TD-034)
-18. Trim CURRENT-STATE.md historical sessions
-19. Doctor config/model validation
-20. Standardize JSON error envelope (TD-024)
-21. Contributor reading guide
+#### Recommended Next Work (priority order)
+1. **PyPI publication** — Release workflow exists, needs `pypi` environment in GitHub settings
+2. **OQ-013 resolution** — Requires human decision on judge eval strategy
+3. **Phase 10: Advanced detectors** — Next planned milestone from roadmap
+4. **Model comparison benchmarks** — Quantify 4B vs cloud model differences
+5. **TD-016 optimization** — Batch judge prompts (only if scan times become a user complaint)
 
 ---
 
