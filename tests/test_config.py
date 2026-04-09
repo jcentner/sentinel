@@ -217,3 +217,13 @@ def test_detector_providers_coexists_with_global_config(tmp_path):
     assert config.provider == "ollama"
     assert config.model == "qwen3.5:4b"
     assert config.detector_providers["semantic-drift"].provider == "openai"
+
+
+def test_detector_providers_rejects_invalid_capability(tmp_path):
+    (tmp_path / "sentinel.toml").write_text(
+        '[sentinel]\n'
+        '[sentinel.detector_providers.semantic-drift]\n'
+        'model_capability = "turbo"\n'
+    )
+    with pytest.raises(ConfigError, match="model_capability"):
+        load_config(tmp_path)

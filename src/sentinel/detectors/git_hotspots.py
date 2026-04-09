@@ -37,17 +37,20 @@ _DEFAULT_STDEV_THRESHOLD = 2.0
 _SKIP_DIRS = COMMON_SKIP_DIRS
 
 # ── Commit message classification patterns ─────────────────────────
+# Priority: fix > refactor > feature > other (first match wins)
+# Patterns are intentionally conservative to avoid inflating categories.
+# See TD-012 resolution for design rationale.
 
 _FIX_PATTERNS = re.compile(
-    r"\b(fix|bug|patch|hotfix|revert|regression|broke|crash|error|issue)\b",
+    r"\b(fix|bug|patch|hotfix|revert|regression|broke|crash)\b",
     re.IGNORECASE,
 )
 _REFACTOR_PATTERNS = re.compile(
-    r"\b(refactor|rename|restructure|reorganize|cleanup|clean[- ]?up|simplif|extract|move)\b",
+    r"\b(refactor|rename|restructure|reorganize|cleanup|clean[- ]?up|simplif|extract)\b",
     re.IGNORECASE,
 )
 _FEATURE_PATTERNS = re.compile(
-    r"\b(feat|feature|add|implement|introduce|new|support|enable)\b",
+    r"\b(feat|feature|implement|introduce|support|enable)\b",
     re.IGNORECASE,
 )
 

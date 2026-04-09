@@ -173,7 +173,7 @@ class TestChurnClassification:
     """Tests for commit message classification."""
 
     def test_fix_heavy(self):
-        messages = ["fix crash", "fix null", "fix timeout", "add feature", "cleanup"]
+        messages = ["fix crash", "fix null", "fix timeout", "feat: login", "cleanup"]
         result = classify_churn(messages)
         assert result["fix"] == 3
         assert result["feature"] == 1
@@ -186,7 +186,7 @@ class TestChurnClassification:
         assert result["fix"] == 0
 
     def test_feature_heavy(self):
-        messages = ["add user model", "implement search", "feat: dark mode", "new endpoint"]
+        messages = ["implement search", "feat: dark mode", "introduce payments", "enable SSO"]
         result = classify_churn(messages)
         assert result["feature"] == 4
 
@@ -200,9 +200,15 @@ class TestChurnClassification:
         assert result["other"] == 3
 
     def test_mixed_messages(self):
-        messages = ["fix bug", "add feature", "refactor code", "bump version"]
+        messages = ["fix bug", "feat: search", "refactor code", "bump version"]
         result = classify_churn(messages)
         assert result == {"fix": 1, "feature": 1, "refactor": 1, "other": 1}
+
+    def test_priority_fix_over_feature(self):
+        """If a message matches both fix and feature, fix wins (if/elif priority)."""
+        result = classify_churn(["fix: implement retry"])
+        assert result["fix"] == 1
+        assert result["feature"] == 0
 
 
 class TestDocFileHandling:
@@ -231,7 +237,7 @@ class TestDocFileHandling:
         code = tmp_path / "app.py"
         code.write_text("x = 1\n")
         finding = _build_finding(
-            "app.py", 50, {"Alice"}, ["add feature"] * 50, 90, str(tmp_path),
+            "app.py", 50, {"Alice"}, ["feat: update"] * 50, 90, str(tmp_path),
         )
         assert finding.severity == Severity.MEDIUM
         assert finding.confidence > 0.30
@@ -254,7 +260,7 @@ class TestBugFixEscalation:
         code = tmp_path / "handler.py"
         code.write_text("def handle(): pass\n")
         # 15 commits, mostly features → stays LOW
-        messages = ["add feature"] * 12 + ["fix bug"] * 3
+        messages = ["feat: endpoint"] * 12 + ["fix bug"] * 3
         finding = _build_finding(
             "handler.py", 15, {"Alice"}, messages, 90, str(tmp_path),
         )
@@ -263,8 +269,8 @@ class TestBugFixEscalation:
     def test_fix_heavy_boosts_confidence(self, tmp_path):
         code = tmp_path / "fragile.py"
         code.write_text("x = 1\n")
-        fix_messages = ["fix crash"] * 8 + ["add feature"] * 2
-        feat_messages = ["add feature"] * 8 + ["fix crash"] * 2
+        fix_messages = ["fix crash"] * 8 + ["feat: update"] * 2
+        feat_messages = ["feat: update"] * 8 + ["fix crash"] * 2
         fix_finding = _build_finding(
             "fragile.py", 10, {"Alice"}, fix_messages, 90, str(tmp_path),
         )

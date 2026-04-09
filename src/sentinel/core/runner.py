@@ -6,6 +6,7 @@ import logging
 import sqlite3
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sentinel.core.context import gather_context
 from sentinel.core.dedup import assign_fingerprints, deduplicate
@@ -17,6 +18,9 @@ from sentinel.models import CapabilityTier, DetectorContext, Finding, RunSummary
 from sentinel.store.findings import insert_finding
 from sentinel.store.persistence import update_persistence
 from sentinel.store.runs import complete_run, create_run, get_last_completed_run
+
+if TYPE_CHECKING:
+    from sentinel.config import SentinelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +85,7 @@ def run_scan(
     model_capability: str = "basic",
     enabled_detectors: list[str] | None = None,
     disabled_detectors: list[str] | None = None,
-    sentinel_config: object | None = None,
+    sentinel_config: SentinelConfig | None = None,
 ) -> tuple[RunSummary, list[Finding], str]:
     """Execute the full scan pipeline.
 
@@ -198,16 +202,17 @@ def run_scan(
                 if effective_cap_str:
                     ctx.config["model_capability"] = effective_cap_str
 
-            logger.info("Running detector: %s", detector.name)
-            findings = detector.detect(ctx)
-            logger.info("  %s produced %d findings", detector.name, len(findings))
-            all_findings.extend(findings)
-
-            # Restore global provider after per-detector run
-            if det_provider is not None:
-                ctx.config["provider"] = provider
-                ctx.config["skip_llm"] = skip_judge or provider is None
-                ctx.config["model_capability"] = model_capability
+            try:
+                logger.info("Running detector: %s", detector.name)
+                findings = detector.detect(ctx)
+                logger.info("  %s produced %d findings", detector.name, len(findings))
+                all_findings.extend(findings)
+            finally:
+                # Always restore global provider (exception-safe)
+                if det_provider is not None:
+                    ctx.config["provider"] = provider
+                    ctx.config["skip_llm"] = skip_judge or provider is None
+                    ctx.config["model_capability"] = model_capability
         except Exception:
             logger.exception("Detector %s failed — skipping", detector.name)
 

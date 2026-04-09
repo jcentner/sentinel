@@ -278,3 +278,162 @@ class TestDetectorFiltering:
             )
         assert len(findings) == 1
         assert "nonexistent" in caplog.text
+
+
+# ── Per-detector provider (OQ-012) ──────────────────────────────────
+
+
+class _ProviderCapturingDetector(Detector):
+    """Captures the provider from context during detect()."""
+
+    def __init__(self, det_name: str = "capturing-detector"):
+        self._name = det_name
+        self.captured_provider = None
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def description(self) -> str:
+        return "Captures provider"
+
+    @property
+    def tier(self) -> DetectorTier:
+        return DetectorTier.DETERMINISTIC
+
+    @property
+    def categories(self) -> list[str]:
+        return ["test"]
+
+    def detect(self, context: DetectorContext) -> list[Finding]:
+        self.captured_provider = context.config.get("provider")
+        return []
+
+
+class _FailingCapturingDetector(Detector):
+    """Captures provider then raises — tests exception-safe restore."""
+
+    def __init__(self, det_name: str = "failing-capture"):
+        self._name = det_name
+        self.captured_provider = None
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def description(self) -> str:
+        return "Captures then fails"
+
+    @property
+    def tier(self) -> DetectorTier:
+        return DetectorTier.DETERMINISTIC
+
+    @property
+    def categories(self) -> list[str]:
+        return ["test"]
+
+    def detect(self, context: DetectorContext) -> list[Finding]:
+        self.captured_provider = context.config.get("provider")
+        raise RuntimeError("Intentional failure after capture")
+
+
+class TestPerDetectorProvider:
+    def test_per_detector_provider_swapped(self, db_conn, repo):
+        """Detector with an override sees the overridden provider."""
+        from unittest.mock import MagicMock
+
+        from sentinel.config import ProviderOverride, SentinelConfig
+
+        global_provider = MagicMock()
+        global_provider.check_health.return_value = True
+        override_provider = MagicMock()
+        override_provider.check_health.return_value = True
+
+        sentinel_config = SentinelConfig(
+            provider="ollama",
+            model="qwen3.5:4b",
+            detector_providers={
+                "det-a": ProviderOverride(model="llama3:8b"),
+            },
+        )
+
+        det_a = _ProviderCapturingDetector("det-a")
+        det_b = _ProviderCapturingDetector("det-b")
+
+        # skip_judge=False so per-detector providers are built.
+        # Detectors return [] so the judge has nothing to do.
+        from unittest.mock import patch
+        with patch(
+            "sentinel.core.provider.create_provider_for_detector",
+            side_effect=lambda name, cfg: override_provider if name == "det-a" else None,
+        ):
+            _run, _findings, _ = run_scan(
+                str(repo), db_conn,
+                detectors=[det_a, det_b],
+                provider=global_provider,
+                skip_judge=False,
+                sentinel_config=sentinel_config,
+            )
+
+        # det_a should have seen the override provider
+        assert det_a.captured_provider is override_provider
+        # det_b should have seen the global provider
+        assert det_b.captured_provider is global_provider
+
+    def test_provider_restored_after_detector_failure(self, db_conn, repo):
+        """Global provider is restored even when a per-detector detector raises."""
+        from unittest.mock import MagicMock, patch
+
+        from sentinel.config import ProviderOverride, SentinelConfig
+
+        global_provider = MagicMock()
+        override_provider = MagicMock()
+
+        sentinel_config = SentinelConfig(
+            provider="ollama",
+            model="qwen3.5:4b",
+            detector_providers={
+                "failing-capture": ProviderOverride(model="llama3:8b"),
+            },
+        )
+
+        failing = _FailingCapturingDetector("failing-capture")
+        normal = _ProviderCapturingDetector("normal-detector")
+
+        with patch(
+            "sentinel.core.provider.create_provider_for_detector",
+            side_effect=lambda name, cfg: override_provider if name == "failing-capture" else None,
+        ):
+            _run, _findings, _ = run_scan(
+                str(repo), db_conn,
+                detectors=[failing, normal],
+                provider=global_provider,
+                skip_judge=False,
+                sentinel_config=sentinel_config,
+            )
+
+        # failing detector saw override
+        assert failing.captured_provider is override_provider
+        # normal detector should see global (restored after failure)
+        assert normal.captured_provider is global_provider
+
+    def test_no_swap_when_no_overrides(self, db_conn, repo):
+        """Without sentinel_config, all detectors see the same provider."""
+        from unittest.mock import MagicMock
+
+        global_provider = MagicMock()
+
+        det_a = _ProviderCapturingDetector("det-a")
+        det_b = _ProviderCapturingDetector("det-b")
+
+        _run, _findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[det_a, det_b],
+            provider=global_provider,
+            skip_judge=True,
+        )
+
+        assert det_a.captured_provider is global_provider
+        assert det_b.captured_provider is global_provider

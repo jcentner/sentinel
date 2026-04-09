@@ -43,6 +43,13 @@ class ProviderOverride:
                     f"[sentinel.detector_providers.{detector_name}] "
                     f"must be a string, got {type(value).__name__}: {value!r}"
                 )
+        cap = data.get("model_capability", "")
+        if cap and cap not in _VALID_CAPABILITIES:
+            raise ConfigError(
+                f"{config_file}: 'model_capability' in "
+                f"[sentinel.detector_providers.{detector_name}] "
+                f"must be one of {sorted(_VALID_CAPABILITIES)}, got {cap!r}"
+            )
         return cls(**data)
 
 
