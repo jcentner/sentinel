@@ -211,12 +211,10 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Added `min_confidence` config field (default 0.0). Findings below threshold are still persisted for audit trail but excluded from the morning report. Filtered count logged. Configurable via `sentinel.toml` or programmatically. 2 new tests.
 
 ### TD-031: File renames break fingerprints with no fuzzy fallback
-**Status**: Active
+**Status**: Resolved (Session 24)
 **Severity**: Medium
 **Introduced**: Session 22 (identified via systemic review, extends OQ-003)
-**Description**: Fingerprints include `file_path` in the hash input. After `git mv src/foo.py src/bar.py`, every finding for that file appears as "new" in the next run, even if nothing else changed.
-**Impact**: A refactor that renames 10 files floods the morning report with "new" findings that are actually recurring. Directly increases noise and review time.
-**Proposed resolution**: Add a fuzzy fingerprint (detector + category + content, no path) for cross-run recurrence detection. The strict fingerprint (includes path) remains for within-run dedup. Fuzzy match marks findings as `recurring` to prevent false novelty but doesn't suppress.
+**Resolution**: Added `fuzzy_fingerprint` — path-free hash of (detector, category, normalized_content). Computed alongside strict fingerprint via `compute_fuzzy_fingerprint()`. Dedup checks fuzzy match when strict match fails, tagging findings as `recurring` + `fuzzy_match=True`. Suppression remains strict-fingerprint-only. Schema migration v10 adds column + index. 8 new tests.
 
 ### TD-032: Synthesis gated to standard+ tier, off by default
 **Status**: Active

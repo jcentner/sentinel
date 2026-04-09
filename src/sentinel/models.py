@@ -111,6 +111,7 @@ class Finding:
     line_end: int | None = None
     context: dict[str, Any] | None = None
     fingerprint: str = ""
+    fuzzy_fingerprint: str = ""  # Path-free fingerprint for cross-rename recurrence (TD-031)
     status: FindingStatus = FindingStatus.NEW
     id: int | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))

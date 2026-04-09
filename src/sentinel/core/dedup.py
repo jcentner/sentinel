@@ -7,7 +7,11 @@ import re
 import sqlite3
 
 from sentinel.models import Finding
-from sentinel.store.findings import get_known_fingerprints, get_suppressed_fingerprints
+from sentinel.store.findings import (
+    get_known_fingerprints,
+    get_known_fuzzy_fingerprints,
+    get_suppressed_fingerprints,
+)
 
 
 def compute_fingerprint(finding: Finding) -> str:
@@ -23,11 +27,25 @@ def compute_fingerprint(finding: Finding) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
+def compute_fuzzy_fingerprint(finding: Finding) -> str:
+    """Compute a path-free fingerprint for cross-rename recurrence (TD-031).
+
+    Uses (detector, category, normalized_content) — same as strict fingerprint
+    but omitting file_path. This allows detecting that a finding is recurring
+    even after a file rename.
+    """
+    content = _normalize_content(finding, include_path=False)
+    raw = f"{finding.detector}:{finding.category}:{content}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
 def assign_fingerprints(findings: list[Finding]) -> list[Finding]:
     """Assign fingerprints to all findings that don't have one yet."""
     for f in findings:
         if not f.fingerprint:
             f.fingerprint = compute_fingerprint(f)
+        if not f.fuzzy_fingerprint:
+            f.fuzzy_fingerprint = compute_fuzzy_fingerprint(f)
     return findings
 
 
@@ -41,6 +59,7 @@ def deduplicate(
     """
     suppressed = get_suppressed_fingerprints(conn)
     known = get_known_fingerprints(conn)
+    known_fuzzy = get_known_fuzzy_fingerprints(conn)
 
     result: list[Finding] = []
     seen_this_run: set[str] = set()
@@ -54,17 +73,25 @@ def deduplicate(
         if fp in seen_this_run:
             continue
         seen_this_run.add(fp)
-        # Mark as new vs. recurring (doesn't filter — both show in report)
+        # Mark as new vs. recurring
+        f.context = f.context or {}
         if fp in known:
-            f.context = f.context or {}
             f.context["recurring"] = True
+        elif f.fuzzy_fingerprint in known_fuzzy:
+            # Fuzzy match: same finding, different path (file renamed)
+            f.context["recurring"] = True
+            f.context["fuzzy_match"] = True
         result.append(f)
 
     return result
 
 
-def _normalize_content(finding: Finding) -> str:
-    """Normalize content for fingerprinting — strip noise, keep signal."""
+def _normalize_content(finding: Finding, *, include_path: bool = True) -> str:
+    """Normalize content for fingerprinting — strip noise, keep signal.
+
+    When include_path=False (fuzzy mode), excludes file_path from content
+    so the fingerprint survives file renames.
+    """
     # Use the title as primary content signal (it captures the essence)
     content = finding.title
 
@@ -74,7 +101,10 @@ def _normalize_content(finding: Finding) -> str:
 
     # For lint-runner, include the rule code and title for uniqueness
     if finding.context and "rule" in finding.context:
-        content = f"{finding.context['rule']}:{finding.file_path or ''}:{finding.title}"
+        if include_path:
+            content = f"{finding.context['rule']}:{finding.file_path or ''}:{finding.title}"
+        else:
+            content = f"{finding.context['rule']}:{finding.title}"
 
     # Normalize whitespace
     content = re.sub(r"\s+", " ", content).strip().lower()

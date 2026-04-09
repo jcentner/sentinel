@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Bump this when adding new migrations. Must equal the highest migration version.
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # -------------------------------------------------------------------
 # Base schema (v1) — applied to fresh databases
@@ -186,6 +186,14 @@ CREATE INDEX IF NOT EXISTS idx_runs_repo_path ON runs(repo_path);
 ALTER TABLE chunks ADD COLUMN repo_path TEXT NOT NULL DEFAULT '';
 DROP INDEX IF EXISTS idx_chunks_file_path;
 CREATE INDEX IF NOT EXISTS idx_chunks_repo_file ON chunks(repo_path, file_path);
+""",
+    ),
+    (
+        10,
+        "add fuzzy_fingerprint column for cross-rename recurrence (TD-031)",
+        """\
+ALTER TABLE findings ADD COLUMN fuzzy_fingerprint TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_findings_fuzzy_fp ON findings(fuzzy_fingerprint);
 """,
     ),
 ]

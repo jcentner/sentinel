@@ -5,6 +5,7 @@ from __future__ import annotations
 from sentinel.core.dedup import (
     assign_fingerprints,
     compute_fingerprint,
+    compute_fuzzy_fingerprint,
     deduplicate,
 )
 from sentinel.models import (
@@ -174,3 +175,81 @@ class TestDeduplication:
         result = deduplicate([f], db_conn)
         assert len(result) == 1
         assert not result[0].context or not result[0].context.get("recurring")
+
+    def test_fuzzy_match_marks_recurring_on_rename(self, db_conn):
+        """File rename: strict FP differs, fuzzy FP matches → recurring (TD-031)."""
+        # Insert a finding from prior run at old path
+        run = create_run(db_conn, "/tmp/repo")
+        prior = _make_finding(file_path="src/old.py", title="Unused import os")
+        assign_fingerprints([prior])
+        insert_finding(db_conn, run.id, prior)
+
+        # Same finding at new path (after rename)
+        new = _make_finding(file_path="src/new.py", title="Unused import os")
+        assign_fingerprints([new])
+
+        # Strict fingerprints differ (different file_path)
+        assert prior.fingerprint != new.fingerprint
+        # Fuzzy fingerprints match (same content, no path)
+        assert prior.fuzzy_fingerprint == new.fuzzy_fingerprint
+
+        result = deduplicate([new], db_conn)
+        assert len(result) == 1
+        assert result[0].context.get("recurring") is True
+        assert result[0].context.get("fuzzy_match") is True
+
+    def test_fuzzy_no_false_recurrence(self, db_conn):
+        """Different findings at different paths should not fuzzy-match."""
+        run = create_run(db_conn, "/tmp/repo")
+        prior = _make_finding(file_path="a.py", title="Issue A")
+        assign_fingerprints([prior])
+        insert_finding(db_conn, run.id, prior)
+
+        new = _make_finding(file_path="b.py", title="Issue B")
+        assign_fingerprints([new])
+
+        result = deduplicate([new], db_conn)
+        assert len(result) == 1
+        assert not result[0].context.get("recurring")
+
+
+class TestFuzzyFingerprint:
+    def test_same_content_different_path(self):
+        """Fuzzy fingerprints match across file renames."""
+        f1 = _make_finding(file_path="src/old.py")
+        f2 = _make_finding(file_path="src/new.py")
+        assert compute_fuzzy_fingerprint(f1) == compute_fuzzy_fingerprint(f2)
+        assert compute_fingerprint(f1) != compute_fingerprint(f2)
+
+    def test_different_content_same_path(self):
+        """Fuzzy fingerprints differ for different findings."""
+        f1 = _make_finding(title="Issue A")
+        f2 = _make_finding(title="Issue B")
+        assert compute_fuzzy_fingerprint(f1) != compute_fuzzy_fingerprint(f2)
+
+    def test_assign_sets_both(self):
+        """assign_fingerprints sets both strict and fuzzy."""
+        f = _make_finding()
+        assert f.fingerprint == ""
+        assert f.fuzzy_fingerprint == ""
+        assign_fingerprints([f])
+        assert f.fingerprint != ""
+        assert f.fuzzy_fingerprint != ""
+
+    def test_lint_runner_fuzzy_excludes_path(self):
+        """Lint-runner fuzzy fingerprint should not include file_path."""
+        f1 = _make_finding(
+            detector="lint-runner",
+            context={"rule": "F401"},
+            title="F401: os imported but unused",
+            file_path="src/old.py",
+        )
+        f2 = _make_finding(
+            detector="lint-runner",
+            context={"rule": "F401"},
+            title="F401: os imported but unused",
+            file_path="src/new.py",
+        )
+        assert compute_fuzzy_fingerprint(f1) == compute_fuzzy_fingerprint(f2)
+        # But strict fingerprints still differ (path included)
+        assert compute_fingerprint(f1) != compute_fingerprint(f2)

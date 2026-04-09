@@ -19,14 +19,16 @@ def insert_finding(conn: sqlite3.Connection, run_id: int, finding: Finding) -> i
     cur = conn.execute(
         """
         INSERT INTO findings
-            (run_id, fingerprint, detector, category, severity, confidence,
-             title, description, file_path, line_start, line_end,
-             evidence_json, context_json, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (run_id, fingerprint, fuzzy_fingerprint, detector, category,
+             severity, confidence, title, description, file_path,
+             line_start, line_end, evidence_json, context_json,
+             status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             run_id,
             finding.fingerprint,
+            finding.fuzzy_fingerprint,
             finding.detector,
             finding.category,
             finding.severity.value,
@@ -144,6 +146,29 @@ def get_known_fingerprints(
     else:
         rows = conn.execute("SELECT DISTINCT fingerprint FROM findings").fetchall()
     return {row["fingerprint"] for row in rows}
+
+
+def get_known_fuzzy_fingerprints(
+    conn: sqlite3.Connection,
+    retention_days: int = 90,
+) -> set[str]:
+    """Return fuzzy fingerprints seen within the retention window (TD-031).
+
+    Fuzzy fingerprints omit file_path, allowing cross-rename recurrence
+    detection. Returns only non-empty values.
+    """
+    if retention_days > 0:
+        rows = conn.execute(
+            "SELECT DISTINCT fuzzy_fingerprint FROM findings "
+            "WHERE fuzzy_fingerprint != '' AND created_at >= datetime('now', ?)",
+            (f"-{retention_days} days",),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT DISTINCT fuzzy_fingerprint FROM findings "
+            "WHERE fuzzy_fingerprint != ''",
+        ).fetchall()
+    return {row["fuzzy_fingerprint"] for row in rows}
 
 
 def _row_to_finding(row: sqlite3.Row) -> Finding:
