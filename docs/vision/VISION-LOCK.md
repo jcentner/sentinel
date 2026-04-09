@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.5
-> **Updated**: 2026-04-08
-> **Supersedes**: v4.4
+> **Version**: 4.6
+> **Updated**: 2026-04-10
+> **Supersedes**: v4.5
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -103,7 +103,7 @@ Issue creation from approved findings with fingerprint-based dedup. Environment 
 `scan-all` scans multiple repos into a shared database. Web UI and CLI display runs across all repos.
 
 ### Quality Infrastructure
-CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage). 923 tests.
+CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage, eval gate). Full-pipeline eval with replay provider for deterministic judge/synthesis testing in CI (ADR-014). Per-detector precision/recall breakdown. 1013 tests.
 
 ### Detector Value Assessment (honest)
 Based on real-world validation, the current detectors fall into three tiers:
@@ -275,6 +275,14 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.6
+Quality infrastructure update: full-pipeline eval and tech debt resolution.
+- **Quality infrastructure** updated: full-pipeline eval with replay provider for deterministic judge/synthesis CI testing (ADR-014). Per-detector precision/recall breakdown. 1013 tests (was 923).
+- **OQ-013** resolved: judge and synthesis eval via replay-based approach
+- **ADR-014** created: replay-based eval for judge and synthesis paths
+- **Schema**: v10 (chunks repo scoping, fuzzy fingerprints)
+- **Tech debt**: 32 of 38 items resolved (was 25 of 38 in v4.5)
 
 ### v4.5
 Phase 9 complete: Configurability, Plugins, and Finding Synthesis.

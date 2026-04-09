@@ -34,7 +34,7 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 
 ## Status
 
-**All MVP success criteria met.** 14 detectors (Python, JS/TS, Go, Rust, deps, docs, semantic-drift, test-coherence, git, complexity, dead-code, stale-env, unused-deps) with pluggable model providers (Ollama, OpenAI-compatible, Azure), capability-tiered enhanced analysis, finding cluster synthesis, entry-points plugin system, detector configurability, LLM judge, finding persistence, embedding-based semantic context, GitHub issue creation, web UI triage dashboard, multi-repo scanning, and `--json-output` for machine-readable output. 923 tests. See the [roadmap](roadmap/) for details.
+**All MVP success criteria met.** 14 detectors (Python, JS/TS, Go, Rust, deps, docs, semantic-drift, test-coherence, git, complexity, dead-code, stale-env, unused-deps) with pluggable model providers (Ollama, OpenAI-compatible, Azure), capability-tiered enhanced analysis, finding cluster synthesis, entry-points plugin system, detector configurability, LLM judge, finding persistence, embedding-based semantic context, GitHub issue creation, web UI triage dashboard, multi-repo scanning, full-pipeline eval with replay, and `--json-output` for machine-readable output. 1013 tests. See the [roadmap](roadmap/) for details.
 
 ## Quick Start
 
