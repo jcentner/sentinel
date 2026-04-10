@@ -489,6 +489,10 @@ class DocsDriftDetector(Detector):
     @staticmethod
     def _parse_install_args(args_str: str) -> list[str]:
         """Parse package names from an install command's arguments."""
+        # Strip shell comments (everything after unquoted #)
+        comment_idx = args_str.find("#")
+        if comment_idx >= 0:
+            args_str = args_str[:comment_idx]
         packages: list[str] = []
         for token in args_str.split():
             # Skip flags

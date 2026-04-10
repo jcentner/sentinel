@@ -68,6 +68,11 @@ _TOOL_PACKAGES: frozenset[str] = frozenset({
     "ruff", "black", "isort", "flake8", "pylint", "mypy", "pyright",
     # Audit tools (invoked via CLI)
     "pip_audit", "safety", "bandit",
+    # Documentation tools (invoked via CLI, not imported)
+    "mkdocs", "mkdocs_material", "mkautodoc", "sphinx",
+    "sphinx_rtd_theme", "myst_parser",
+    # Packaging / distribution tools
+    "twine", "check_manifest",
     # Dev utilities
     "pre_commit", "ipython", "ipdb", "debugpy",
 })
@@ -79,15 +84,42 @@ _TOOL_PACKAGE_PREFIXES: tuple[str, ...] = (
     "flake8_",       # flake8 plugins
     "pylint_",       # pylint plugins
     "mypy_",         # mypy plugins (but not mypy itself — caught by exact match)
+    "types_",        # type stubs (types-requests, types-pyyaml, etc.)
+    "trio_",         # trio type stubs and plugins
 )
 
 # JS packages that are build-time tools or plugins, not imported in source
 _JS_TOOL_PACKAGES: frozenset[str] = frozenset({
-    "typescript", "eslint", "prettier", "jest", "vitest", "mocha",
+    # Compilers / runtimes
+    "typescript", "ts-node", "tsx", "tsconfig-paths",
+    # Bundlers
     "webpack", "vite", "rollup", "esbuild", "parcel", "turbo",
-    "@types/node", "@types/react", "@types/jest",
-    "tsconfig-paths", "ts-node", "nodemon", "concurrently",
+    # Linters / formatters
+    "eslint", "prettier", "pretty-quick", "biome",
+    # Test runners
+    "jest", "vitest", "mocha", "cypress", "playwright",
+    "start-server-and-test", "puppeteer",
+    # Type stubs
+    "@types/node", "@types/react", "@types/react-dom",
+    "@types/jest", "@types/hast",
+    # Monorepo / release tools
+    "@changesets/cli", "@changesets/changelog-github",
+    "@manypkg/cli", "lerna",
+    # Commit / CI tools
+    "@commitlint/cli", "@commitlint/config-conventional",
+    "husky", "lint-staged",
+    # Dev utilities
+    "nodemon", "concurrently", "cross-env", "dotenv-cli",
+    # CSS processing
+    "autoprefixer", "postcss", "tailwindcss",
 })
+
+# JS tool package prefixes — packages matching these are treated as tools
+_JS_TOOL_PREFIXES: tuple[str, ...] = (
+    "eslint-config-", "eslint-plugin-",
+    "@typescript-eslint/",
+    "prettier-plugin-", "@ianvs/prettier-plugin-",
+)
 
 
 def _normalize_package_name(name: str) -> str:
@@ -200,6 +232,10 @@ class UnusedDeps(Detector):
             if lang == "python" and normalized.startswith(_TOOL_PACKAGE_PREFIXES):
                 continue
             if lang == "javascript" and package_name in _JS_TOOL_PACKAGES:
+                continue
+            if lang == "javascript" and any(
+                package_name.startswith(p) for p in _JS_TOOL_PREFIXES
+            ):
                 continue
 
             # Check if any expected import name appears in the import set

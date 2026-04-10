@@ -457,6 +457,25 @@ class TestStaleReferences:
         assert len(findings) == 1
         assert "requests" in findings[0].title.lower()
 
+    def test_pip_install_shell_comments_stripped(self, detector, tmp_path):
+        """FP prevention: shell comments after pip install should not be parsed as packages."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\ndependencies = [\n'
+            '    "httpx",\n'
+            "]\n"
+        )
+        (tmp_path / "README.md").write_text(
+            "## Install\n\n```bash\n"
+            "$ pip install 'httpx[cli]'  # The command line client is an optional dependency.\n"
+            "```\n"
+        )
+
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        dep_drift = [f for f in findings if "drift" in f.title.lower()]
+        # Should NOT flag 'the', 'command', 'line', 'client', 'is', 'an', 'optional' as packages
+        assert len(dep_drift) == 0
+
     def test_handles_package_json(self, detector, tmp_path):
         """Checks package.json for npm projects."""
         import json

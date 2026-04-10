@@ -370,3 +370,54 @@ class TestFalsePositives:
         ctx = make_context()
         findings = detector.detect(ctx)
         assert len(findings) == 0
+
+    def test_type_stubs_skipped(self, detector, make_context, tmp_path):
+        """Type stub packages (types-*) should be skipped."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\n'
+            'dependencies = ["types-requests", "trio-typing"]\n'
+        )
+        (tmp_path / "app.py").write_text("pass\n")
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        assert len(findings) == 0
+
+    def test_mkdocs_skipped(self, detector, make_context, tmp_path):
+        """Documentation tools like mkdocs should be skipped."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\n'
+            'dependencies = ["mkdocs", "mkdocs-material", "twine"]\n'
+        )
+        (tmp_path / "app.py").write_text("pass\n")
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        assert len(findings) == 0
+
+    def test_js_eslint_config_skipped(self, detector, make_context, tmp_path):
+        """JS ESLint config/plugin packages should be skipped."""
+        import json
+        pkg = {"devDependencies": {
+            "eslint-config-turbo": "^1.0",
+            "eslint-plugin-tailwindcss": "^3.0",
+            "@typescript-eslint/parser": "^6.0",
+            "@ianvs/prettier-plugin-sort-imports": "^4.0",
+        }}
+        (tmp_path / "package.json").write_text(json.dumps(pkg))
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        assert len(findings) == 0
+
+    def test_js_monorepo_tools_skipped(self, detector, make_context, tmp_path):
+        """JS monorepo tools (changesets, commitlint, etc.) should be skipped."""
+        import json
+        pkg = {"devDependencies": {
+            "@changesets/cli": "^2.0",
+            "@commitlint/cli": "^17.0",
+            "turbo": "^1.0",
+            "cross-env": "^7.0",
+            "autoprefixer": "^10.0",
+        }}
+        (tmp_path / "package.json").write_text(json.dumps(pkg))
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        assert len(findings) == 0
