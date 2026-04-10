@@ -1,11 +1,11 @@
 # Current State — Sentinel
 
-> Last updated: Session 28 — FP detector improvements (TD-040, TD-041, TD-042)
+> Last updated: Session 28 (continued) — Multi-repo validation + FP fixes
 
 ## Latest Session Summary
 
 ### Current Objective
-Fix false positive patterns discovered during pip-tools real-world validation (Session 27). Three tech debt items: dead-code intra-file usage (TD-040), docs-drift example text (TD-041), unused-deps plugin loading (TD-042).
+Validate detectors against 4 real-world repos (pip-tools, httpx, shadcn-ui/ui, bubbletea), fix FP patterns discovered, produce comprehensive detector accuracy report.
 
 ### What Was Accomplished
 
