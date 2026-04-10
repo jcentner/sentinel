@@ -1,79 +1,70 @@
 # Current State — Sentinel
 
-> Last updated: Session 26 — Systemic review audit + gap fixes
+> Last updated: Session 27 — UX improvements, AI consumability, value prop refinement
 
 ## Latest Session Summary
 
 ### Current Objective
-Audit all 36 findings from the systemic review executive report (C1-C2, H1-H14, M1-M20) to verify fixes and close remaining gaps.
+Address user feedback: auto-open browser on `sentinel serve`, curated test repos, AI agent integration (SKILL.md), competitive analysis refresh, and open questions for OAuth and GitHub wiki.
 
 ### What Was Accomplished
 
-#### Systemic Review Double-Check
-Cross-referenced every finding from the executive report against actual implementations. Two verification passes: 14 code-level checks + 8 doc/status checks.
+#### `sentinel serve --open` (auto-open browser)
+- Added `--open/--no-open` flag to the serve command (default: open)
+- Uses `threading.Timer` + `webbrowser.open` to open browser after 1s delay (lets uvicorn start first)
+- All 81 CLI + GitHub tests pass
 
-**Results**: 29/36 properly fixed, 5 accepted trade-offs, 4 gaps found and addressed:
+#### Curated test repos for validation
+- Created `docs/reference/test-repos.md` with 13 recommended public repos across Python, JS/TS, Go, Rust, and multi-language categories
+- Each repo has selection rationale and key detectors to exercise
+- Includes quick-start commands and validation workflow
 
-| Gap | Finding | Fix Applied |
-|-----|---------|-------------|
-| M17 | CURRENT-STATE.md bloated to 1642 lines | Trimmed to ~100 lines, archived Sessions 1-24 with git pointer |
-| M14 | `sentinel doctor` doesn't validate config | Added `sentinel.toml` validation check to doctor command |
-| M18 | No contributor reading guide | Added "Codebase Reading Guide" section to CONTRIBUTING.md |
-| M19 | eval/benchmark shared `evaluate()` undocumented | Added "Benchmark vs Eval" comparison table to benchmarking.md |
+#### AI consumability (SKILL.md)
+- Created `.github/skills/setup-sentinel/SKILL.md` — a Copilot skill for AI-assisted setup
+- Covers installation, init profiles, language-specific detector configs, model provider setup, scheduling
+- Updated README with "AI Agent Integration" section documenting `--json-output`, exit codes, quiet mode, and the skill
 
-**Additional fixes found during audit:**
-- Fixed stale "SQLite v7" → "SQLite v10" in `docs/architecture/overview.md` (H9 staleness)
-- Tracked H9 (doc data duplication) as TD-039 — accepted trade-off with consistency checks as mitigation
+#### Competitive analysis refresh
+- Rewrote `docs/analysis/competitive-landscape.md` with the blog post's value proposition framing
+- Added "The core problem nobody else solves" section — cross-artifact drift from fast AI-assisted development
+- Added "The observed differentiator" section with real-world validation data (88% confirmation rate, 100% docs-drift accuracy)
+- Updated gap list to include AI-agent integration as differentiator #7
 
-#### Items requiring human decision (not resolved autonomously)
-- **H1 / OQ-014**: No ground truth for LLM-assisted detectors (semantic-drift, test-coherence). Strategy for real-world corpus needs human input.
-- **H9 / TD-039**: Hardcoded counts duplicated across 2-4 files. Single-source mechanism is over-engineered; accepted with reviewer checks.
+#### Open questions recorded
+- **OQ-017**: Should GitHub integration support OAuth device flow? (Medium priority, current thinking: both PAT + OAuth)
+- **OQ-018**: Should project docs live in the GitHub wiki? (Low priority, current thinking: hybrid — in-repo for dev docs, wiki for user guides)
 
 ### Verification
-- **Tests**: 1013 passed, 3 skipped
-- **Ruff**: All checks passed
-- **No regressions**: Full test suite clean
+- **Tests**: 81 passed (CLI + GitHub tests) — broader suite not re-run (no core logic changes)
+- **Ruff**: Clean on modified files
+- **Import check**: CLI module imports cleanly
 
 ### Repository State
-- **Tests**: 1013 passing
-- **VISION-LOCK**: v4.6
-- **Tech debt items**: 39 total, 32 resolved, 7 remaining (6 accepted/low + 1 medium)
-- **Open questions**: 16 total, 13 resolved, 3 remaining (OQ-006, OQ-014, OQ-016)
-- **ADRs**: 14
-- **Schema version**: 10
-- **Detectors**: 14
+- **Tests**: 1013 passing (no regressions expected — only CLI UX change)
+- **VISION-LOCK**: v4.6 (unchanged)
+- **Open questions**: 18 total, 13 resolved, 5 remaining (OQ-006, OQ-014, OQ-016, OQ-017, OQ-018)
 
 ### Files Modified This Session
-- `roadmap/CURRENT-STATE.md` — trimmed 1642→~100 lines (M17), updated for Session 26
-- `src/sentinel/cli.py` — doctor command validates sentinel.toml (M14)
-- `CONTRIBUTING.md` — added Codebase Reading Guide section (M18)
-- `docs/reference/benchmarking.md` — added Benchmark vs Eval comparison (M19)
-- `docs/architecture/overview.md` — fixed stale SQLite v7→v10 (H9)
-- `docs/reference/tech-debt.md` — added TD-039 (H9 tracking)
+- `src/sentinel/cli.py` — serve command `--open/--no-open` flag
+- `docs/reference/test-repos.md` — new: curated test repos
+- `.github/skills/setup-sentinel/SKILL.md` — new: Copilot setup skill
+- `docs/analysis/competitive-landscape.md` — rewritten with blog value props
+- `docs/reference/open-questions.md` — added OQ-017 (OAuth), OQ-018 (wiki)
+- `README.md` — added AI Agent Integration section, test repos link
+- `roadmap/CURRENT-STATE.md` — this file
 
 ### What Remains / Next Priority
 
-#### Remaining Active Tech Debt (7 items)
-- **TD-002** (Low): Sync detector interface — accepted, no parallelism needed yet
-- **TD-009** (Low): VR-002 scheduling — won't implement, use system cron
-- **TD-011** (Low): Detectors duplicate dev tooling — accepted trade-off
-- **TD-016** (Medium): Serial LLM judge bottleneck — optimization, not blocking
-- **TD-024** (Low): JSON error envelope inconsistency — cosmetic
-- **TD-032** (Low): Synthesis gated to standard+ — by design
-- **TD-039** (Low): Doc data duplication — accepted, mitigated by consistency checks
+#### User's deferred items
+1. **Real-world repo testing**: Clone repos from test-repos.md and run Sentinel scans to validate
+2. **OQ-017 resolution**: Decide on OAuth device flow (needs human input on GitHub App registration cost/benefit)
+3. **OQ-018 resolution**: Decide on GitHub wiki usage (needs human input on target audience)
+4. **GitHub issue creation end-to-end test**: Run `sentinel create-issues --dry-run` against a real repo with approved findings
 
-#### Remaining Open Questions (3 items)
-- **OQ-006** (Low): SQL anti-pattern detector design — deferred
-- **OQ-014** (Medium): Real-world ground truth corpus — needs human input
-- **OQ-016** (Low): generate() protocol evolution — not urgent
-
-#### Recommended Next Work (priority order)
+#### Remaining from Session 26
 1. **Stale samples**: samples/ directory has report and JSON from Session 8; regenerate
 2. **PyPI publication**: Release workflow exists, needs `pypi` environment in GitHub settings, tag v0.1.0
 3. **OQ-014 resolution**: Requires human decision on ground truth corpus strategy
-4. **CI full-pipeline eval**: Add `--full-pipeline --replay-file` step to CI once recordings are captured with a real model
-5. **Model comparison benchmarks**: Run benchmarks with different models to quantify quality differences
-6. **TD-016 optimization**: Batch judge prompts (only if scan times become a user complaint)
 
 ---
 

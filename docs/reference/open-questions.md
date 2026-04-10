@@ -114,3 +114,15 @@ Tracked questions that need resolution before or during implementation. Each que
 **Context**: Without measurable criteria, we can't write an honest blog post or evaluate whether Sentinel is working. Need to define metrics before writing code.
 **Current thinking**: Precision at k (of the top-k findings, how many are real?), false positive rate per run, time-to-review the morning report, findings-per-run that lead to actual issues.
 **Resolution**: Formalized as ADR-008. Six metrics defined: precision@k (≥70%), FP rate (<30%), review time (<2min), findings→issues (track only), detector coverage (≥3 categories), repeatability (100% for deterministic).
+
+### OQ-017: Should GitHub integration support OAuth device flow?
+**Status**: Open
+**Priority**: Medium
+**Context**: Currently, GitHub issue creation requires a pre-created PAT set as `SENTINEL_GITHUB_TOKEN`. This works but requires manual token management. OAuth device flow (`https://github.com/login/device`) would let users authenticate from the web UI or CLI without managing tokens manually — more convenient, especially for the web UI triage workflow. Considerations: (1) OAuth device flow requires registering a GitHub App or OAuth App, which adds a deployment dependency; (2) PATs are simpler for scripted/automated use; (3) OAuth tokens expire and need refresh logic; (4) Privacy: OAuth sends the user to GitHub's auth page, which is acceptable since GitHub integration is already opt-in.
+**Current thinking**: Support both — PAT for automation/CI, OAuth device flow as a convenience for interactive use via `sentinel serve`. The GitHub App registration could be documented as a one-time setup step. However, this adds complexity and may not be worth it for the current user base.
+
+### OQ-018: Should project documentation live in the GitHub wiki?
+**Status**: Open
+**Priority**: Low
+**Context**: The `docs/` directory currently holds all project documentation (architecture, ADRs, reference, vision). Moving to the GitHub wiki would make docs more discoverable for new contributors and provide a nicer browsing experience. However: (1) wiki content is a separate git repo, complicating doc-code atomicity (can't update docs and code in the same commit); (2) wikis don't support PRs, so doc changes can't be reviewed; (3) the current in-repo docs are scanned by Sentinel itself (docs-drift detector), which would break if docs moved to a wiki; (4) in-repo docs are searchable by AI agents and Copilot. GitHub wiki is better for user-facing guides and tutorials that aren't tightly coupled to code.
+**Current thinking**: Keep architecture/ADR/reference docs in-repo (they change with code). Consider the wiki for user-facing content like installation guides, FAQ, and tutorials — content that doesn't need atomic commits with code changes. A hybrid approach: `docs/` for developer docs, wiki for user guides, with cross-links.

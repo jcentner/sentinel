@@ -907,16 +907,19 @@ def eval_history(repo: str, db: str | None, limit: int, output_json: bool) -> No
 @click.option("--host", default="127.0.0.1", help="Bind address (default: localhost only)")
 @click.option("--port", default=8888, type=int, help="Port number")
 @click.option("--db", default=None, help="Database path")
+@click.option("--open/--no-open", "open_browser", default=True, help="Auto-open browser (default: open)")
 def serve(
     repo_path: str,
     host: str,
     port: int,
     db: str | None,
+    open_browser: bool,
 ) -> None:
     """Start the local web UI for reviewing scan results.
 
     Launches a browser-based interface on localhost for browsing
     runs, reviewing findings, and approving/suppressing issues.
+    Auto-opens the browser by default (use --no-open to disable).
     Requires the [web] optional dependency group.
     """
     try:
@@ -936,7 +939,16 @@ def serve(
     db_path = db or str(repo / config.db_path)
 
     app = create_app(repo_path=str(repo), db_path=db_path)
-    click.echo(f"Sentinel web UI: http://{host}:{port}")
+    url = f"http://{host}:{port}"
+    click.echo(f"Sentinel web UI: {url}")
+
+    if open_browser:
+        import threading
+        import webbrowser
+
+        # Open browser after a short delay to let the server start
+        threading.Timer(1.0, webbrowser.open, args=[url]).start()
+
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
 

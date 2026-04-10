@@ -36,3 +36,8 @@ coverage/
 .coverage
 htmlcov/
 sentinel.toml
+
+
+# notes
+tmp/
+scratch.md

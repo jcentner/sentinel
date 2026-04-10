@@ -367,9 +367,20 @@ mypy src/sentinel/             # type check
 | Vision & Strategy | [docs/vision/](docs/vision/) | High-level goals, positioning, what we're building and why |
 | Architecture | [docs/architecture/](docs/architecture/) | Technical design, detector interface, system overview |
 | Architecture Decisions | [docs/architecture/decisions/](docs/architecture/decisions/) | ADRs — recorded design choices with context and rationale |
-| Reference | [docs/reference/](docs/reference/) | Open questions, tech debt tracker, glossary |
+| Reference | [docs/reference/](docs/reference/) | Open questions, tech debt tracker, glossary, [test repos](docs/reference/test-repos.md) |
 | Analysis | [docs/analysis/](docs/analysis/) | Competitive landscape, critical review of the design |
 | Roadmap | [roadmap/](roadmap/) | Phased development plan |
+| AI Setup Skill | [.github/skills/setup-sentinel/](.github/skills/setup-sentinel/) | Copilot skill for AI-assisted setup and configuration |
+
+## AI Agent Integration
+
+Sentinel is designed to be used by AI agents and development tools:
+
+- **`--json-output`** on all CLI commands for machine-readable output
+- **Predictable exit codes**: 0 = success, 1 = error, 2 = partial failure
+- **Copilot skill**: `.github/skills/setup-sentinel/SKILL.md` provides step-by-step setup instructions that GitHub Copilot (and other AI agents) can follow
+- **Quiet mode**: `-q` suppresses all log output for clean piping
+- **Config-driven**: `sentinel.toml` is fully declarative — agents can generate it
 
 ## Contributing
 
