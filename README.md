@@ -2,6 +2,8 @@
 
 **A local, evidence-backed repository issue triage system for overnight code health monitoring.**
 
+📖 **[Documentation Wiki](https://github.com/jcentner/sentinel/wiki)** — Installation, configuration, detector reference, and more.
+
 Sentinel runs on your local machine, scans a codebase with deterministic detectors and an optional LLM judgment layer, deduplicates findings across runs, and produces a concise morning report of issues worth reviewing. After explicit approval, selected findings can become GitHub issues.
 
 ## What it does

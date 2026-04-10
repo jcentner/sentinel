@@ -1,13 +1,23 @@
 # Current State — Sentinel
 
-> Last updated: Session 29 (continued) — Quick fixes + wiki planning
+> Last updated: Session 29 (continued) — Wiki populated
 
 ## Latest Session Summary
 
 ### Current Objective
-Apply learnings from detector analysis, decouple skip-judge/skip-llm, plan GitHub wiki.
+Apply learnings from detector analysis, decouple skip-judge/skip-llm, populate GitHub wiki.
 
 ### What Was Accomplished
+
+#### GitHub wiki — 29 pages published
+- **Home** — landing page with quick links
+- **Getting Started** — Installation, Quick Start, Configuration
+- **Reference** — CLI Reference (all 15 commands with full option tables), Detectors overview, Model Providers
+- **14 per-detector pages** — each with: what it detects, how it works, tier, languages, tools, LLM needs, severity rules, example finding, observed accuracy, known limitations
+- **Advanced** — Per-Detector Providers, Writing Custom Detectors, Scheduling
+- **Workflow** — Morning Report, Web UI, GitHub Issues
+- **Navigation** — `_Sidebar.md` with full page tree, `_Footer.md` with license
+- Live at: https://github.com/jcentner/sentinel/wiki
 
 #### Quick fixes from detector analysis
 1. **Decoupled `--skip-judge` from `--skip-llm`** — New `--skip-llm` CLI flag and `skip_llm` config field. `--skip-judge` now only controls the judge step; LLM-assisted detectors (semantic-drift, test-coherence) can run independently.
@@ -61,15 +71,12 @@ Apply learnings from detector analysis, decouple skip-judge/skip-llm, plan GitHu
 
 ### What Remains / Next Priority
 
-#### Immediate: GitHub wiki
-1. User enables wiki in GitHub repo settings
-2. Agent populates wiki with 24 pages from existing detector data
-
 #### Next priorities
-1. **LLM detector validation** — Run semantic-drift and test-coherence with Ollama (now possible with `--skip-judge` without `--skip-llm`)
+1. **LLM detector validation** — Run semantic-drift and test-coherence with a model provider (now possible with `--skip-judge` without `--skip-llm`)
 2. **Full-pipeline scan** — Validate judge + synthesis + report end-to-end
 3. **PyPI publication** — Package and publish
 4. **Cross-detector data flow** (TD-043) — Let git-hotspots inform LLM detector targeting
+5. **Wiki maintenance** — Keep wiki in sync with code changes
 
 ---
 
