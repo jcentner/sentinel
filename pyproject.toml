@@ -29,9 +29,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jakce/sentinel"
-Repository = "https://github.com/jakce/sentinel"
-Issues = "https://github.com/jakce/sentinel/issues"
+Homepage = "https://github.com/jcentner/sentinel"
+Repository = "https://github.com/jcentner/sentinel"
+Issues = "https://github.com/jcentner/sentinel/issues"
 
 [project.optional-dependencies]
 dev = [

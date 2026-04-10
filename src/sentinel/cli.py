@@ -1357,7 +1357,7 @@ def doctor(output_json: bool) -> None:
 @click.option("--model", default=None, help="Model name (recorded in results)")
 @click.option("--provider", "provider_name", default=None, help="Provider: ollama, openai, azure")
 @click.option("--api-base", default=None, help="API base URL for openai/azure provider")
-@click.option("--skip-judge", is_flag=True, help="Skip LLM-assisted detectors (deterministic only)")
+@click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
 @click.option("--capability", default=None, help="Model capability tier: none, basic, standard, advanced")
 @click.option("--ground-truth", default=None, type=click.Path(), help="Path to ground-truth.toml for eval")
 @click.option("--output-dir", default="benchmarks", help="Directory to save results (default: benchmarks/)")
