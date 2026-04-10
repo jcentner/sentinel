@@ -269,28 +269,22 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Accept for now. Building a single-source mechanism is over-engineered for the current project size. Mitigated by the reviewer subagent's post-implementation consistency checks and the doc-sync checklist in the autonomous builder workflow.
 
 ### TD-040: Dead-code detector misses intra-file symbol usage
-**Status**: Active
+**Status**: Resolved (Session 28)
 **Severity**: Medium
 **Introduced**: Session 27 (pip-tools real-world validation)
-**Description**: The dead-code detector flags symbols as "unused" when they are only consumed within the same file (not exported/imported elsewhere). Example: `CI_VARIABLES` in `tests/utils.py` is used by `looks_like_ci()` in the same file but flagged as unused. Also misses dynamically-called entry points (PEP 517 hooks, plugin callables).
-**Impact**: 100% FP rate on dead-code findings in pip-tools (6/6 were FP). Three were intra-file usage, three were dynamic entry points.
-**Proposed resolution**: (1) Check intra-file references before flagging — if a symbol is used anywhere in the same file, it's not dead. (2) For dynamic entry points, consider a heuristic: functions in files named `backend.py` or matching PEP 517 hook names (`build_wheel`, `get_requires_for_build_*`) should be skipped.
+**Resolution**: Added `internal_refs` tracking to `_ModuleInfo` — `_parse_python_module` now walks the full AST collecting `ast.Name(ctx=Load)` and `ast.Attribute` references, and `_find_unused_python_symbols` skips symbols found in `internal_refs`. Also added PEP 517 build hooks to `_PYTHON_ALWAYS_USED`. Result: dead-code findings on pip-tools dropped from 6 FP to 0.
 
 ### TD-041: Docs-drift treats example text as file path references
-**Status**: Active
-**Severity**: Medium
+**Status**: Partially resolved (Session 28)
+**Severity**: Low (reduced from Medium)
 **Introduced**: Session 27 (pip-tools real-world validation)
-**Description**: The docs-drift detector interprets backtick-wrapped text in documentation as file path references even when the text is clearly an example (e.g., "Create a branch like `release/v3.4.0`" or "named `changelog.d/404.bugfix.md`"). Context clues like "e.g." and "for example" precede these.
-**Impact**: 100% FP rate on docs-drift findings in pip-tools (3/3 were FP from example text).
-**Proposed resolution**: Add heuristics to skip backtick references that: (1) appear after "e.g.", "for example", "such as", "like"; (2) are in changelog entries (historical references); (3) contain version-like patterns in path segments (e.g., `v3.4.0`).
+**Resolution**: Added `_is_example_context()` helper that checks for "e.g.", "for example", "such as", "like" phrases in the 30-char window before backtick-wrapped paths. Eliminated 1/3 pip-tools FPs (the "e.g. `release/v3.4.0`" case). Two edge cases remain: feature descriptions in CHANGELOG and example filenames without explicit example-context phrases.
 
 ### TD-042: Unused-deps misses plugin/entry-point loading patterns
-**Status**: Active
+**Status**: Resolved (Session 28)
 **Severity**: Medium
 **Introduced**: Session 27 (pip-tools real-world validation)
-**Description**: The unused-deps detector only checks for Python `import` statements. Packages loaded via plugin mechanisms (pytest plugins via entry points, coverage.py plugins via `.coveragerc`, build backends via `[build-system]`) are flagged as unused. Also misses build-time-only dependencies.
-**Impact**: 100% FP rate on unused-deps findings in pip-tools (3/3 were FP). Known pattern: `pytest-rerunfailures` (pytest plugin), `covdefaults` (coverage plugin), `flit_core` (build backend).
-**Proposed resolution**: (1) Parse `pytest.ini`/`pyproject.toml` `[tool.pytest]` for plugin references. (2) Parse `.coveragerc`/`pyproject.toml` `[tool.coverage]` for plugin names. (3) Maintain a known-plugin-packages list (pytest-*, coverage plugins). (4) Skip packages that are build backends in other `[build-system]` sections.
+**Resolution**: Three fixes: (1) Added `_TOOL_PACKAGE_PREFIXES` for prefix-based matching — any `pytest_*`, `flake8_*`, `pylint_*`, `mypy_*` package is treated as a tool extension. (2) Parse `[build-system].requires` from `pyproject.toml` and exclude those packages from the unused check. (3) Added `covdefaults`, `flit_core`, `setuptools_scm` to `_TOOL_PACKAGES`. Result: unused-deps findings on pip-tools dropped from 3 FP to 0.
 
 ## Won't Fix
 

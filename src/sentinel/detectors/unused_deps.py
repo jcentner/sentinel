@@ -53,7 +53,8 @@ _PACKAGE_TO_IMPORT: dict[str, str | list[str]] = {
 # Packages that are typically runtime/tool deps, not imported in source.
 _TOOL_PACKAGES: frozenset[str] = frozenset({
     # Build tools
-    "setuptools", "wheel", "pip", "build", "flit", "hatch", "hatchling",
+    "setuptools", "setuptools_scm", "wheel", "pip", "build",
+    "flit", "flit_core", "hatch", "hatchling",
     "poetry", "poetry_core", "maturin",
     # Type stubs
     "types_requests", "types_pyyaml", "types_toml", "types_setuptools",
@@ -61,6 +62,8 @@ _TOOL_PACKAGES: frozenset[str] = frozenset({
     # Testing tools (invoked via CLI, not imported in prod)
     "pytest", "pytest_cov", "pytest_xdist", "pytest_asyncio",
     "pytest_mock", "pytest_tmp_files", "coverage", "tox", "nox",
+    # Coverage plugins
+    "covdefaults",
     # Linters/formatters
     "ruff", "black", "isort", "flake8", "pylint", "mypy", "pyright",
     # Audit tools (invoked via CLI)
@@ -68,6 +71,15 @@ _TOOL_PACKAGES: frozenset[str] = frozenset({
     # Dev utilities
     "pre_commit", "ipython", "ipdb", "debugpy",
 })
+
+# Prefixes that indicate a tool-extension package (pytest plugins, etc.)
+# These are loaded via entry points, not imported in source code.
+_TOOL_PACKAGE_PREFIXES: tuple[str, ...] = (
+    "pytest_",       # pytest plugins
+    "flake8_",       # flake8 plugins
+    "pylint_",       # pylint plugins
+    "mypy_",         # mypy plugins (but not mypy itself — caught by exact match)
+)
 
 # JS packages that are build-time tools or plugins, not imported in source
 _JS_TOOL_PACKAGES: frozenset[str] = frozenset({
@@ -185,6 +197,8 @@ class UnusedDeps(Detector):
             # Skip known tool packages
             if lang == "python" and normalized in _TOOL_PACKAGES:
                 continue
+            if lang == "python" and normalized.startswith(_TOOL_PACKAGE_PREFIXES):
+                continue
             if lang == "javascript" and package_name in _JS_TOOL_PACKAGES:
                 continue
 
@@ -258,6 +272,17 @@ class UnusedDeps(Detector):
             for group_data in data.get("tool", {}).get("poetry", {}).get("group", {}).values():
                 for name in group_data.get("dependencies", {}):
                     deps[name] = "pyproject.toml"
+
+            # Exclude [build-system].requires — these are build-time deps that
+            # are not imported in source code (e.g. flit_core, setuptools-scm).
+            build_requires: set[str] = set()
+            for spec in data.get("build-system", {}).get("requires", []):
+                name = _strip_version(spec)
+                if name:
+                    build_requires.add(_normalize_package_name(name))
+            for pkg in list(deps):
+                if _normalize_package_name(pkg) in build_requires:
+                    del deps[pkg]
 
         # requirements.txt
         req_file = repo_root / "requirements.txt"

@@ -300,6 +300,71 @@ class TestStaleReferences:
         ]
         assert len(inline_path_findings) == 2
 
+    def test_ignores_example_context_eg(self, detector, tmp_path):
+        """FP prevention (TD-041): paths after 'e.g.' are examples, not references."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Create a release branch, e.g. `release/v3.4.0`.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
+    def test_ignores_example_context_for_example(self, detector, tmp_path):
+        """FP prevention (TD-041): paths after 'for example' are examples."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Use a changelog fragment, for example `changelog.d/404.bugfix.md`.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
+    def test_ignores_example_context_such_as(self, detector, tmp_path):
+        """FP prevention (TD-041): paths after 'such as' are examples."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "Support config files such as `setuptools/pyproject.toml` format.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
+    def test_ignores_example_context_ie(self, detector, tmp_path):
+        """FP prevention (TD-041): paths after 'i.e.' are examples."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "The config directory, i.e. `config/settings.yaml`, is required.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 0
+
+    def test_still_detects_missing_paths_without_example_context(self, detector, tmp_path):
+        """TP: paths without example context should still be flagged."""
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "See `src/config/settings.py` for configuration.\n"
+        )
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        inline_path_findings = [
+            f for f in findings if f.context and f.context.get("pattern") == "stale-inline-path"
+        ]
+        assert len(inline_path_findings) == 1
+
     def test_ignores_regex_patterns_as_links(self, detector, tmp_path):
         r"""FP prevention: regex like [JS](\d+) should not be treated as broken link."""
         readme = tmp_path / "README.md"

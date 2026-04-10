@@ -102,6 +102,18 @@ class TestParsePythonModule:
         _write(tmp_path, "bad.py", "def foo(:\n")
         assert _parse_python_module(tmp_path / "bad.py", "bad.py") is None
 
+    def test_internal_refs_collected(self, tmp_path: Path) -> None:
+        """Parser should collect intra-file references in internal_refs."""
+        _write(tmp_path, "mod.py", """\
+            MY_CONST = 42
+
+            def use_const():
+                return MY_CONST + 1
+        """)
+        info = _parse_python_module(tmp_path / "mod.py", "mod.py")
+        assert info is not None
+        assert "MY_CONST" in info.internal_refs
+
     def test_async_functions(self, tmp_path: Path) -> None:
         _write(tmp_path, "async_mod.py", """\
             async def handle_request():
@@ -360,6 +372,20 @@ class TestCrossReferencing:
         unused = _find_unused_js_symbols(modules)
         assert len(unused) == 0
 
+    def test_intra_file_usage_not_flagged(self) -> None:
+        """A symbol referenced within its own module should not be flagged."""
+        modules = [
+            _ModuleInfo(
+                path="utils.py",
+                defined=[_Symbol("CI_VARS", "utils.py", 1, "constant")],
+                imported_names=set(),
+                imported_modules=set(),
+                internal_refs={"CI_VARS"},
+            ),
+        ]
+        unused = _find_unused_python_symbols(modules)
+        assert len(unused) == 0
+
 
 # ---------------------------------------------------------------------------
 # Full detector integration
@@ -465,6 +491,49 @@ class TestDeadCodeDetector:
             @pytest.fixture
             def my_fixture():
                 return 42
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        assert len(findings) == 0
+
+    def test_intra_file_constant_usage(self, tmp_path: Path) -> None:
+        """Constants used within the same file should not be flagged (TD-040)."""
+        _write(tmp_path, "utils.py", """\
+            CI_VARIABLES = ("CI", "GITHUB_ACTIONS", "TRAVIS")
+
+            def looks_like_ci():
+                import os
+                return any(os.environ.get(v) for v in CI_VARIABLES)
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused constant: CI_VARIABLES" not in names
+
+    def test_intra_file_function_call(self, tmp_path: Path) -> None:
+        """Functions called within the same file should not be flagged (TD-040)."""
+        _write(tmp_path, "helpers.py", """\
+            def compute_total(items):
+                return sum(items)
+
+            def report():
+                total = compute_total([1, 2, 3])
+                print(total)
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused function: compute_total" not in names
+
+    def test_pep517_build_hooks_not_flagged(self, tmp_path: Path) -> None:
+        """PEP 517 build backend hooks should not be flagged (TD-040)."""
+        _write(tmp_path, "backend.py", """\
+            def get_requires_for_build_sdist(config_settings=None):
+                return []
+            def get_requires_for_build_wheel(config_settings=None):
+                return []
+            def get_requires_for_build_editable(config_settings=None):
+                return []
         """)
         det = DeadCodeDetector()
         findings = det.detect(_ctx(tmp_path))

@@ -321,3 +321,52 @@ class TestFalsePositives:
         findings = detector.detect(ctx)
         assert len(findings) == 1
         assert "flask" in findings[0].title
+
+    def test_pytest_plugin_prefix_skipped(self, detector, make_context, tmp_path):
+        """Pytest plugins (pytest-* prefix) should be skipped (TD-042)."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\n'
+            'dependencies = ["pytest-rerunfailures", "pytest-randomly"]\n'
+        )
+        (tmp_path / "app.py").write_text("pass\n")
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        assert len(findings) == 0
+
+    def test_build_system_requires_excluded(self, detector, make_context, tmp_path):
+        """[build-system].requires packages should not be flagged (TD-042)."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[build-system]\nrequires = ["flit_core>=3.2"]\n'
+            'build-backend = "flit_core.buildapi"\n'
+            '[project]\nname = "myapp"\n'
+            'dependencies = ["flit_core", "requests"]\n'
+        )
+        (tmp_path / "app.py").write_text("import requests\n")
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        # flit_core should be excluded (in build-system.requires), requests is imported
+        assert len(findings) == 0
+
+    def test_build_system_only_excludes_build_deps(self, detector, make_context, tmp_path):
+        """Non-build-system deps should still be flagged even if build-system section exists."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[build-system]\nrequires = ["setuptools"]\n'
+            '[project]\nname = "myapp"\n'
+            'dependencies = ["requests", "flask"]\n'
+        )
+        (tmp_path / "app.py").write_text("import requests\n")
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        assert len(findings) == 1
+        assert "flask" in findings[0].title
+
+    def test_covdefaults_skipped(self, detector, make_context, tmp_path):
+        """Coverage plugins like covdefaults should be skipped (TD-042)."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\n'
+            'dependencies = ["covdefaults"]\n'
+        )
+        (tmp_path / "app.py").write_text("pass\n")
+        ctx = make_context()
+        findings = detector.detect(ctx)
+        assert len(findings) == 0

@@ -53,6 +53,8 @@ class _ModuleInfo:
     imported_names: set[str] = field(default_factory=set)
     # Qualified module paths imported (e.g. "sentinel.models")
     imported_modules: set[str] = field(default_factory=set)
+    # All names referenced within this module (for intra-file usage detection)
+    internal_refs: set[str] = field(default_factory=set)
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +97,11 @@ _PYTHON_ALWAYS_USED: frozenset[str] = frozenset({
     "__all__", "__version__", "__author__",
     # Common framework entry points
     "main", "app", "application", "setup", "configure",
+    # PEP 517 build backend hooks
+    "get_requires_for_build_sdist", "get_requires_for_build_wheel",
+    "get_requires_for_build_editable", "build_sdist", "build_wheel",
+    "build_editable", "prepare_metadata_for_build_wheel",
+    "prepare_metadata_for_build_editable",
     # Common test fixtures and hooks
     "conftest", "pytest_configure", "pytest_collection_modifyitems",
     "pytest_addoption", "pytest_runtest_setup",
@@ -187,6 +194,21 @@ def _parse_python_module(path: Path, rel_path: str) -> _ModuleInfo | None:
     # If __all__ is defined, filter exported symbols to only __all__ members
     if all_names is not None:
         info.defined = [s for s in info.defined if s.name in all_names]
+
+    # Collect all names referenced within the module (for intra-file usage).
+    # Walk the full AST, not just top-level children, to find references in
+    # function bodies, class methods, decorators, default arguments, etc.
+    defined_names = {s.name for s in info.defined}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in defined_names:
+            # Don't count the definition site itself — only references.
+            # Definition sites are Assign targets and FunctionDef/ClassDef names,
+            # which appear as Store context.  References are Load context.
+            if isinstance(node.ctx, ast.Load):
+                info.internal_refs.add(node.id)
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in defined_names:
+            # Catches patterns like ClassName.method or MODULE_CONST.attr
+            info.internal_refs.add(node.value.id)
 
     return info
 
@@ -390,6 +412,9 @@ def _find_unused_python_symbols(
             # Skip always-used names
             if symbol.name in _PYTHON_ALWAYS_USED:
                 continue
+            # Skip if the symbol is referenced within its own module
+            if symbol.name in mod.internal_refs:
+                continue
             # Skip if the name appears as an import in any other module
             if symbol.name in all_imported_names:
                 continue
@@ -493,6 +518,7 @@ class DeadCodeDetector(Detector):
                     defined=m.defined if m in reportable_modules else [],
                     imported_names=m.imported_names,
                     imported_modules=m.imported_modules,
+                    internal_refs=m.internal_refs,
                 )
                 for m in all_py_modules
             ]

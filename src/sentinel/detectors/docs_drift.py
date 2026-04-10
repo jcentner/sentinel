@@ -61,6 +61,29 @@ def _is_template_path(path: str) -> bool:
     return bool(re.search(r"(?:\{[^}]+\}|<[^>]+>|\$[A-Za-z]|-N(?:NN)?-|-N(?:NN)?\.)", path))
 
 
+# Phrases that signal the following backtick content is an example/illustration
+_EXAMPLE_CONTEXT_RE = re.compile(
+    r"(?:e\.g\.[\s,]*|for example[\s,]*|such as\s+|i\.e\.[\s,]*)",
+    re.IGNORECASE,
+)
+
+
+def _is_example_context(line: str, path_text: str) -> bool:
+    """Check if an inline code path appears in example/illustration context.
+
+    Returns True when the text preceding the backtick-wrapped path contains
+    phrases like 'e.g.', 'for example', 'such as', or 'like'.
+    """
+    # Find the backtick-wrapped occurrence of this path in the line
+    idx = line.find(f"`{path_text}`")
+    if idx < 0:
+        return False
+    before = line[:idx]
+    # Check the 30 chars immediately before for example phrases
+    window = before[-30:]
+    return bool(_EXAMPLE_CONTEXT_RE.search(window))
+
+
 class DocsDriftDetector(Detector):
     """Detect documentation inconsistencies: stale references, dependency drift."""
 
@@ -317,6 +340,12 @@ class DocsDriftDetector(Detector):
             return None
         # Skip template/example paths
         if _is_template_path(path_text):
+            return None
+        # Skip paths in example/illustration context (TD-041).
+        # If the line text before the backtick contains phrases like "e.g.",
+        # "for example", "such as", or "like `", the path is likely an
+        # illustration rather than a reference to a real file.
+        if _is_example_context(line, path_text):
             return None
         # Skip URLs without scheme (domain.tld/path patterns)
         if re.match(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/", path_text):

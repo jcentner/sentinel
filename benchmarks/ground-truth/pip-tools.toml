@@ -2,9 +2,13 @@
 #
 # Repository: https://github.com/jazzband/pip-tools
 # Commit: eed26c9aa8627d2a7006139642ede7b54a243bbb
-# Scanned: 2026-04-10 (Session 27)
-# Total findings: 50 (after dedup)
-# Annotated: 36/50 (all non-complexity findings + spot-checked complexity)
+# Original scan: 2026-04-10 (Session 27) — 50 findings, 12 FP on non-trivial detectors
+# Post-fix re-scan: Session 28 — 37 findings, 2 FP remaining
+#
+# Session 28 detector improvements:
+#   TD-040: dead-code intra-file usage + PEP 517 hooks → 6 FP → 0
+#   TD-041: docs-drift example-context heuristic → 3 FP → 2 (1 fixed)
+#   TD-042: unused-deps prefix matching + build-system exclusion → 3 FP → 0
 #
 # Annotation method: Manual verification by reading source files.
 # Each finding checked against the actual file at the specified path/line.
@@ -16,12 +20,14 @@
 repo = "jazzband/pip-tools"
 commit = "eed26c9aa8627d2a7006139642ede7b54a243bbb"
 scan_date = "2026-04-10"
+rescan_session = "Session 28"
 annotator = "human+agent"  # Agent identified findings, human+agent verified each against source
-total_findings = 50
+original_total_findings = 50
+post_fix_total_findings = 37
 annotated_findings = 19  # individually annotated with [[findings]] entries
 assume_tp_findings = 25  # complexity (14) + todo (11) following same TP pattern as spot-checked samples
 assume_tp_reason = "Remaining complexity findings are structurally accurate (objective metric). Remaining TODO findings follow same real-TODO pattern as spot-checked samples."
-# Detectors with 0 findings: dep-audit, eslint-runner, go-linter, lint-runner, rust-clippy, semantic-drift, stale-env, test-coherence
+# Detectors with 0 findings: dead-code, dep-audit, eslint-runner, go-linter, lint-runner, rust-clippy, semantic-drift, stale-env, test-coherence, unused-deps
 
 # ── complexity (20 findings, 20 spot-checked) ──────────────────────────
 # All complexity findings are structurally accurate — the functions genuinely
