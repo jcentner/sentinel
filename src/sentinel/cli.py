@@ -55,6 +55,7 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
 @click.option("--api-base", default=None, help="API base URL for openai provider")
 @click.option("--output", "-o", default=None, help="Report output path")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
+@click.option("--skip-llm", is_flag=True, help="Skip LLM-assisted detectors (semantic-drift, test-coherence)")
 @click.option("--db", default=None, help="Database path")
 @click.option(
     "--incremental", is_flag=True,
@@ -74,6 +75,7 @@ def scan(
     api_base: str | None,
     output: str | None,
     skip_judge: bool,
+    skip_llm: bool,
     db: str | None,
     incremental: bool,
     embed_model: str | None,
@@ -93,7 +95,8 @@ def scan(
                          provider_name=provider_name, api_base=api_base,
                          detector_names=detector_names,
                          skip_detector_names=skip_detector_names,
-                         capability=capability)
+                         capability=capability,
+                         skip_llm=skip_llm)
 
     db_path = db or str(repo / config.db_path)
     conn = get_connection(db_path)
@@ -142,6 +145,7 @@ def _apply_cli_overrides(
     detector_names: str | None = None,
     skip_detector_names: str | None = None,
     capability: str | None = None,
+    skip_llm: bool = False,
 ) -> None:
     """Apply CLI flag overrides to a loaded config."""
     if provider_name:
@@ -154,6 +158,8 @@ def _apply_cli_overrides(
         config.api_base = api_base
     if skip_judge:
         config.skip_judge = True
+    if skip_llm:
+        config.skip_llm = True
     if embed_model:
         config.embed_model = embed_model
     if detector_names:
@@ -209,9 +215,9 @@ def _execute_scan(
     from sentinel.core.provider import create_provider
     from sentinel.core.runner import run_scan
 
-    # Create the model provider from config (None if judge is skipped)
+    # Create the model provider from config (None if both judge and LLM detectors skipped)
     provider = None
-    if not config.skip_judge:
+    if not (config.skip_judge and config.skip_llm):
         try:
             provider = create_provider(config)
         except ValueError as exc:
@@ -222,6 +228,7 @@ def _execute_scan(
     kwargs: dict[str, Any] = dict(
         provider=provider,
         skip_judge=config.skip_judge,
+        skip_llm=config.skip_llm,
         embed_model=config.embed_model,
         embed_chunk_size=config.embed_chunk_size,
         embed_chunk_overlap=config.embed_chunk_overlap,

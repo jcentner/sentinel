@@ -154,6 +154,13 @@ class ComplexityDetector(Detector):
             severity = self._severity_for(cc, lines)
             confidence = 0.95  # AST measurement is deterministic; threshold choice is heuristic
 
+            # Reduce severity and confidence for test files — complex tests are
+            # common and rarely worth refactoring
+            is_test = rel_path.startswith("test") or "/test" in rel_path or Path(rel_path).name.startswith("test_")
+            if is_test:
+                severity = Severity.LOW
+                confidence = 0.60
+
             description = f"`{func_name}` has " + " and ".join(issues) + "."
             title = f"Complex function: {func_name} ({', '.join(issues)})"
 

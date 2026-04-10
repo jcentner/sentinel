@@ -24,6 +24,30 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Detectors run sequentially. No parallelism.
 **Proposed resolution**: Migrate to async in Phase 2 when concurrent detector execution matters. Spec updated to reflect sync for now.
 
+### TD-043: Cross-detector data flow for LLM targeting
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 29 (multi-repo validation analysis)
+**Description**: git-hotspots identifies high-churn, fix-heavy files but this information isn't available to LLM-assisted detectors (semantic-drift, test-coherence). Each detector runs independently with no shared context. High-churn files are the best candidates for deep LLM analysis, but there's no mechanism to prioritize them.
+**Impact**: LLM detectors treat all files equally instead of focusing on the highest-risk files first. Wastes LLM budget on stable files while potentially missing issues in frequently-broken ones.
+**Proposed resolution**: Add a pre-scan phase that runs cheap heuristic detectors first and builds a "risk profile" per file. LLM detectors can then consume this profile to prioritize which files to analyze deeply. Could be as simple as a `context.risk_signals` dict populated by git-hotspots and complexity before LLM detectors run.
+
+### TD-044: Dead-code JS/TS monorepo false positives
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 28 (multi-repo validation — shadcn-ui)
+**Description**: The dead-code detector flags ~1700 FPs on shadcn-ui/ui. Remaining FPs come from non-auto-generated files where exports are consumed via dynamic `import()` patterns in other packages, registry-based component loading, and barrel re-exports.
+**Impact**: Dead-code detector is unusable for JS/TS monorepos. ~99% FP rate.
+**Proposed resolution**: (1) Cross-package import tracking for monorepos. (2) Detect registry/barrel patterns and suppress findings for registered exports. (3) Consider making JS/TS dead-code opt-in until accuracy improves.
+
+### TD-045: Ground truth too small for statistical confidence
+**Status**: Active
+**Severity**: Low
+**Introduced**: Session 29 (multi-repo validation analysis)
+**Description**: The eval fixture has 30 seeded TPs across 8 detectors. Multi-repo validation covered 4 repos but most detectors had <50 annotated findings. Not enough for meaningful precision confidence intervals.
+**Impact**: Cannot make statistically rigorous accuracy claims. Regression gate (P≥70%, R≥90%) is effective for catching regressions but doesn't validate real-world accuracy.
+**Proposed resolution**: Post-PyPI: build annotated ground truth on 5-10 diverse repos with ≥50 labeled findings per detector. Track precision/recall per detector, not just aggregate.
+
 ### TD-009: VR-002 built-in scheduling not implemented
 **Status**: Active
 **Severity**: Low

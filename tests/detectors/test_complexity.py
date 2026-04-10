@@ -203,3 +203,17 @@ class TestComplexityDetector:
         findings = detector.detect(ctx)
         assert len(findings) >= 1
         assert "handler" in findings[0].title
+
+    def test_test_files_get_reduced_severity_and_confidence(self, detector, tmp_path):
+        """Complex functions in test files get LOW severity and reduced confidence."""
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        code = "def test_tangled(x):\n" + "".join(
+            f"    if x == {i}:\n        assert {i}\n" for i in range(15)
+        ) + "    return True\n"
+        (tests_dir / "test_example.py").write_text(code)
+        ctx = DetectorContext(repo_root=str(tmp_path))
+        findings = detector.detect(ctx)
+        assert len(findings) >= 1
+        assert findings[0].severity == Severity.LOW
+        assert findings[0].confidence < 0.95  # Demoted from the normal 0.95

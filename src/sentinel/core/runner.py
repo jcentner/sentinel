@@ -77,6 +77,7 @@ def run_scan(
     output_path: str | None = None,
     output_dir: str = ".sentinel",
     skip_judge: bool = False,
+    skip_llm: bool = False,
     embed_model: str = "",
     embed_chunk_size: int = 50,
     embed_chunk_overlap: int = 10,
@@ -107,7 +108,7 @@ def run_scan(
         target_paths=target_paths,
         config={
             "provider": provider,
-            "skip_llm": skip_judge or provider is None,
+            "skip_llm": skip_llm or provider is None,
             "num_ctx": num_ctx,
             "model_capability": model_capability,
         },
