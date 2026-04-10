@@ -1,15 +1,25 @@
 # Current State — Sentinel
 
-> Last updated: Session 29 — Comprehensive detector report delivered
+> Last updated: Session 29 (continued) — Quick fixes + wiki planning
 
 ## Latest Session Summary
 
 ### Current Objective
-Deliver comprehensive detector report based on multi-repo validation data from Session 28.
+Apply learnings from detector analysis, decouple skip-judge/skip-llm, plan GitHub wiki.
 
 ### What Was Accomplished
 
-#### Comprehensive detector report delivered
+#### Quick fixes from detector analysis
+1. **Decoupled `--skip-judge` from `--skip-llm`** — New `--skip-llm` CLI flag and `skip_llm` config field. `--skip-judge` now only controls the judge step; LLM-assisted detectors (semantic-drift, test-coherence) can run independently.
+2. **Complexity test-file demotion** — Complex functions in test files now get `LOW` severity and `0.60` confidence (down from computed severity and `0.95`). Same detection, lower report noise.
+3. **New tech debt items** — TD-043 (cross-detector data flow for LLM targeting), TD-044 (dead-code JS monorepo FPs), TD-045 (ground truth size).
+
+#### GitHub wiki planned
+- 24-page structure designed: landing page, setup, CLI reference, per-detector pages, provider config, scheduling, etc.
+- Each detector gets its own wiki page with: what it detects, tier, languages, tools, LLM needs, config, example, limitations, accuracy.
+- **Blocked on**: user needs to enable Wikis in GitHub repo settings first.
+
+#### Comprehensive detector report delivered (earlier this session)
 - Covered all 14 detectors with: conceptual design, accuracy data, value estimation, LLM requirements, and real examples
 - Based on validation against 4 real-world repos: pip-tools (Python), httpx (Python), shadcn-ui/ui (JS/TS monorepo), bubbletea (Go)
 
@@ -51,16 +61,15 @@ Deliver comprehensive detector report based on multi-repo validation data from S
 
 ### What Remains / Next Priority
 
-#### Known issues to address
-1. **Dead-code JS/TS monorepo FPs** — 1692 FPs on shadcn-ui from non-auto-generated files with dynamic consumption patterns. Needs cross-package import tracking and runtime-resolved import resolution.
-2. **Docs-drift edge-case FPs** — 2 remaining on pip-tools (CHANGELOG feature descriptions), 6 on shadcn-ui (user-project paths in template repos).
-3. **Complexity test-file noise** — ~50% of complexity findings are in test files (accurate but low-value). May benefit from `--skip-tests` filter or reduced severity.
+#### Immediate: GitHub wiki
+1. User enables wiki in GitHub repo settings
+2. Agent populates wiki with 24 pages from existing detector data
 
 #### Next priorities
-1. **LLM detector validation** — Exercise `semantic-drift` and `test-coherence` with Ollama provider on a real repo
-2. **PyPI publication** — Package and publish
-3. **Full-pipeline scan** — Run against a repo with LLM enabled to validate judge + synthesis + report end-to-end
-4. **Phase 10 planning** — Advanced detectors based on validation lessons learned
+1. **LLM detector validation** — Run semantic-drift and test-coherence with Ollama (now possible with `--skip-judge` without `--skip-llm`)
+2. **Full-pipeline scan** — Validate judge + synthesis + report end-to-end
+3. **PyPI publication** — Package and publish
+4. **Cross-detector data flow** (TD-043) — Let git-hotspots inform LLM detector targeting
 
 ---
 
