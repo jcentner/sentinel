@@ -29,6 +29,9 @@ Set up Sentinel as an overnight code health monitor for any repository. Sentinel
 ### 1. Install Sentinel
 
 ```bash
+# From PyPI (when published):
+# pip install local-repo-sentinel
+
 # Core only (deterministic detectors, no web UI)
 pip install local-repo-sentinel
 
@@ -175,8 +178,11 @@ sentinel scan /path/to/your-project --skip-judge
 # Full scan with LLM judgment
 sentinel scan /path/to/your-project
 
-# View results in browser
+# View results in browser (auto-opens)
 sentinel serve /path/to/your-project
+
+# Headless (no browser auto-open — useful for AI agents)
+sentinel serve /path/to/your-project --no-open
 ```
 
 ### 7. Schedule Overnight Scans (Optional)
@@ -212,14 +218,15 @@ Register-ScheduledTask -TaskName "Sentinel Scan" -Action $action -Trigger $trigg
 |---------|---------|
 | `sentinel scan <repo>` | Run detectors and generate report |
 | `sentinel scan <repo> --json-output` | Machine-readable JSON output |
-| `sentinel serve <repo>` | Web UI for triage |
+| `sentinel serve <repo>` | Web UI for triage (auto-opens browser) |
+| `sentinel serve <repo> --no-open` | Web UI without opening browser (for agents/headless) |
 | `sentinel doctor <repo>` | Verify setup |
 | `sentinel init` | Create config file |
-| `sentinel show <repo> --run latest` | Show latest run results |
-| `sentinel history <repo>` | Show scan history |
-| `sentinel approve <repo> <id>` | Approve finding for GitHub issue |
-| `sentinel suppress <repo> <id>` | Suppress false positive |
-| `sentinel create-issues <repo>` | Create GitHub issues from approved findings |
+| `sentinel show <finding-id>` | Show full details of a finding |
+| `sentinel history` | Show scan history |
+| `sentinel approve <finding-id>` | Approve finding for GitHub issue |
+| `sentinel suppress <finding-id>` | Suppress false positive |
+| `sentinel create-issues` | Create GitHub issues from approved findings |
 
 ## Troubleshooting
 

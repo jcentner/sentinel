@@ -947,9 +947,17 @@ def serve(
         import webbrowser
 
         # Open browser after a short delay to let the server start
-        threading.Timer(1.0, webbrowser.open, args=[url]).start()
+        timer = threading.Timer(1.0, webbrowser.open, args=[url])
+        timer.daemon = True
+        timer.start()
+    else:
+        timer = None
 
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    try:
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+    finally:
+        if timer is not None:
+            timer.cancel()
 
 
 @main.command("scan-all")

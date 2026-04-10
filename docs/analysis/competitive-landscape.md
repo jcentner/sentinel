@@ -87,9 +87,11 @@ Night-watch-cli is the nearest in the "overnight" space, but it fundamentally ex
 
 From real-world validation (104 findings from a production Next.js + Python project, 88% confirmation rate):
 
-- **Docs-drift broken links**: 100% accuracy across 56 findings. Every stale path reference was genuinely broken/missing.
+- **Docs-drift broken links**: 100% accuracy across 56 findings — every stale path reference was genuinely broken/missing (manually verified).
 - **Semantic drift**: Even a 4B model can reliably answer "does this doc section match this code?" as a binary signal.
 - **LLM fabrication risk**: The LLM judge confirmed 42 out of 42 obvious non-path patterns (dates, CSS values) as missing files, each with plausible reasoning. This is why deterministic detectors come first and the LLM is a judgment layer, not the primary signal.
+
+*Note: The 88% confirmation rate is the LLM judge's confirmation rate — the judge agreed that 92/104 post-dedup findings were worth reviewing. The docs-drift accuracy was independently verified by manual inspection. See [benchmarks/](../../benchmarks/) for raw data.*
 
 The cross-artifact detectors — docs-drift, semantic-drift, test-coherence, stale-env, unused-deps, dead-code — find things that hide in plain sight because no single tool owns the whole picture. They compound as projects grow, quietly confusing every agent and human who touches the codebase.
 

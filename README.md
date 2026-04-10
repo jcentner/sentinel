@@ -146,8 +146,9 @@ sentinel show <finding-id>
 
 ```bash
 pip install sentinel[web]    # one-time: install web dependencies
-sentinel serve /path/to/repo
+sentinel serve /path/to/repo               # auto-opens browser
 sentinel serve /path/to/repo --port 9000
+sentinel serve /path/to/repo --no-open     # headless (for scripts/agents)
 ```
 
 The web UI runs on `http://127.0.0.1:8888` by default. It provides:
