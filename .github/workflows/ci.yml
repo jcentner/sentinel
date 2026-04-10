@@ -40,10 +40,10 @@ jobs:
         run: pytest --tb=short -q --cov=sentinel --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
       - name: Eval regression gate
-        run: sentinel eval tests/fixtures/sample-repo --json-output eval-result.json
+        run: sentinel eval tests/fixtures/sample-repo --json-output > eval-result.json
 
       - name: Full-pipeline eval (judge replay)
-        run: sentinel eval tests/fixtures/sample-repo --full-pipeline --replay-file tests/fixtures/sample-repo/judge-recordings.json --json-output eval-full-pipeline.json
+        run: sentinel eval tests/fixtures/sample-repo --full-pipeline --replay-file tests/fixtures/sample-repo/judge-recordings.json --json-output > eval-full-pipeline.json
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'
