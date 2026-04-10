@@ -49,10 +49,10 @@ Tracked questions that need resolution before or during implementation. Each que
 **Resolution**: All three approaches implemented. `sentinel eval --full-pipeline` runs with `skip_judge=False`. `--replay-file` uses ReplayProvider (pre-recorded responses matched by prompt hash) for deterministic CI testing. `--record-responses` wraps a live provider to capture responses for later replay. Per-detector precision/recall breakdown in every eval. Judge metrics (confirmation rate, rejection rate, wrongly-rejected TPs) in full-pipeline mode. See ADR-014.
 
 ### OQ-014: Should there be a ground truth corpus from real-world repos?
-**Status**: Open
+**Status**: Resolved (Session 27)
 **Priority**: Medium
 **Context**: The 30-item sample-repo ground truth is self-fulfilling — the fixture was designed to match what detectors can detect. 100% precision/recall proves detectors find planted items, not real bugs. The tsgbuilder benchmark (134 findings from a production repo) has no ground truth, so it only measures counts and timing. No LLM-assisted detectors (`semantic-drift`, `test-coherence`) have ground truth at all.
-**Current thinking**: Annotate 20-30 hand-verified findings from tsgbuilder as a start. Add a "clean repo" fixture (zero expected findings) to directly measure false positive rate. Both break the self-fulfilling prophecy without requiring a large investment.
+**Resolution**: First real-world ground truth created: `benchmarks/ground-truth/pip-tools.toml` — 50 findings from jazzband/pip-tools, 19 individually annotated, 25 assumed-TP (complexity + todo with spot-check validation). Overall precision 76% (38/50 TP). More importantly, identified 5 actionable FP patterns (TD-040, TD-041, TD-042) that explain 100% of the false positives. Future work: annotate more repos from `docs/reference/test-repos.md`, add a "clean repo" fixture for direct FP rate measurement.
 
 ### OQ-015: What data lifecycle strategy should the SQLite store use?
 **Status**: Resolved (TD-020, Session 23)
@@ -116,13 +116,13 @@ Tracked questions that need resolution before or during implementation. Each que
 **Resolution**: Formalized as ADR-008. Six metrics defined: precision@k (≥70%), FP rate (<30%), review time (<2min), findings→issues (track only), detector coverage (≥3 categories), repeatability (100% for deterministic).
 
 ### OQ-017: Should GitHub integration support OAuth device flow?
-**Status**: Open
+**Status**: Resolved
 **Priority**: Medium
 **Context**: Currently, GitHub issue creation requires a pre-created PAT set as `SENTINEL_GITHUB_TOKEN`. This works but requires manual token management. OAuth device flow (`https://github.com/login/device`) would let users authenticate from the web UI or CLI without managing tokens manually — more convenient, especially for the web UI triage workflow. Considerations: (1) OAuth device flow requires registering a GitHub App or OAuth App, which adds a deployment dependency; (2) PATs are simpler for scripted/automated use; (3) OAuth tokens expire and need refresh logic; (4) Privacy: OAuth sends the user to GitHub's auth page, which is acceptable since GitHub integration is already opt-in.
-**Current thinking**: Support both — PAT for automation/CI, OAuth device flow as a convenience for interactive use via `sentinel serve`. The GitHub App registration could be documented as a one-time setup step. However, this adds complexity and may not be worth it for the current user base.
+**Resolution**: PAT-only. The complexity of registering a GitHub App, handling token expiry/refresh, and maintaining OAuth flow code is not justified for the current scope. PATs are simple, well-understood, and work for both interactive and automated use. If OAuth demand emerges from users, it can be added later without breaking the PAT path.
 
 ### OQ-018: Should project documentation live in the GitHub wiki?
-**Status**: Open
+**Status**: Resolved
 **Priority**: Low
 **Context**: The `docs/` directory currently holds all project documentation (architecture, ADRs, reference, vision). Moving to the GitHub wiki would make docs more discoverable for new contributors and provide a nicer browsing experience. However: (1) wiki content is a separate git repo, complicating doc-code atomicity (can't update docs and code in the same commit); (2) wikis don't support PRs, so doc changes can't be reviewed; (3) the current in-repo docs are scanned by Sentinel itself (docs-drift detector), which would break if docs moved to a wiki; (4) in-repo docs are searchable by AI agents and Copilot. GitHub wiki is better for user-facing guides and tutorials that aren't tightly coupled to code.
-**Current thinking**: Keep architecture/ADR/reference docs in-repo (they change with code). Consider the wiki for user-facing content like installation guides, FAQ, and tutorials — content that doesn't need atomic commits with code changes. A hybrid approach: `docs/` for developer docs, wiki for user guides, with cross-links.
+**Resolution**: Hybrid approach. Architecture, ADRs, reference, and vision docs stay in-repo (they change atomically with code and are scanned by Sentinel's docs-drift detector). The GitHub wiki is used for user-facing content: installation guides, FAQ, tutorials, and getting-started walkthroughs — content that doesn't need atomic commits with code. Cross-links between wiki and in-repo docs where relevant.

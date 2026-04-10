@@ -1,12 +1,12 @@
 {
   "run": {
     "id": 1,
-    "repo_path": "/home/user/sentinel",
-    "started_at": "2026-04-06T22:26:16.881042+00:00",
-    "completed_at": "2026-04-06T22:26:22.194371+00:00",
+    "repo_path": "/home/jacobcentner/sentinel/tests/fixtures/sample-repo",
+    "started_at": "2026-04-10T16:38:57.490923+00:00",
+    "completed_at": null,
     "scope": "full",
-    "finding_count": 92,
-    "commit_sha": "a93fbdc9d7aaa2ecef450dba775fb31a629a7425"
+    "finding_count": 0,
+    "commit_sha": "0c2fc762a715e2208e3924b27d405bb1303588e6"
   },
   "findings": [
     {
@@ -14,63 +14,1465 @@
       "category": "code-quality",
       "severity": "high",
       "confidence": 0.95,
-      "title": "Complex function: scan (cyclomatic complexity 23 (threshold: 10), 77 lines (threshold: 50))",
-      "description": "`scan` has cyclomatic complexity 23 (threshold: 10) and 77 lines (threshold: 50).",
+      "title": "Complex function: process_records (cyclomatic complexity 21 (threshold: 10), 76 lines (threshold: 50))",
+      "description": "`process_records` has cyclomatic complexity 21 (threshold: 10) and 76 lines (threshold: 50).",
       "evidence": [
         {
           "type": "code",
-          "source": "src/sentinel/cli.py",
-          "content": "Function scan at src/sentinel/cli.py:57",
-          "line_range": [57, 145]
+          "source": "src/myapp/processing.py",
+          "content": "Function process_records at src/myapp/processing.py:6",
+          "line_range": [
+            6,
+            82
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/processing.py",
+          "content": "   1 | \"\"\"Data processing utilities \u2014 intentionally complex for benchmark testing.\"\"\"\n   2 | \n   3 | import os\n   4 | \n   5 | \n   6 | def process_records(records, config):\n   7 |     \"\"\"Process a batch of records with validation and transformation.\n   8 | \n   9 |     This function intentionally has high cyclomatic complexity (CC > 10)\n  10 |     to exercise the complexity detector.\n  11 |     \"\"\"",
+          "line_range": [
+            1,
+            11
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/processing.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
         }
       ],
-      "file_path": "src/sentinel/cli.py",
-      "line_start": 57,
-      "line_end": 145,
-      "fingerprint": "2aa0a9db9d98bb22",
-      "metadata": {
-        "cyclomatic_complexity": 23,
-        "line_count": 77
-      }
+      "file_path": "src/myapp/processing.py",
+      "line_start": 6,
+      "line_end": 82,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "2ecef516b2abc111",
+      "fuzzy_fingerprint": "fe0d03f74cd27f82",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.503142+00:00"
+    },
+    {
+      "detector": "complexity",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.95,
+      "title": "Complex function: long_report_generator (65 lines (threshold: 50))",
+      "description": "`long_report_generator` has 65 lines (threshold: 50).",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/processing.py",
+          "content": "Function long_report_generator at src/myapp/processing.py:85",
+          "line_range": [
+            85,
+            150
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/processing.py",
+          "content": "  80 |         results.append(record)\n  81 | \n  82 |     return {\"results\": results, \"errors\": errors, \"total\": len(records)}\n  83 | \n  84 | \n  85 | def long_report_generator(data, options):\n  86 |     \"\"\"Generate a report with many sections.\n  87 | \n  88 |     This function intentionally exceeds the 50-line body threshold\n  89 |     to exercise the complexity detector's function-length check.\n  90 |     \"\"\"",
+          "line_range": [
+            80,
+            90
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/processing.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/processing.py",
+      "line_start": 85,
+      "line_end": 150,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "ef52c18a00bb35db",
+      "fuzzy_fingerprint": "f4cb4e49035979a5",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.503436+00:00"
+    },
+    {
+      "detector": "dead-code",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.7,
+      "title": "Unused function: process_records",
+      "description": "Function `process_records` is defined in `src/myapp/processing.py` but never imported or referenced elsewhere in the codebase.",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/processing.py",
+          "content": "function process_records (line 6)",
+          "line_range": [
+            6,
+            6
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/processing.py",
+          "content": "   1 | \"\"\"Data processing utilities \u2014 intentionally complex for benchmark testing.\"\"\"\n   2 | \n   3 | import os\n   4 | \n   5 | \n   6 | def process_records(records, config):\n   7 |     \"\"\"Process a batch of records with validation and transformation.\n   8 | \n   9 |     This function intentionally has high cyclomatic complexity (CC > 10)\n  10 |     to exercise the complexity detector.\n  11 |     \"\"\"",
+          "line_range": [
+            1,
+            11
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/processing.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/processing.py",
+      "line_start": 6,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "1a485ac92904a9ae",
+      "fuzzy_fingerprint": "f2c99da39f42996c",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.505337+00:00"
+    },
+    {
+      "detector": "dead-code",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.7,
+      "title": "Unused function: long_report_generator",
+      "description": "Function `long_report_generator` is defined in `src/myapp/processing.py` but never imported or referenced elsewhere in the codebase.",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/processing.py",
+          "content": "function long_report_generator (line 85)",
+          "line_range": [
+            85,
+            85
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/processing.py",
+          "content": "  80 |         results.append(record)\n  81 | \n  82 |     return {\"results\": results, \"errors\": errors, \"total\": len(records)}\n  83 | \n  84 | \n  85 | def long_report_generator(data, options):\n  86 |     \"\"\"Generate a report with many sections.\n  87 | \n  88 |     This function intentionally exceeds the 50-line body threshold\n  89 |     to exercise the complexity detector's function-length check.\n  90 |     \"\"\"",
+          "line_range": [
+            80,
+            90
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/processing.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/processing.py",
+      "line_start": 85,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "48c97b8434860f16",
+      "fuzzy_fingerprint": "2e74f550b6418b8d",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.505342+00:00"
+    },
+    {
+      "detector": "dead-code",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.7,
+      "title": "Unused constant: DATABASE_URL",
+      "description": "Constant `DATABASE_URL` is defined in `src/myapp/config.py` but never imported or referenced elsewhere in the codebase.",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "constant DATABASE_URL (line 6)",
+          "line_range": [
+            6,
+            6
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "   1 | \"\"\"Application configuration.\"\"\"\n   2 | \n   3 | import os\n   4 | \n   5 | # TODO: Load from environment variables instead of hardcoding\n   6 | DATABASE_URL = os.getenv(\"DATABASE_URL\", \"sqlite:///myapp.db\")\n   7 | SECRET_KEY = \"changeme\"\n   8 | DEBUG = True\n   9 | \n  10 | # Undocumented env var (not in .env.example)\n  11 | REDIS_URL = os.environ.get(\"REDIS_URL\", \"redis://localhost:6379\")",
+          "line_range": [
+            1,
+            11
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/config.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/config.py",
+      "line_start": 6,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "01762f39e8f8218d",
+      "fuzzy_fingerprint": "d07b30ae5cf8d139",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.505346+00:00"
+    },
+    {
+      "detector": "dead-code",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.7,
+      "title": "Unused constant: SECRET_KEY",
+      "description": "Constant `SECRET_KEY` is defined in `src/myapp/config.py` but never imported or referenced elsewhere in the codebase.",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "constant SECRET_KEY (line 7)",
+          "line_range": [
+            7,
+            7
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "   2 | \n   3 | import os\n   4 | \n   5 | # TODO: Load from environment variables instead of hardcoding\n   6 | DATABASE_URL = os.getenv(\"DATABASE_URL\", \"sqlite:///myapp.db\")\n   7 | SECRET_KEY = \"changeme\"\n   8 | DEBUG = True\n   9 | \n  10 | # Undocumented env var (not in .env.example)\n  11 | REDIS_URL = os.environ.get(\"REDIS_URL\", \"redis://localhost:6379\")",
+          "line_range": [
+            2,
+            11
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/config.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/config.py",
+      "line_start": 7,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "3987e842ff41b1a1",
+      "fuzzy_fingerprint": "f6ab8b71f8bcb3a6",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.505348+00:00"
+    },
+    {
+      "detector": "dead-code",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.7,
+      "title": "Unused constant: DEBUG",
+      "description": "Constant `DEBUG` is defined in `src/myapp/config.py` but never imported or referenced elsewhere in the codebase.",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "constant DEBUG (line 8)",
+          "line_range": [
+            8,
+            8
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "   3 | import os\n   4 | \n   5 | # TODO: Load from environment variables instead of hardcoding\n   6 | DATABASE_URL = os.getenv(\"DATABASE_URL\", \"sqlite:///myapp.db\")\n   7 | SECRET_KEY = \"changeme\"\n   8 | DEBUG = True\n   9 | \n  10 | # Undocumented env var (not in .env.example)\n  11 | REDIS_URL = os.environ.get(\"REDIS_URL\", \"redis://localhost:6379\")",
+          "line_range": [
+            3,
+            11
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/config.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/config.py",
+      "line_start": 8,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "ee6580abf317e84b",
+      "fuzzy_fingerprint": "ab941ee4bdefcab2",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.505350+00:00"
+    },
+    {
+      "detector": "dead-code",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.7,
+      "title": "Unused constant: REDIS_URL",
+      "description": "Constant `REDIS_URL` is defined in `src/myapp/config.py` but never imported or referenced elsewhere in the codebase.",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "constant REDIS_URL (line 11)",
+          "line_range": [
+            11,
+            11
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "   6 | DATABASE_URL = os.getenv(\"DATABASE_URL\", \"sqlite:///myapp.db\")\n   7 | SECRET_KEY = \"changeme\"\n   8 | DEBUG = True\n   9 | \n  10 | # Undocumented env var (not in .env.example)\n  11 | REDIS_URL = os.environ.get(\"REDIS_URL\", \"redis://localhost:6379\")",
+          "line_range": [
+            6,
+            11
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/config.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/config.py",
+      "line_start": 11,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "38844cbae79190f6",
+      "fuzzy_fingerprint": "eb527a793e653521",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.505356+00:00"
+    },
+    {
+      "detector": "dead-code",
+      "category": "code-quality",
+      "severity": "low",
+      "confidence": 0.7,
+      "title": "Unused function: helper",
+      "description": "Function `helper` is defined in `src/myapp/main.py` but never imported or referenced elsewhere in the codebase.",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "function helper (line 27)",
+          "line_range": [
+            27,
+            27
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "  22 |     # XXX\n  23 | \n  24 |     return data\n  25 | \n  26 | \n  27 | def helper():\n  28 |     \"\"\"A simple helper.\"\"\"\n  29 |     # This mentions TODO mid-sentence \u2014 should NOT be caught\n  30 |     # We should find TODOs in the codebase eventually.\n  31 | \n  32 |     # This is far from comment \u2014 should not count as TODO",
+          "line_range": [
+            22,
+            32
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 27,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "81dfbdcf0ed1c4cd",
+      "fuzzy_fingerprint": "aaeb3511f7b29296",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:38:57.505359+00:00"
+    },
+    {
+      "detector": "docs-drift",
+      "category": "docs-drift",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Stale path reference: `src/myapp/old_handler.py`",
+      "description": "Documentation README.md:24 references `src/myapp/old_handler.py` but the path does not exist in the repository.",
+      "evidence": [
+        {
+          "type": "doc",
+          "source": "README.md",
+          "content": "The old handler is at `src/myapp/old_handler.py` \u2014 this file does NOT",
+          "line_range": [
+            24,
+            24
+          ]
+        },
+        {
+          "type": "code",
+          "source": "README.md",
+          "content": "  19 | \n  20 | ## Configuration\n  21 | \n  22 | The config is at `src/myapp/config.py`.\n  23 | \n  24 | The old handler is at `src/myapp/old_handler.py` \u2014 this file does NOT\n  25 | exist and should be caught as a stale inline path.\n  26 | \n  27 | See [API docs](docs/api.md) for endpoint details \u2014 this file does NOT\n  28 | exist and should be caught as a stale link.\n  29 | ",
+          "line_range": [
+            19,
+            29
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "fe24452 test(eval): add HTML comment TODO ground truth entries\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "README.md",
+      "line_start": 24,
+      "line_end": 24,
+      "context": {
+        "pattern": "stale-inline-path",
+        "referenced_path": "src/myapp/old_handler.py",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "bf68d6286934b035",
+      "fuzzy_fingerprint": "60c71feda66e5c86",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.038777+00:00"
     },
     {
       "detector": "docs-drift",
       "category": "docs-drift",
       "severity": "medium",
       "confidence": 0.95,
-      "title": "Stale reference: src/sentinel/pipeline.py",
-      "description": "docs/architecture/overview.md references src/sentinel/pipeline.py which does not exist",
+      "title": "Stale link: [API docs](docs/api.md)",
+      "description": "Documentation README.md:27 links to `docs/api.md` but the path does not exist (checked relative to document and repo root).",
       "evidence": [
         {
-          "type": "doc_reference",
-          "source": "docs/architecture/overview.md",
-          "content": "Reference points to src/sentinel/pipeline.py which does not exist",
-          "line_range": [42, 42]
+          "type": "doc",
+          "source": "README.md",
+          "content": "See [API docs](docs/api.md) for endpoint details \u2014 this file does NOT",
+          "line_range": [
+            27,
+            27
+          ]
+        },
+        {
+          "type": "code",
+          "source": "README.md",
+          "content": "  22 | The config is at `src/myapp/config.py`.\n  23 | \n  24 | The old handler is at `src/myapp/old_handler.py` \u2014 this file does NOT\n  25 | exist and should be caught as a stale inline path.\n  26 | \n  27 | See [API docs](docs/api.md) for endpoint details \u2014 this file does NOT\n  28 | exist and should be caught as a stale link.\n  29 | \n  30 | See [guides](docs/guides/) for tutorials \u2014 this directory DOES exist.\n  31 | \n  32 | See [GitHub](https://github.com/example/myapp) \u2014 external, should be ignored.",
+          "line_range": [
+            22,
+            32
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "fe24452 test(eval): add HTML comment TODO ground truth entries\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
         }
       ],
-      "file_path": "docs/architecture/overview.md",
-      "line_start": 42,
-      "fingerprint": "a1b2c3d4e5f6g7h8"
+      "file_path": "README.md",
+      "line_start": 27,
+      "line_end": 27,
+      "context": {
+        "pattern": "stale-reference",
+        "target": "docs/api.md",
+        "resolved": "docs/api.md",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "4a93a44418d0b900",
+      "fuzzy_fingerprint": "234b285e46a0fc49",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.039035+00:00"
+    },
+    {
+      "detector": "docs-drift",
+      "category": "docs-drift",
+      "severity": "medium",
+      "confidence": 0.9,
+      "title": "Dependency drift: `flask` in docs but not in project",
+      "description": "Documentation README.md mentions installing `flask` but it is not listed in the project's dependency files.",
+      "evidence": [
+        {
+          "type": "doc",
+          "source": "README.md",
+          "content": "Package `flask` found in install instructions",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "fe24452 test(eval): add HTML comment TODO ground truth entries\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "README.md",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "pattern": "dependency-drift",
+        "package": "flask",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "d55c757b3ca6f56b",
+      "fuzzy_fingerprint": "b98864e8eebaedca",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.039439+00:00"
+    },
+    {
+      "detector": "docs-drift",
+      "category": "docs-drift",
+      "severity": "medium",
+      "confidence": 0.9,
+      "title": "Dependency drift: `numpy` in docs but not in project",
+      "description": "Documentation README.md mentions installing `numpy` but it is not listed in the project's dependency files.",
+      "evidence": [
+        {
+          "type": "doc",
+          "source": "README.md",
+          "content": "Package `numpy` found in install instructions",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "fe24452 test(eval): add HTML comment TODO ground truth entries\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "README.md",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "pattern": "dependency-drift",
+        "package": "numpy",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "a21cd6e5bd647978",
+      "fuzzy_fingerprint": "5abbb59375caf4c3",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.039443+00:00"
+    },
+    {
+      "detector": "docs-drift",
+      "category": "docs-drift",
+      "severity": "medium",
+      "confidence": 0.95,
+      "title": "Stale link: [the overview](../overview.md)",
+      "description": "Documentation docs/guides/getting-started.md:3 links to `../overview.md` but the path does not exist (checked relative to document and repo root).",
+      "evidence": [
+        {
+          "type": "doc",
+          "source": "docs/guides/getting-started.md",
+          "content": "Refer to [the overview](../overview.md) for background \u2014 this file",
+          "line_range": [
+            3,
+            3
+          ]
+        },
+        {
+          "type": "code",
+          "source": "docs/guides/getting-started.md",
+          "content": "   1 | # Getting Started\n   2 | \n   3 | Refer to [the overview](../overview.md) for background \u2014 this file\n   4 | does NOT exist (stale link: should be caught).\n   5 | \n   6 | See [README](../../README.md) \u2014 this DOES exist (should NOT be caught).\n   7 | \n   8 | Config lives at `src/myapp/config.py` \u2014 this should resolve to repo root",
+          "line_range": [
+            1,
+            8
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "docs/guides/getting-started.md",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "docs/guides/getting-started.md",
+      "line_start": 3,
+      "line_end": 3,
+      "context": {
+        "pattern": "stale-reference",
+        "target": "../overview.md",
+        "resolved": "docs/overview.md",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "5fada7b8ce543d2e",
+      "fuzzy_fingerprint": "53ce26b3fc81cfd7",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.040099+00:00"
+    },
+    {
+      "detector": "lint-runner",
+      "category": "code-quality",
+      "severity": "high",
+      "confidence": 1.0,
+      "title": "F401: `os` imported but unused",
+      "description": "ruff F401 in src/myapp/main.py:3 \u2014 `os` imported but unused",
+      "evidence": [
+        {
+          "type": "lint_output",
+          "source": "ruff:F401",
+          "content": "F401: `os` imported but unused\nFix: Remove unused import: `os`",
+          "line_range": [
+            3,
+            3
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "   1 | \"\"\"Main application module.\"\"\"\n   2 | \n   3 | import os\n   4 | \n   5 | # TODO: Add proper logging configuration\n   6 | # This is a real TODO and should be caught.\n   7 | \n   8 | ",
+          "line_range": [
+            1,
+            8
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 3,
+      "line_end": 3,
+      "context": {
+        "rule": "F401",
+        "fix": {
+          "applicability": "safe",
+          "edits": [
+            {
+              "content": "",
+              "end_location": {
+                "column": 1,
+                "row": 4
+              },
+              "location": {
+                "column": 1,
+                "row": 3
+              }
+            }
+          ],
+          "message": "Remove unused import: `os`"
+        },
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "82b0d2b26752fe3b",
+      "fuzzy_fingerprint": "689369f64ba33a58",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.058518+00:00"
+    },
+    {
+      "detector": "lint-runner",
+      "category": "code-quality",
+      "severity": "high",
+      "confidence": 1.0,
+      "title": "F841: Local variable `msg` is assigned to but never used",
+      "description": "ruff F841 in src/myapp/main.py:19 \u2014 Local variable `msg` is assigned to but never used",
+      "evidence": [
+        {
+          "type": "lint_output",
+          "source": "ruff:F841",
+          "content": "F841: Local variable `msg` is assigned to but never used\nFix: Remove assignment to unused variable `msg`",
+          "line_range": [
+            19,
+            19
+          ]
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "  14 |     data = {\"key\": \"value\"}  # HACK: hardcoded data for now\n  15 | \n  16 |     template = \"# TODO: this is inside a string, not a real TODO\"  # noqa\n  17 | \n  18 |     # A tricky case: string then real comment on one line\n  19 |     msg = \"# TODO: fake\"  # TODO: this IS a real comment TODO\n  20 | \n  21 |     # This should be caught \u2014 HACK but no description\n  22 |     # XXX\n  23 | \n  24 |     return data",
+          "line_range": [
+            14,
+            24
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 19,
+      "line_end": 19,
+      "context": {
+        "rule": "F841",
+        "fix": {
+          "applicability": "unsafe",
+          "edits": [
+            {
+              "content": "",
+              "end_location": {
+                "column": 1,
+                "row": 20
+              },
+              "location": {
+                "column": 1,
+                "row": 19
+              }
+            }
+          ],
+          "message": "Remove assignment to unused variable `msg`"
+        },
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "78ec7bcb471985c4",
+      "fuzzy_fingerprint": "c4cc0201f445f402",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.058562+00:00"
+    },
+    {
+      "detector": "stale-env",
+      "category": "config-drift",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Documented env var never used: ENABLE_CACHE",
+      "description": "Environment variable 'ENABLE_CACHE' is documented in .env.example but no reference was found in source code. It may be stale after code changes.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": ".env.example",
+          "content": "Documented: ENABLE_CACHE",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": ".env.example",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": ".env.example",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "68302f0422f6a032",
+      "fuzzy_fingerprint": "020a01deea1da523",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.060127+00:00"
+    },
+    {
+      "detector": "stale-env",
+      "category": "config-drift",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Documented env var never used: LOG_LEVEL",
+      "description": "Environment variable 'LOG_LEVEL' is documented in .env.example but no reference was found in source code. It may be stale after code changes.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": ".env.example",
+          "content": "Documented: LOG_LEVEL",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": ".env.example",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": ".env.example",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "a2760745ad467aab",
+      "fuzzy_fingerprint": "db3e60c9da32e097",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.060131+00:00"
+    },
+    {
+      "detector": "stale-env",
+      "category": "config-drift",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Documented env var never used: MY_API_KEY",
+      "description": "Environment variable 'MY_API_KEY' is documented in .env.example but no reference was found in source code. It may be stale after code changes.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": ".env.example",
+          "content": "Documented: MY_API_KEY",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": ".env.example",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": ".env.example",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "ebde6a9f62b4d742",
+      "fuzzy_fingerprint": "0cbc7687969a5a87",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.060133+00:00"
+    },
+    {
+      "detector": "stale-env",
+      "category": "config-drift",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Documented env var never used: WEBHOOK_SECRET",
+      "description": "Environment variable 'WEBHOOK_SECRET' is documented in .env.example but no reference was found in source code. It may be stale after code changes.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": ".env.example",
+          "content": "Documented: WEBHOOK_SECRET",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": ".env.example",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": ".env.example",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "66d055faac8103e0",
+      "fuzzy_fingerprint": "bd914e9ffc12d745",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.060135+00:00"
+    },
+    {
+      "detector": "stale-env",
+      "category": "config-drift",
+      "severity": "medium",
+      "confidence": 0.75,
+      "title": "Undocumented env var: REDIS_URL",
+      "description": "Environment variable 'REDIS_URL' is referenced in source code but not documented in .env.example. New developers may not know to set it.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": ".env.example",
+          "content": "Missing from docs: REDIS_URL",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": ".env.example",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage",
+          "line_range": null
+        }
+      ],
+      "file_path": ".env.example",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "52110541922e6585",
+      "fuzzy_fingerprint": "c9068507744c4546",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.060138+00:00"
     },
     {
       "detector": "todo-scanner",
-      "category": "todo",
+      "category": "todo-fixme",
       "severity": "low",
-      "confidence": 0.8,
-      "title": "TODO: Add proper logging configuration",
-      "description": "TODO comment found in tests/fixtures/sample-repo/src/myapp/main.py:5",
+      "confidence": 0.9,
+      "title": "TODO: Load from environment variables instead of hardcoding",
+      "description": "TODO comment in src/myapp/config.py:5 \u2014 Load from environment variables instead of hardcoding",
       "evidence": [
         {
           "type": "code",
-          "source": "tests/fixtures/sample-repo/src/myapp/main.py",
-          "content": "# TODO: Add proper logging configuration",
-          "line_range": [5, 5]
+          "source": "src/myapp/config.py",
+          "content": "# TODO: Load from environment variables instead of hardcoding",
+          "line_range": [
+            5,
+            5
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/config.py",
+          "content": "Added by Jacob Centner on 2026-04-04",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/config.py",
+          "content": "   1 | \"\"\"Application configuration.\"\"\"\n   2 | \n   3 | import os\n   4 | \n   5 | # TODO: Load from environment variables instead of hardcoding\n   6 | DATABASE_URL = os.getenv(\"DATABASE_URL\", \"sqlite:///myapp.db\")\n   7 | SECRET_KEY = \"changeme\"\n   8 | DEBUG = True\n   9 | \n  10 | # Undocumented env var (not in .env.example)",
+          "line_range": [
+            1,
+            10
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/config.py",
+          "content": "6a5d260 test(fixtures): expand sample-repo with complexity, stale-env, unused-deps coverage\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
         }
       ],
-      "file_path": "tests/fixtures/sample-repo/src/myapp/main.py",
+      "file_path": "src/myapp/config.py",
       "line_start": 5,
-      "fingerprint": "c3d4e5f6g7h8i9j0"
+      "line_end": 5,
+      "context": {
+        "tag": "TODO",
+        "blame": "Added by Jacob Centner on 2026-04-04",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "416083921daac531",
+      "fuzzy_fingerprint": "5e4ebc23aec488a0",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.068039+00:00"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo-fixme",
+      "severity": "low",
+      "confidence": 0.9,
+      "title": "TODO: Add proper logging configuration",
+      "description": "TODO comment in src/myapp/main.py:5 \u2014 Add proper logging configuration",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "# TODO: Add proper logging configuration",
+          "line_range": [
+            5,
+            5
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "Added by Jacob Centner on 2026-04-04",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "   1 | \"\"\"Main application module.\"\"\"\n   2 | \n   3 | import os\n   4 | \n   5 | # TODO: Add proper logging configuration\n   6 | # This is a real TODO and should be caught.\n   7 | \n   8 | \n   9 | def main():\n  10 |     \"\"\"Run the application.\"\"\"",
+          "line_range": [
+            1,
+            10
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 5,
+      "line_end": 5,
+      "context": {
+        "tag": "TODO",
+        "blame": "Added by Jacob Centner on 2026-04-04",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "b6df26f43e94e390",
+      "fuzzy_fingerprint": "c8615d4482106a98",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.074286+00:00"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo-fixme",
+      "severity": "medium",
+      "confidence": 0.9,
+      "title": "FIXME: Handle keyboard interrupt gracefully",
+      "description": "FIXME comment in src/myapp/main.py:11 \u2014 Handle keyboard interrupt gracefully",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "# FIXME: Handle keyboard interrupt gracefully",
+          "line_range": [
+            11,
+            11
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "Added by Jacob Centner on 2026-04-04",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "   6 | # This is a real TODO and should be caught.\n   7 | \n   8 | \n   9 | def main():\n  10 |     \"\"\"Run the application.\"\"\"\n  11 |     # FIXME: Handle keyboard interrupt gracefully\n  12 |     print(\"Starting myapp...\")\n  13 | \n  14 |     data = {\"key\": \"value\"}  # HACK: hardcoded data for now\n  15 | \n  16 |     template = \"# TODO: this is inside a string, not a real TODO\"  # noqa",
+          "line_range": [
+            6,
+            16
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 11,
+      "line_end": 11,
+      "context": {
+        "tag": "FIXME",
+        "blame": "Added by Jacob Centner on 2026-04-04",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "f6cc00f2f5fcefdc",
+      "fuzzy_fingerprint": "9e44422d955f5e36",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.081543+00:00"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo-fixme",
+      "severity": "high",
+      "confidence": 0.9,
+      "title": "HACK: hardcoded data for now",
+      "description": "HACK comment in src/myapp/main.py:14 \u2014 hardcoded data for now",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "data = {\"key\": \"value\"}  # HACK: hardcoded data for now",
+          "line_range": [
+            14,
+            14
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "Added by Jacob Centner on 2026-04-04",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "   9 | def main():\n  10 |     \"\"\"Run the application.\"\"\"\n  11 |     # FIXME: Handle keyboard interrupt gracefully\n  12 |     print(\"Starting myapp...\")\n  13 | \n  14 |     data = {\"key\": \"value\"}  # HACK: hardcoded data for now\n  15 | \n  16 |     template = \"# TODO: this is inside a string, not a real TODO\"  # noqa\n  17 | \n  18 |     # A tricky case: string then real comment on one line\n  19 |     msg = \"# TODO: fake\"  # TODO: this IS a real comment TODO",
+          "line_range": [
+            9,
+            19
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 14,
+      "line_end": 14,
+      "context": {
+        "tag": "HACK",
+        "blame": "Added by Jacob Centner on 2026-04-04",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "4c7ef8fd1b27fbad",
+      "fuzzy_fingerprint": "c390c72c93b7e218",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.087665+00:00"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo-fixme",
+      "severity": "low",
+      "confidence": 0.9,
+      "title": "TODO: this IS a real comment",
+      "description": "TODO comment in src/myapp/main.py:19 \u2014 this IS a real comment",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "msg = \"# TODO: fake\"  # TODO: this IS a real comment TODO",
+          "line_range": [
+            19,
+            19
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "Added by Jacob Centner on 2026-04-04",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "  14 |     data = {\"key\": \"value\"}  # HACK: hardcoded data for now\n  15 | \n  16 |     template = \"# TODO: this is inside a string, not a real TODO\"  # noqa\n  17 | \n  18 |     # A tricky case: string then real comment on one line\n  19 |     msg = \"# TODO: fake\"  # TODO: this IS a real comment TODO\n  20 | \n  21 |     # This should be caught \u2014 HACK but no description\n  22 |     # XXX\n  23 | \n  24 |     return data",
+          "line_range": [
+            14,
+            24
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 19,
+      "line_end": 19,
+      "context": {
+        "tag": "TODO",
+        "blame": "Added by Jacob Centner on 2026-04-04",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "5def427a3c866458",
+      "fuzzy_fingerprint": "74573c089db08db0",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.093774+00:00"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo-fixme",
+      "severity": "high",
+      "confidence": 0.9,
+      "title": "XXX: (no description)",
+      "description": "XXX comment in src/myapp/main.py:22 \u2014 (no description)",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "# XXX",
+          "line_range": [
+            22,
+            22
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "Added by Jacob Centner on 2026-04-04",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "src/myapp/main.py",
+          "content": "  17 | \n  18 |     # A tricky case: string then real comment on one line\n  19 |     msg = \"# TODO: fake\"  # TODO: this IS a real comment TODO\n  20 | \n  21 |     # This should be caught \u2014 HACK but no description\n  22 |     # XXX\n  23 | \n  24 |     return data\n  25 | \n  26 | \n  27 | def helper():",
+          "line_range": [
+            17,
+            27
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "src/myapp/main.py",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "src/myapp/main.py",
+      "line_start": 22,
+      "line_end": 22,
+      "context": {
+        "tag": "XXX",
+        "blame": "Added by Jacob Centner on 2026-04-04",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "03d7af4e3b72364a",
+      "fuzzy_fingerprint": "dc8ab8965e7bcf90",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.100407+00:00"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo-fixme",
+      "severity": "low",
+      "confidence": 0.9,
+      "title": "TODO: add contributing section before release",
+      "description": "TODO comment in README.md:63 \u2014 add contributing section before release",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "README.md",
+          "content": "<!-- TODO: add contributing section before release -->",
+          "line_range": [
+            63,
+            63
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "Added by Jacob Centner on 2026-04-05",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "README.md",
+          "content": "  58 |   ```\n  59 | \n  60 | Note: `numpy` is in the indented block but NOT in pyproject.toml \u2014\n  61 | this tests indented fenced code block parsing.\n  62 | \n  63 | <!-- TODO: add contributing section before release -->\n  64 | <!-- FIXME: update install instructions for v2 -->",
+          "line_range": [
+            58,
+            64
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "fe24452 test(eval): add HTML comment TODO ground truth entries\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "README.md",
+      "line_start": 63,
+      "line_end": 63,
+      "context": {
+        "tag": "TODO",
+        "blame": "Added by Jacob Centner on 2026-04-05",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "d535f320c5677b9a",
+      "fuzzy_fingerprint": "4b33904fd828d6c7",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.107097+00:00"
+    },
+    {
+      "detector": "todo-scanner",
+      "category": "todo-fixme",
+      "severity": "medium",
+      "confidence": 0.9,
+      "title": "FIXME: update install instructions for v2",
+      "description": "FIXME comment in README.md:64 \u2014 update install instructions for v2",
+      "evidence": [
+        {
+          "type": "code",
+          "source": "README.md",
+          "content": "<!-- FIXME: update install instructions for v2 -->",
+          "line_range": [
+            64,
+            64
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "Added by Jacob Centner on 2026-04-05",
+          "line_range": null
+        },
+        {
+          "type": "code",
+          "source": "README.md",
+          "content": "  59 | \n  60 | Note: `numpy` is in the indented block but NOT in pyproject.toml \u2014\n  61 | this tests indented fenced code block parsing.\n  62 | \n  63 | <!-- TODO: add contributing section before release -->\n  64 | <!-- FIXME: update install instructions for v2 -->",
+          "line_range": [
+            59,
+            64
+          ]
+        },
+        {
+          "type": "git_history",
+          "source": "README.md",
+          "content": "fe24452 test(eval): add HTML comment TODO ground truth entries\nfa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "README.md",
+      "line_start": 64,
+      "line_end": 64,
+      "context": {
+        "tag": "FIXME",
+        "blame": "Added by Jacob Centner on 2026-04-05",
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "a03bd54f4c8c11f3",
+      "fuzzy_fingerprint": "469264fba5f325fe",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.112972+00:00"
+    },
+    {
+      "detector": "unused-deps",
+      "category": "dependency",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Unused dependency: click",
+      "description": "Package 'click' is declared in pyproject.toml but no matching import was found in python source files.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": "pyproject.toml",
+          "content": "Declared: click\nExpected imports: click",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": "pyproject.toml",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "pyproject.toml",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "d4d79ca3d51e2459",
+      "fuzzy_fingerprint": "f79d9cde92b9d4bb",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.115436+00:00"
+    },
+    {
+      "detector": "unused-deps",
+      "category": "dependency",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Unused dependency: httpx",
+      "description": "Package 'httpx' is declared in pyproject.toml but no matching import was found in python source files.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": "pyproject.toml",
+          "content": "Declared: httpx\nExpected imports: httpx",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": "pyproject.toml",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "pyproject.toml",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "2f90ef3c534a7e8c",
+      "fuzzy_fingerprint": "bbca9f48110f3115",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.115444+00:00"
+    },
+    {
+      "detector": "unused-deps",
+      "category": "dependency",
+      "severity": "low",
+      "confidence": 0.8,
+      "title": "Unused dependency: sqlalchemy",
+      "description": "Package 'sqlalchemy' is declared in pyproject.toml but no matching import was found in python source files.",
+      "evidence": [
+        {
+          "type": "config",
+          "source": "pyproject.toml",
+          "content": "Declared: sqlalchemy\nExpected imports: sqlalchemy",
+          "line_range": null
+        },
+        {
+          "type": "git_history",
+          "source": "pyproject.toml",
+          "content": "fa5f658 fix(detectors): 7 precision/recall fixes + eval test with ground truth",
+          "line_range": null
+        }
+      ],
+      "file_path": "pyproject.toml",
+      "line_start": null,
+      "line_end": null,
+      "context": {
+        "occurrence_count": 1,
+        "first_seen": "2026-04-10T16:39:03.324969+00:00"
+      },
+      "fingerprint": "f26cdcc820a01e19",
+      "fuzzy_fingerprint": "35152290c01ac297",
+      "status": "new",
+      "id": null,
+      "timestamp": "2026-04-10T16:39:03.115448+00:00"
     }
   ],
-  "report_path": "/home/user/sentinel/report-1.md"
+  "report_path": "/home/jacobcentner/sentinel/tests/fixtures/sample-repo/.sentinel/report-1.md"
 }

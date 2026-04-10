@@ -1,41 +1,55 @@
-$ sentinel scan ~/myproject --skip-judge
-16:25:43 [INFO] sentinel.core.runner: Started run #1 on /home/user/myproject (scope: full)
-16:25:43 [INFO] sentinel.core.runner: Running detector: complexity
-16:25:43 [INFO] sentinel.core.runner:   complexity produced 31 findings
-16:25:43 [INFO] sentinel.core.runner: Running detector: dep-audit
-16:25:48 [INFO] sentinel.core.runner:   dep-audit produced 0 findings
-16:25:48 [INFO] sentinel.core.runner: Running detector: docs-drift
-16:25:48 [INFO] sentinel.core.runner:   docs-drift produced 36 findings
-16:25:48 [INFO] sentinel.core.runner: Running detector: git-hotspots
-16:25:51 [INFO] sentinel.core.runner:   git-hotspots produced 8 findings
-16:25:51 [INFO] sentinel.core.runner: Running detector: lint-runner
-16:25:58 [INFO] sentinel.core.runner:   lint-runner produced 2 findings
-16:25:58 [INFO] sentinel.core.runner: Running detector: todo-scanner
-16:26:02 [INFO] sentinel.core.runner:   todo-scanner produced 15 findings
-16:26:02 [INFO] sentinel.core.runner: After dedup: 92 findings (was 190)
-16:26:02 [INFO] sentinel.core.runner: LLM judge skipped (--skip-judge)
-16:26:02 [INFO] sentinel.core.runner: Report written to /home/user/myproject/report-1.md
-Scan complete: 92 findings in run #1
-  Severity: 2 high, 13 medium, 77 low
-Report: /home/user/myproject/report-1.md
+$ sentinel scan tests/fixtures/sample-repo --skip-judge
+10:53:15 [INFO] sentinel.core.runner: Started run #1 on tests/fixtures/sample-repo (scope: full)
+10:53:15 [INFO] sentinel.core.runner: Running detector: complexity
+10:53:15 [INFO] sentinel.core.runner:   complexity produced 2 findings
+10:53:15 [INFO] sentinel.core.runner: Running detector: dead-code
+10:53:15 [INFO] sentinel.core.runner:   dead-code produced 7 findings
+10:53:15 [INFO] sentinel.core.runner: Running detector: docs-drift
+10:53:15 [INFO] sentinel.core.runner:   docs-drift produced 6 findings
+10:53:15 [INFO] sentinel.core.runner: Running detector: lint-runner
+10:53:15 [INFO] sentinel.core.runner:   lint-runner produced 2 findings
+10:53:15 [INFO] sentinel.core.runner: Running detector: stale-env
+10:53:15 [INFO] sentinel.core.runner:   stale-env produced 1 finding
+10:53:15 [INFO] sentinel.core.runner: Running detector: todo-scanner
+10:53:15 [INFO] sentinel.core.runner:   todo-scanner produced 8 findings
+10:53:15 [INFO] sentinel.core.runner: Running detector: unused-deps
+10:53:15 [INFO] sentinel.core.runner:   unused-deps produced 3 findings
+10:53:15 [INFO] sentinel.core.runner: After dedup: 32 findings (was 32)
+10:53:15 [INFO] sentinel.core.runner: LLM judge skipped (--skip-judge or no provider)
+Scan complete: 32 findings in run #1
+  Severity: 5 high, 7 medium, 20 low
+Report: tests/fixtures/sample-repo/.sentinel/report-1.md
 
 $ sentinel show 1
 Finding #1
-  Title:       Complex function: scan (cyclomatic complexity 23)
+  Title:       Complex function: process_records (cyclomatic complexity 21 (threshold: 10), 76 lines (threshold: 50))
   Detector:    complexity
-  Severity:    HIGH
+  Category:    code-quality
+  Severity:    high
   Confidence:  95%
   Status:      new
-  Description: `scan` has cyclomatic complexity 23 (threshold: 10)...
-  Evidence:    4 items
-  Fingerprint: 2aa0a9db9d98bb22
-
-$ sentinel suppress 1 -r "Accepted complexity for CLI entry point"
-Suppressed finding #1: Complex function: scan
+  Fingerprint: 2ecef516b2abc111
+  Location:    src/myapp/processing.py:6-82
+  Description: process_records has cyclomatic complexity 21 (threshold: 10) and 76 lines (threshold: 50).
 
 $ sentinel history
-Run #1  /home/user/myproject  2026-04-06 22:26  full  Findings: 92
+  ID  Scope         Findings               Started  Repo
+--------------------------------------------------------------------------------
+   1  full                32      2026-04-10 16:53  tests/fixtures/sample-repo
 
-$ sentinel serve
-16:30:00 [INFO] sentinel.web: Starting Sentinel web UI at http://localhost:8888
-INFO:     Uvicorn running on http://127.0.0.1:8888 (Press CTRL+C to quit)
+$ sentinel doctor
+Sentinel Doctor
+
+  ✓ git                  (git version 2.43.0)
+  ✓ ruff                 (ruff 0.15.9)
+  ✓ pip-audit            (pip-audit 2.10.0)
+  ✗ eslint               (JS/TS linter — eslint-runner detector)
+  ✗ biome                (JS/TS linter — faster alternative to ESLint)
+  ✗ golangci-lint        (Go linter — go-linter detector)
+  ✗ cargo                (Rust toolchain — rust-clippy detector)
+  ✗ ollama               (Local LLM provider — optional if using openai provider)
+  ✓ starlette            (installed)
+  ✓ jinja2               (installed)
+  ✓ sentinel.toml        (valid)
+
+6/11 checks passed

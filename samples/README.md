@@ -1,11 +1,11 @@
 # Output Samples
 
-> **Note**: These samples were generated early in development (Phase 1) and may not reflect the current output format. The system now has 14 detectors, finding synthesis, persistence tracking, and richer report formatting. Re-generate with `sentinel scan <repo> --skip-judge` for current output.
+> **Updated**: Session 27 (2026-04-10). Generated from `tests/fixtures/sample-repo` with `--skip-judge` (no LLM running). With an LLM judge, findings include relevance scoring and natural-language summaries.
 
-This directory contains excerpts of real Sentinel output from scanning its own repository.
+This directory contains excerpts of real Sentinel output from scanning the sample-repo test fixture (32 findings across 7 detectors).
 
-- [sample-report.md](sample-report.md) — Morning report excerpt (markdown format)
+- [sample-report.md](sample-report.md) — Morning report (markdown format)
 - [sample-json-output.json](sample-json-output.json) — JSON output from `sentinel scan --json-output`
-- [sample-cli-session.txt](sample-cli-session.txt) — Example CLI session
+- [sample-cli-session.txt](sample-cli-session.txt) — Example CLI session (scan, show, history, doctor)
 
-These samples were generated with `--skip-judge` (no LLM running). With an LLM judge via Ollama, findings would include relevance scoring and natural-language summaries.
+To regenerate: `sentinel scan tests/fixtures/sample-repo --skip-judge -o samples/sample-report.md`

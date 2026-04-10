@@ -268,6 +268,30 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Counts go stale silently. Already caught overview.md citing "SQLite v7" when actual schema is v10 (fixed in Session 26).
 **Proposed resolution**: Accept for now. Building a single-source mechanism is over-engineered for the current project size. Mitigated by the reviewer subagent's post-implementation consistency checks and the doc-sync checklist in the autonomous builder workflow.
 
+### TD-040: Dead-code detector misses intra-file symbol usage
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 27 (pip-tools real-world validation)
+**Description**: The dead-code detector flags symbols as "unused" when they are only consumed within the same file (not exported/imported elsewhere). Example: `CI_VARIABLES` in `tests/utils.py` is used by `looks_like_ci()` in the same file but flagged as unused. Also misses dynamically-called entry points (PEP 517 hooks, plugin callables).
+**Impact**: 100% FP rate on dead-code findings in pip-tools (6/6 were FP). Three were intra-file usage, three were dynamic entry points.
+**Proposed resolution**: (1) Check intra-file references before flagging — if a symbol is used anywhere in the same file, it's not dead. (2) For dynamic entry points, consider a heuristic: functions in files named `backend.py` or matching PEP 517 hook names (`build_wheel`, `get_requires_for_build_*`) should be skipped.
+
+### TD-041: Docs-drift treats example text as file path references
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 27 (pip-tools real-world validation)
+**Description**: The docs-drift detector interprets backtick-wrapped text in documentation as file path references even when the text is clearly an example (e.g., "Create a branch like `release/v3.4.0`" or "named `changelog.d/404.bugfix.md`"). Context clues like "e.g." and "for example" precede these.
+**Impact**: 100% FP rate on docs-drift findings in pip-tools (3/3 were FP from example text).
+**Proposed resolution**: Add heuristics to skip backtick references that: (1) appear after "e.g.", "for example", "such as", "like"; (2) are in changelog entries (historical references); (3) contain version-like patterns in path segments (e.g., `v3.4.0`).
+
+### TD-042: Unused-deps misses plugin/entry-point loading patterns
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 27 (pip-tools real-world validation)
+**Description**: The unused-deps detector only checks for Python `import` statements. Packages loaded via plugin mechanisms (pytest plugins via entry points, coverage.py plugins via `.coveragerc`, build backends via `[build-system]`) are flagged as unused. Also misses build-time-only dependencies.
+**Impact**: 100% FP rate on unused-deps findings in pip-tools (3/3 were FP). Known pattern: `pytest-rerunfailures` (pytest plugin), `covdefaults` (coverage plugin), `flit_core` (build backend).
+**Proposed resolution**: (1) Parse `pytest.ini`/`pyproject.toml` `[tool.pytest]` for plugin references. (2) Parse `.coveragerc`/`pyproject.toml` `[tool.coverage]` for plugin names. (3) Maintain a known-plugin-packages list (pytest-*, coverage plugins). (4) Skip packages that are build backends in other `[build-system]` sections.
+
 ## Won't Fix
 
 (None yet)

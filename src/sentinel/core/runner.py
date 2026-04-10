@@ -209,7 +209,8 @@ def run_scan(
 
             logger.info("Running detector: %s", detector.name)
             findings = detector.detect(det_ctx)
-            logger.info("  %s produced %d findings", detector.name, len(findings))
+            n = len(findings)
+            logger.info("  %s produced %d %s", detector.name, n, "finding" if n == 1 else "findings")
             all_findings.extend(findings)
         except Exception:
             logger.exception("Detector %s failed — skipping", detector.name)
