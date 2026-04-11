@@ -30,6 +30,7 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 
 ## Documentation
 
+- Design system: [DESIGN.md](DESIGN.md) — visual design tokens, component styles, do's/don'ts for the web UI
 - Vision lock: [docs/vision/VISION-LOCK.md](docs/vision/VISION-LOCK.md)
 - Strategy: [docs/vision/strategy.md](docs/vision/strategy.md)
 - Architecture: [docs/architecture/overview.md](docs/architecture/overview.md)

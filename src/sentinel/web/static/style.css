@@ -504,6 +504,9 @@ tbody tr:hover td { background: var(--surface-hover); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
 .btn-ghost:hover { color: var(--text); background: var(--surface-hover); }
 
+.btn-muted { background: transparent; border-color: var(--border); color: var(--text-dim); }
+.btn-muted:hover { color: var(--text); background: var(--surface-hover); border-color: var(--border-vivid); }
+
 .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
 
 .btn-icon {
@@ -924,10 +927,10 @@ dd { font-size: 0.9rem; }
 .compat-good { background: #1e40af; color: #bfdbfe; }
 .compat-fair { background: #854d0e; color: #fef08a; }
 .compat-poor { background: #991b1b; color: #fecaca; }
-.compat-na { background: var(--surface-2); color: var(--text-dim); }
-.compat-untested { background: var(--surface-2); color: var(--text-dim); font-style: italic; }
+.compat-na { background: var(--bg-overlay); color: var(--text-dim); }
+.compat-untested { background: var(--bg-overlay); color: var(--text-dim); font-style: italic; }
 .code-block {
-  background: var(--surface-1);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.75rem 1rem;

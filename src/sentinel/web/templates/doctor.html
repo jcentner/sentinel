@@ -30,11 +30,11 @@
       <tr>
         <td>
           {% if r.status == "ok" %}
-          <span style="color: var(--green, #4ade80);" title="OK">✓</span>
+          <span style="color: var(--sev-low);" title="OK">✓</span>
           {% elif r.status == "missing" %}
           <span style="color: var(--text-faint);" title="Missing">✗</span>
           {% else %}
-          <span style="color: var(--red, #f87171);" title="Error">✗</span>
+          <span style="color: var(--sev-critical);" title="Error">✗</span>
           {% endif %}
         </td>
         <td>
@@ -49,7 +49,7 @@
           {% elif r.status == "missing" %}
           <span class="text-muted">Not found</span>
           {% elif r.status == "error" %}
-          <span style="color: var(--red, #f87171);">Error</span>
+          <span style="color: var(--sev-critical);">Error</span>
           {% endif %}
         </td>
       </tr>

@@ -11,9 +11,17 @@ description: "Starlette + htmx web UI patterns for Sentinel. Use when working wi
 - [htmx docs](https://htmx.org/docs/) — follow these for progressive enhancement patterns
 - [Jinja2 docs](https://jinja.palletsprojects.com/) — template syntax and filters
 
+## Design System
+
+Read [DESIGN.md](../../../DESIGN.md) before creating or modifying any web UI component. It defines:
+- Color tokens (`var(--amber)`, `var(--surface)`, etc.) — never hardcode hex in templates
+- Typography scale and conventions (uppercase labels, mono for data)
+- Component patterns (cards, badges, buttons, forms, tables)
+- Do's and don'ts (single amber accent, no decorative elements, no external fonts)
+
 ## Project Conventions
 
-- Web app lives in `src/sentinel/web/` — `app.py` (routes), `csrf.py` (middleware), `templates/`, `static/`
+- Web app lives in `src/sentinel/web/` — `app.py` (factory + index), route modules in `web/routes/`, `csrf.py` (middleware), `templates/`, `static/`
 - Templates use Jinja2 with `{% extends "base.html" %}` base layout
 - All forms use CSRF tokens via `CSRFMiddleware` — include `{{ csrf_hidden_field }}` in forms
 - htmx is loaded from static, not CDN — `static/htmx.min.js`
