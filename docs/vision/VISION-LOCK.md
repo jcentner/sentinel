@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.8
+> **Version**: 4.9
 > **Updated**: 2026-04-11
-> **Supersedes**: v4.7
+> **Supersedes**: v4.8
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -116,8 +116,8 @@ Based on real-world validation, the current detectors fall into three tiers:
 | Medium | complexity | none (deterministic) | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
 | Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | none (deterministic) | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
 | Mixed | git-hotspots | none (deterministic) | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
-| Shipped | enhanced test-code coherence | standard (9B+) | Structured analysis: *what* the test misses and *why* it's stale. Activated when model_capability is standard+. |
-| Shipped | detailed docs-drift explanations | standard (9B+) | Explain *how* docs are wrong with specific inaccuracies. Activated when model_capability is standard+. |
+| Shipped | enhanced test-code coherence | standard (cloud-nano+) | Structured analysis: *what* the test misses and *why* it's stale. Activated when model_capability is standard+. |
+| Shipped | detailed docs-drift explanations | standard (cloud-nano+) | Explain *how* docs are wrong with specific inaccuracies. Activated when model_capability is standard+. |
 | Planned | deep semantic analysis | advanced (frontier) | Subtle intent comparison, architecture-level drift. Not yet implemented. |
 | Medium | unused-deps | none (deterministic) | Flags declared-but-never-imported dependencies in Python and JS/TS. Catches transitive deps declared unnecessarily and abandoned packages from rapid development. |
 | Medium | stale-env | none (deterministic) | Detects drift between .env.example and actual env var usage in code. Catches undocumented vars (MEDIUM) and stale documented vars (LOW). Supports Python (os.environ/os.getenv) and JS (process.env). |
@@ -218,9 +218,11 @@ With provider abstraction in place, detectors adapt their behavior based on mode
 
 | Capability Tier | Model Class | Detectors / Enhancements |
 |-----------------|-------------|-------------------------|
-| `basic` (4B+) | qwen3.5:4b | ✅ Judge, semantic-drift binary signal, test-coherence binary signal |
-| `standard` (9B+ or small cloud) | qwen3:9b, gpt-5.4-nano | ✅ Enhanced test-coherence with structured gap analysis, enhanced semantic-drift with specific inaccuracies |
-| `advanced` (frontier cloud) | GPT-5.4-mini, GLM-5 | Deep intent comparison, architecture-level drift, subtle semantic analysis |
+| `basic` (4B+ local) | qwen3.5:4b, qwen3.5:9b | ✅ Judge, semantic-drift binary signal, test-coherence binary signal (⚠️ high FP at 4B) |
+| `standard` (cloud-nano+) | gpt-5.4-nano | ✅ Enhanced test-coherence with structured gap analysis, enhanced semantic-drift with specific inaccuracies |
+| `advanced` (cloud-small/frontier) | gpt-5.4-mini, Claude Haiku 4.5 | Deep intent comparison, architecture-level drift, subtle semantic analysis |
+
+Tier-to-model mapping is **empirical, not assumed from parameter count**. The boundary between basic and standard is the observed quality jump where test-coherence goes from POOR/FAIR (~30-40% FP) to GOOD (~15% FP), which occurs at cloud-nano, not at 9B. Independent aggregate rankings confirm: 4B≈27, 9B≈32 (same class), gpt-5.4-nano≈38-44 (different league). See `docs/reference/compatibility-matrix.md`.
 
 `CapabilityTier` enum and infrastructure shipped. Detectors declare their tier via `capability_tier` property. Runner warns when a detector's tier exceeds the configured `model_capability`. Both semantic-drift and test-coherence adapt: basic mode gives binary signal; standard+ mode gives structured analysis with severity, specific gaps/inaccuracies, and higher confidence.
 
@@ -279,6 +281,17 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.9
+Empirically-grounded capability tiers — model-to-tier mapping based on measured quality, not parameter count.
+- **Tier redesign**: basic=4B/9B (same empirical class, scores ~27-32), standard=cloud-nano (gpt-5.4-nano, score ~38-44), advanced=cloud-small/frontier (gpt-5.4-mini ~38-49, Haiku 4.5 ~31-37). The tier boundary is the empirically observed quality jump for test-coherence.
+- **New model class**: cloud-small (gpt-5.4-mini, Claude Haiku 4.5) added between cloud-nano and cloud-frontier. They belong in the same broad tier but are not interchangeable.
+- **9B reclassified to basic**: Independent rankings show 9B only 5 points above 4B — same capability class for Sentinel's tasks. The previous "standard (9B+)" label was misleading.
+- **Web UI per-detector config**: Scan page now has collapsible "Per-Detector Model Overrides" section — route specific detectors to different providers/models/capability tiers without editing sentinel.toml
+- **Real-world validation**: Full-pipeline scans on tsgbuilder (Python) and wyoclear (Next.js) with qwen3.5:4b
+- **Full-pipeline eval**: P=97%, R=100% with 3 LLM detector ground truth entries (1 semantic-drift, 2 test-coherence)
+- **`sentinel compatibility` CLI**: Prints color-coded matrix to terminal
+- **1052 tests** (was 1035)
 
 ### v4.8
 Model-detector compatibility transparency — trust requires knowing what works.
