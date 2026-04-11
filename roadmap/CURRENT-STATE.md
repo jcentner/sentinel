@@ -1,70 +1,39 @@
 # Current State — Sentinel
 
-> Last updated: Session 29 (continued) — Wiki populated
+> Last updated: Session 30 — PyPI published, public launch ready
 
 ## Latest Session Summary
 
 ### Current Objective
-Apply learnings from detector analysis, decouple skip-judge/skip-llm, populate GitHub wiki.
+Prepare for public launch: PyPI publication, packaging fixes, from-scratch install verification.
 
 ### What Was Accomplished
 
-#### GitHub wiki — 29 pages published
-- **Home** — landing page with quick links
-- **Getting Started** — Installation, Quick Start, Configuration
-- **Reference** — CLI Reference (all 15 commands with full option tables), Detectors overview, Model Providers
-- **14 per-detector pages** — each with: what it detects, how it works, tier, languages, tools, LLM needs, severity rules, example finding, observed accuracy, known limitations
-- **Advanced** — Per-Detector Providers, Writing Custom Detectors, Scheduling
-- **Workflow** — Morning Report, Web UI, GitHub Issues
-- **Navigation** — `_Sidebar.md` with full page tree, `_Footer.md` with license
-- Live at: https://github.com/jcentner/sentinel/wiki
+#### PyPI publication — `repo-sentinel` v0.1.0 live
+- Package published at https://pypi.org/project/repo-sentinel/
+- `pip install repo-sentinel` verified in clean venv: install → `sentinel --version` → `sentinel doctor` → `sentinel init` → `sentinel scan` all work
+- Extras verified: `[detectors]` (ruff, pip-audit), `[web]` (starlette, jinja2, uvicorn)
+- Trusted publishing configured via GitHub Actions release workflow on `v*` tags
 
-#### Quick fixes from detector analysis
-1. **Decoupled `--skip-judge` from `--skip-llm`** — New `--skip-llm` CLI flag and `skip_llm` config field. `--skip-judge` now only controls the judge step; LLM-assisted detectors (semantic-drift, test-coherence) can run independently.
-2. **Complexity test-file demotion** — Complex functions in test files now get `LOW` severity and `0.60` confidence (down from computed severity and `0.95`). Same detection, lower report noise.
-3. **New tech debt items** — TD-043 (cross-detector data flow for LLM targeting), TD-044 (dead-code JS monorepo FPs), TD-045 (ground truth size).
+#### Launch preparation fixes
+1. **Package name**: renamed from `local-repo-sentinel` to `repo-sentinel` for memorability
+2. **Install instructions**: added `pip install repo-sentinel` as primary install path in README, fixed all `pip install sentinel[web]` → `pip install "repo-sentinel[web]"` across README, cli.py, overview.md, SKILL.md, CONTRIBUTING.md
+3. **Authors field**: added to pyproject.toml (`Jacob Centner <contact@write-it-right.ai>`)
+4. **py.typed marker** (PEP 561): added for type checker support, included in package-data
+5. **scratch.md**: removed from git tracking, added to .gitignore (contained personal brainstorm notes)
+6. **Git clone URL**: replaced `<repo-url>` placeholder with `https://github.com/jcentner/sentinel.git` in README and CONTRIBUTING
+7. **VISION-LOCK**: bumped to v4.7. PyPI publication marked complete.
 
-#### GitHub wiki planned
-- 24-page structure designed: landing page, setup, CLI reference, per-detector pages, provider config, scheduling, etc.
-- Each detector gets its own wiki page with: what it detects, tier, languages, tools, LLM needs, config, example, limitations, accuracy.
-- **Blocked on**: user needs to enable Wikis in GitHub repo settings first.
-
-#### Comprehensive detector report delivered (earlier this session)
-- Covered all 14 detectors with: conceptual design, accuracy data, value estimation, LLM requirements, and real examples
-- Based on validation against 4 real-world repos: pip-tools (Python), httpx (Python), shadcn-ui/ui (JS/TS monorepo), bubbletea (Go)
-
-#### Multi-repo validation results (Session 28, summarized)
-
-| Repo | Total | Key Findings |
-|------|-------|-------------|
-| pip-tools | 37 | 20 complexity, 19 todo (all TP), 2 docs-drift FP |
-| httpx | 36 | 31 complexity, 3 dep-audit (real CVEs), 1 docs-drift TP, 1 todo |
-| shadcn-ui | 1720 | 1692 dead-code (~99% FP — JS monorepo dynamic imports), 20 todo TP, 8 docs-drift |
-| bubbletea | 8 | 8 todo (all TP) |
-
-#### Detector accuracy summary
-
-| Detector | Observed TP Rate | Value | LLM Required |
-|----------|-----------------|-------|-------------|
-| todo-scanner | 100% | Medium-High | No |
-| dep-audit | 100% | High | No (needs pip-audit) |
-| lint-runner | 100% | High | No (needs ruff) |
-| complexity | ~95% | Medium | No |
-| unused-deps | ~90%+ | High | No |
-| dead-code (Python) | ~100% | Medium | No |
-| dead-code (JS/TS) | ~1% | Low (monorepo noise) | No |
-| docs-drift | 50-100% varies | Medium-High | Optional |
-| stale-env | 0 findings tested | Medium (niche) | No |
-| git-hotspots | Not tested (shallow clones) | Medium-High | No |
-| semantic-drift | Not tested (skip-judge) | Potentially High | Yes (BASIC) |
-| test-coherence | Not tested (skip-judge) | Potentially High | Yes (BASIC) |
-| eslint-runner | Not tested (no tool) | High | No (needs biome/eslint) |
-| go-linter | Not tested (no tool) | High | No (needs golangci-lint) |
-| rust-clippy | Not tested (no tool) | High | No (needs cargo clippy) |
+#### Verification
+- 1035 tests passing, ruff + mypy strict clean
+- Clean build: sdist (208KB) + wheel (193KB)
+- Wheel contents verified: all 51 source files, 12 templates, 3 static files, py.typed, LICENSE
+- From-scratch install tested in clean venv from built wheel and from PyPI
 
 ### Repository State
-- **Tests**: 1034 passing
-- **VISION-LOCK**: v4.6 (unchanged)
+- **Tests**: 1035 passing
+- **VISION-LOCK**: v4.7
+- **PyPI**: `repo-sentinel` v0.1.0 published
 - **Tech debt items**: 42 total, 34 resolved, 8 remaining (7 low + 1 medium)
 - **Open questions**: 18 total, 16 resolved, 2 remaining (OQ-006, OQ-016)
 - **ADRs**: 14
@@ -74,9 +43,8 @@ Apply learnings from detector analysis, decouple skip-judge/skip-llm, populate G
 #### Next priorities
 1. **LLM detector validation** — Run semantic-drift and test-coherence with a model provider (now possible with `--skip-judge` without `--skip-llm`)
 2. **Full-pipeline scan** — Validate judge + synthesis + report end-to-end
-3. **PyPI publication** — Package and publish
-4. **Cross-detector data flow** (TD-043) — Let git-hotspots inform LLM detector targeting
-5. **Wiki maintenance** — Keep wiki in sync with code changes
+3. **Cross-detector data flow** (TD-043) — Let git-hotspots inform LLM detector targeting
+4. **Wiki maintenance** — Keep wiki in sync with code changes
 
 ---
 

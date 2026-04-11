@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.6
+> **Version**: 4.7
 > **Updated**: 2026-04-10
-> **Supersedes**: v4.5
+> **Supersedes**: v4.6
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -103,7 +103,7 @@ Issue creation from approved findings with fingerprint-based dedup. Environment 
 `scan-all` scans multiple repos into a shared database. Web UI and CLI display runs across all repos.
 
 ### Quality Infrastructure
-CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage, eval gate). Full-pipeline eval with replay provider for deterministic judge/synthesis testing in CI (ADR-014). Per-detector precision/recall breakdown. 1013 tests.
+CI pipeline (GitHub Actions, Python 3.11–3.13, ruff, mypy strict, pytest with coverage, eval gate). Full-pipeline eval with replay provider for deterministic judge/synthesis testing in CI (ADR-014). Per-detector precision/recall breakdown. 1035 tests. Published on PyPI as `repo-sentinel` with trusted publishing.
 
 ### Detector Value Assessment (honest)
 Based on real-world validation, the current detectors fall into three tiers:
@@ -195,7 +195,7 @@ Detectors that find things existing dev tools don't, without needing the LLM:
 - **CLI as AI-agent interface**: `--json-output`, quiet mode, predictable exit codes.
 - **Eval metrics dashboard**: Persistent eval results, trend charts, history.
 - **Model benchmarking**: 4B recommended for 8GB VRAM. Documented.
-- **Packaging**: CI/CD, wheel, CONTRIBUTING.md.
+- **Packaging**: CI/CD, wheel, CONTRIBUTING.md, PyPI publication (`repo-sentinel`).
 
 ### Phase 7: Provider abstraction — After Phase 6/6b
 
@@ -245,9 +245,9 @@ New detectors designed for `standard+` and `advanced` model capabilities (gpt-5.
 | Intent comparison | advanced | Multi-artifact triangulation: docstring + test + doc section + code body simultaneously. Catches contradictions between any pair. |
 | Architecture drift | advanced | Import graph vs documented architecture. Layer violations, undocumented components, stale arch docs. One LLM call per scan. |
 
-### PyPI publication — After Phase 9
+### PyPI publication — Complete
 
-Publish to PyPI. Packaging is ready (wheel, CI/CD, CONTRIBUTING.md). Needs credentials and final release workflow.
+Published to PyPI as [`repo-sentinel`](https://pypi.org/project/repo-sentinel/). `pip install repo-sentinel` installs the CLI (`sentinel`). Extras: `[detectors]` (ruff, pip-audit), `[web]` (starlette, jinja2, uvicorn). Trusted publishing via GitHub Actions release workflow on `v*` tags.
 
 ## Out of Scope (permanent)
 
@@ -275,6 +275,18 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.7
+PyPI publication and public launch.
+- **PyPI published**: `repo-sentinel` package live at https://pypi.org/project/repo-sentinel/
+- **Package name**: `repo-sentinel` (CLI command remains `sentinel`)
+- **Extras**: `[detectors]` (ruff, pip-audit), `[web]` (starlette, jinja2, uvicorn)
+- **Trusted publishing**: GitHub Actions release workflow on `v*` tags
+- **py.typed** marker added (PEP 561)
+- **Authors** field added to pyproject.toml
+- **scratch.md** removed from git tracking
+- **What Exists Today**: 1035 tests (was 1013), PyPI publication complete
+- **Where We're Going**: PyPI publication marked complete
 
 ### v4.6
 Quality infrastructure update: full-pipeline eval and tech debt resolution.

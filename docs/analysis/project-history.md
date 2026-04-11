@@ -346,7 +346,7 @@ The core product is complete and validated on external repos. What remains is st
 - **Semantic docs-drift detector** (OQ-008) — pair doc sections with code sections using embeddings, ask the LLM for binary "in sync / needs review" verdicts. This is the highest-value planned feature.
 - **Test-code coherence detector** (OQ-009) — detect when test files don't cover recently changed code paths. Unknown whether the 4B model can reliably deliver this.
 - **Dead code / unused exports** — tree-sitter based, deterministic, cross-file analysis
-- **PyPI publication** — packaging is ready, needs credentials
+- **PyPI publication** — ✅ Published as `repo-sentinel` on PyPI
 - **Real-world validation on Go/Rust repos** — detectors exist but haven't been battle-tested outside unit tests
 
 The system scans repos, produces useful morning reports, creates GitHub issues after human approval, and — most importantly — finds cross-artifact issues that no other tool catches. The autonomous development workflow that built it is now a reusable template.
