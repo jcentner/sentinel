@@ -820,12 +820,12 @@ class TestCompatibilityPage:
     def test_compatibility_page_loads(self, app: TestClient) -> None:
         resp = app.get("/compatibility")
         assert resp.status_code == 200
-        assert "Model-Detector Compatibility" in resp.text
+        assert "Detectors" in resp.text
 
     def test_detectors_page_loads(self, app: TestClient) -> None:
         resp = app.get("/detectors")
         assert resp.status_code == 200
-        assert "Model-Detector Compatibility" in resp.text
+        assert "Detectors" in resp.text
 
     def test_compatibility_shows_ratings(self, app: TestClient) -> None:
         resp = app.get("/compatibility")
@@ -841,6 +841,75 @@ class TestCompatibilityPage:
         resp = app.get("/compatibility")
         assert "qwen3.5:4b" in resp.text
         assert "gpt-5.4-nano" in resp.text
+
+    def test_detectors_config_with_repo(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/detectors")
+        assert resp.status_code == 200
+        assert "Detector Configuration" in resp.text
+        assert "det_enabled_" in resp.text  # checkbox names
+
+    def test_detectors_config_no_repo(self, app: TestClient) -> None:
+        resp = app.get("/detectors")
+        assert resp.status_code == 200
+        # Without repo_path, config section shows "Start the server" message
+        assert "Start the server" in resp.text or "Detector Configuration" not in resp.text
+
+    def test_detectors_save_disables_detector(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+
+        # POST with all detectors enabled except todo-scanner
+        from sentinel.core.compatibility import DETECTOR_INFO
+        form_data = {}
+        for name in DETECTOR_INFO:
+            if name != "todo-scanner":
+                form_data[f"det_enabled_{name}"] = "on"
+
+        resp = client.post("/detectors", data=form_data)
+        assert resp.status_code == 200  # follows redirect
+
+        # Verify TOML was written with disabled_detectors
+        toml_path = tmp_path / "sentinel.toml"
+        assert toml_path.exists()
+        content = toml_path.read_text()
+        assert "todo-scanner" in content
+
+    def test_detectors_save_per_detector_override(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+
+        from sentinel.core.compatibility import DETECTOR_INFO
+        form_data = {}
+        for name in DETECTOR_INFO:
+            form_data[f"det_enabled_{name}"] = "on"
+        # Add a per-detector override for test-coherence
+        form_data["override_provider_test-coherence"] = "openai"
+        form_data["override_model_test-coherence"] = "gpt-5.4-nano"
+        form_data["override_capability_test-coherence"] = "standard"
+
+        resp = client.post("/detectors", data=form_data)
+        assert resp.status_code == 200
+
+        toml_path = tmp_path / "sentinel.toml"
+        content = toml_path.read_text()
+        assert "[sentinel.detector_providers.test-coherence]" in content
+        assert 'model = "gpt-5.4-nano"' in content
+
+    def test_detectors_save_no_repo(self, app: TestClient) -> None:
+        resp = app.post("/detectors", data={"det_enabled_lint-runner": "on"})
+        assert resp.status_code == 400
+        assert "No repo configured" in resp.text
 
 
 class TestSettingsPage:

@@ -1,10 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Sentinel — Model Compatibility{% endblock %}
+{% block title %}Sentinel — Detectors{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>Model-Detector Compatibility</h1>
-  <p class="subtitle">Empirical quality ratings from real-world benchmarks</p>
+  <h1>Detectors</h1>
+  <p class="subtitle">Compatibility matrix, configuration, and quality ratings</p>
 </div>
+
+{% if saved is defined and saved %}
+<div class="toast toast-success" style="position: static; margin-bottom: 1rem;">Detector configuration saved to sentinel.toml</div>
+{% endif %}
 
 <div class="card mb-2">
   <h2 class="mb-1">Rating Legend</h2>
@@ -165,6 +169,76 @@ skip_llm = true
 # Runs all heuristic + deterministic detectors with no model at all</pre>
   </div>
 </div>
+
+{% if detector_states is defined and detector_states %}
+<div class="card mb-2">
+  <h2 class="mb-1">Detector Configuration</h2>
+  {% if repo_path %}
+  <p class="text-muted mb-1">Toggle detectors and set per-detector model overrides. Changes are saved to <code>sentinel.toml</code>.</p>
+  <form method="post" action="/detectors">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width: 2rem;">On</th>
+            <th>Detector</th>
+            <th>Type</th>
+            <th>Override Provider</th>
+            <th>Override Model</th>
+            <th>Override Tier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for det in detector_states %}
+          <tr>
+            <td>
+              <input type="checkbox" name="det_enabled_{{ det.name }}"
+                     {{ 'checked' if det.enabled }} style="accent-color: var(--amber);">
+            </td>
+            <td>
+              <strong>{{ det.name }}</strong>
+              <br><small class="text-muted">{{ det.description }}</small>
+            </td>
+            <td><span class="badge badge-sm">{{ det.tier }}</span></td>
+            <td>
+              <select name="override_provider_{{ det.name }}" class="form-select" style="font-size: 0.82rem; padding: 0.25rem 0.5rem;">
+                <option value="">(global)</option>
+                {% for p in ["ollama", "openai", "azure"] %}
+                <option value="{{ p }}" {{ 'selected' if det.override_provider == p }}>{{ p }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <input type="text" name="override_model_{{ det.name }}" class="form-input"
+                     value="{{ det.override_model }}" placeholder="(global)"
+                     style="font-size: 0.82rem; padding: 0.25rem 0.5rem;">
+            </td>
+            <td>
+              <select name="override_capability_{{ det.name }}" class="form-select" style="font-size: 0.82rem; padding: 0.25rem 0.5rem;">
+                <option value="">(global)</option>
+                {% for c in ["none", "basic", "standard", "advanced"] %}
+                <option value="{{ c }}" {{ 'selected' if det.override_capability == c }}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1rem;">
+      <button type="submit" class="btn btn-accent">Save Detector Config</button>
+      <span class="text-muted" style="font-size: 0.82rem;">
+        {% if has_config_file is defined and has_config_file %}Updates sentinel.toml{% else %}Creates sentinel.toml{% endif %}
+      </span>
+    </div>
+  </form>
+  {% else %}
+  <p class="text-muted">Start the server with a repo path to enable detector configuration.</p>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="card">
   <h2 class="mb-1">Model Classes</h2>
