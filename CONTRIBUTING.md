@@ -3,7 +3,7 @@
 ## Development Setup
 
 ```bash
-git clone <repo-url> && cd sentinel
+git clone https://github.com/jcentner/sentinel.git && cd sentinel
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,web,detectors]"

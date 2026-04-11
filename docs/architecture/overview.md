@@ -174,7 +174,7 @@ Optional browser-based review and management interface (`sentinel serve <repo>`)
 - GitHub issue creation with dry-run from the browser
 - Scan form with model/embedding/judge/incremental options
 - Localhost-only by default, no authentication required
-- Optional dependency group (`pip install sentinel[web]`)
+- Optional dependency group (`pip install "local-repo-sentinel[web]"`)
 - Reads the same SQLite database — CLI and web share a single source of truth
 
 ## What runs where

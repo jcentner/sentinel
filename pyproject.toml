@@ -9,6 +9,9 @@ description = "Local evidence-backed repository issue triage for overnight code 
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
+authors = [
+    {name = "Jacob Centner", email = "contact@write-it-right.ai"},
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -60,7 +63,7 @@ sentinel = "sentinel.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-sentinel = ["web/templates/*.html", "web/static/*"]
+sentinel = ["py.typed", "web/templates/*.html", "web/static/*"]
 
 [tool.ruff]
 target-version = "py311"
