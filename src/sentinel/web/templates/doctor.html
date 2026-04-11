@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Doctor{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>System Health</h1>
+  <p class="subtitle">{{ ok_count }}/{{ total_count }} checks passed{% if repo_path %} for <span class="text-mono">{{ repo_path }}</span>{% endif %}</p>
+</div>
+
+<div class="card mb-2">
+  <div class="card-header">
+    <span class="card-title">Health Checks</span>
+    <span class="config-status">
+      {% if ok_count == total_count %}
+      <span class="config-dot ready"></span> All checks passed
+      {% else %}
+      <span class="config-dot missing"></span> {{ total_count - ok_count }} issue{{ 's' if (total_count - ok_count) != 1 }}
+      {% endif %}
+    </span>
+  </div>
+  <table class="settings-table">
+    <thead>
+      <tr>
+        <th style="width: 2rem;">Status</th>
+        <th>Component</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in results %}
+      <tr>
+        <td>
+          {% if r.status == "ok" %}
+          <span style="color: var(--green, #4ade80);" title="OK">✓</span>
+          {% elif r.status == "missing" %}
+          <span style="color: var(--text-faint);" title="Missing">✗</span>
+          {% else %}
+          <span style="color: var(--red, #f87171);" title="Error">✗</span>
+          {% endif %}
+        </td>
+        <td>
+          <strong>{{ r.tool }}</strong>
+          {% if r.status != "ok" %}
+          <br><small class="text-muted">{{ r.description }}</small>
+          {% endif %}
+        </td>
+        <td>
+          {% if r.version %}
+          <span class="text-mono" style="font-size: 0.82rem;">{{ r.version }}</span>
+          {% elif r.status == "missing" %}
+          <span class="text-muted">Not found</span>
+          {% elif r.status == "error" %}
+          <span style="color: var(--red, #f87171);">Error</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2 class="mb-1">About These Checks</h2>
+  <p class="text-muted" style="font-size: 0.88rem;">
+    Missing tools are only needed if you use the corresponding detector. For example, 
+    <code>ruff</code> is only required for <code>lint-runner</code>, and <code>eslint</code> 
+    for <code>eslint-runner</code>. Sentinel works without any external tools when running 
+    deterministic detectors like <code>docs-drift</code>, <code>dead-code</code>, or 
+    <code>unused-deps</code>.
+  </p>
+  <p class="text-muted" style="font-size: 0.88rem; margin-top: 0.5rem;">
+    Ollama is optional if you're using a cloud provider (<code>openai</code> or <code>azure</code>).
+  </p>
+</div>
+{% endblock %}

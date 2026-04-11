@@ -31,6 +31,7 @@
         <a href="/eval" class="nav-link {{ 'active' if request.url.path.startswith('/eval') }}">Eval</a>
         <a href="/detectors" class="nav-link {{ 'active' if request.url.path in ('/detectors', '/compatibility') }}">Detectors</a>
         <a href="/settings" class="nav-link {{ 'active' if request.url.path == '/settings' }}">Settings</a>
+        <a href="/doctor" class="nav-link {{ 'active' if request.url.path == '/doctor' }}">Doctor</a>
       </nav>
       <div class="header-actions">
         {% set _rp = request.app.state.repo_path %}

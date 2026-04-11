@@ -17,6 +17,7 @@ from starlette.staticfiles import StaticFiles
 
 from sentinel.store.runs import get_run_history
 from sentinel.web.routes.detectors import detectors_page
+from sentinel.web.routes.doctor import doctor_page
 from sentinel.web.routes.eval import eval_history_page, eval_page
 from sentinel.web.routes.findings import (
     annotation_add,
@@ -85,6 +86,7 @@ def create_app(
         Route("/eval", endpoint=eval_page, methods=["GET", "POST"]),
         Route("/eval/history", endpoint=eval_history_page),
         Route("/scan", endpoint=scan_page, methods=["GET", "POST"]),
+        Route("/doctor", endpoint=doctor_page),
         Route("/github", endpoint=github_page),
         Route("/github/create-issues", endpoint=github_create_issues, methods=["POST"]),
         Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),

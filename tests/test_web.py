@@ -743,6 +743,29 @@ class TestScanFormValidation:
         assert "Invalid detector name" in resp.text
 
 
+class TestDoctorPage:
+    def test_doctor_page_loads(self, app: TestClient) -> None:
+        resp = app.get("/doctor")
+        assert resp.status_code == 200
+        assert "System Health" in resp.text
+        assert "checks passed" in resp.text
+
+    def test_doctor_shows_tools(self, app: TestClient) -> None:
+        resp = app.get("/doctor")
+        assert "git" in resp.text
+        assert "ollama" in resp.text
+
+    def test_doctor_with_repo(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/doctor")
+        assert resp.status_code == 200
+        assert "sentinel.toml" in resp.text
+
+
 class TestGitHubPage:
     def test_github_page_empty(self, app: TestClient) -> None:
         resp = app.get("/github")
