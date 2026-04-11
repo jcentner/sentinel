@@ -3,6 +3,7 @@
 # NOTE: no `from __future__ import annotations` here — we need
 # dataclasses.fields() to return real types, not annotation strings.
 
+import contextlib
 import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -165,3 +166,78 @@ def load_config(repo_path: str | Path) -> SentinelConfig:
             setattr(config, key, value)
 
     return config
+
+
+def _toml_value(value: object) -> str:
+    """Format a Python value as a TOML literal."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    if isinstance(value, str):
+        # Escape backslashes and double quotes for TOML basic strings
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    if isinstance(value, list):
+        items = ", ".join(_toml_value(item) for item in value)
+        return f"[{items}]"
+    raise ConfigError(f"Cannot serialize {type(value).__name__} to TOML: {value!r}")
+
+
+def save_config(repo_path: str | Path, config: SentinelConfig) -> Path:
+    """Write config to sentinel.toml in the repo root.
+
+    Writes only fields that differ from defaults to keep the file clean.
+    Uses atomic write (temp file + rename) for safety.
+
+    Returns the path to the written config file.
+    """
+    import os
+    import tempfile
+
+    defaults = SentinelConfig()
+    config_file = Path(repo_path) / "sentinel.toml"
+
+    lines: list[str] = ["[sentinel]"]
+
+    # Write non-default scalar fields
+    for f in fields(SentinelConfig):
+        if f.name == "detector_providers":
+            continue  # Handled separately below
+        current = getattr(config, f.name)
+        default = getattr(defaults, f.name)
+        if current != default:
+            lines.append(f"{f.name} = {_toml_value(current)}")
+
+    # Write detector provider overrides
+    if config.detector_providers:
+        lines.append("")  # Blank line before sub-tables
+        for det_name, override in sorted(config.detector_providers.items()):
+            lines.append(f"[sentinel.detector_providers.{det_name}]")
+            override_defaults = ProviderOverride()
+            for of in fields(ProviderOverride):
+                val = getattr(override, of.name)
+                if val != getattr(override_defaults, of.name):
+                    lines.append(f"{of.name} = {_toml_value(val)}")
+
+    content = "\n".join(lines) + "\n"
+
+    # Atomic write: write to temp file in same directory, then rename
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(config_file.parent), suffix=".tmp", prefix=".sentinel-"
+    )
+    try:
+        os.write(fd, content.encode("utf-8"))
+        os.close(fd)
+        os.replace(tmp_path, str(config_file))
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_path)
+        raise
+
+    return config_file
