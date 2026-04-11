@@ -618,6 +618,115 @@ class TestDeadCodeDetector:
         assert "Unused function: py_dead" in names
         assert "Unused export: jsDead" in names
 
+    def test_export_star_reexport_not_flagged(self, tmp_path: Path) -> None:
+        """Symbols consumed via 'export * from' should not be flagged (TD-044)."""
+        _write(tmp_path, "src/button.ts", """\
+            export function Button() { return 'button'; }
+            export function ButtonIcon() { return 'icon'; }
+        """)
+        _write(tmp_path, "src/index.ts", """\
+            export * from './button';
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused export: Button" not in names
+        assert "Unused export: ButtonIcon" not in names
+
+    def test_named_reexport_not_flagged(self, tmp_path: Path) -> None:
+        """Named re-exports: export { X } from './mod' should count as usage."""
+        _write(tmp_path, "lib/utils.ts", """\
+            export function formatDate() { return ''; }
+            export function formatNum() { return ''; }
+        """)
+        _write(tmp_path, "lib/index.ts", """\
+            export { formatDate } from './utils';
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused export: formatDate" not in names
+        # formatNum is NOT re-exported — it should be flagged
+        assert "Unused export: formatNum" in names
+
+    def test_namespace_import_not_flagged(self, tmp_path: Path) -> None:
+        """import * as X from './mod' consumes all exports."""
+        _write(tmp_path, "helpers.ts", """\
+            export function helperA() { return 1; }
+            export function helperB() { return 2; }
+        """)
+        _write(tmp_path, "app.ts", """\
+            import * as H from './helpers';
+            console.log(H.helperA());
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused export: helperA" not in names
+        assert "Unused export: helperB" not in names
+
+    def test_package_entry_point_not_flagged(self, tmp_path: Path) -> None:
+        """Exports from package.json entry files are public API (TD-044)."""
+        import json
+        _write(tmp_path, "packages/ui/src/Button.ts", """\
+            export function Button() { return 'btn'; }
+        """)
+        pkg = tmp_path / "packages" / "ui" / "package.json"
+        pkg.parent.mkdir(parents=True, exist_ok=True)
+        pkg.write_text(json.dumps({
+            "name": "@myorg/ui",
+            "main": "./src/Button.ts",
+        }))
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused export: Button" not in names
+
+    def test_package_exports_field_not_flagged(self, tmp_path: Path) -> None:
+        """Package 'exports' map entries are public API."""
+        import json
+        _write(tmp_path, "pkg/src/index.ts", """\
+            export function Widget() { return 'w'; }
+        """)
+        pkg = tmp_path / "pkg" / "package.json"
+        pkg.parent.mkdir(parents=True, exist_ok=True)
+        pkg.write_text(json.dumps({
+            "name": "my-pkg",
+            "exports": {
+                ".": "./src/index.ts",
+            },
+        }))
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused export: Widget" not in names
+
+    def test_type_export_tracked(self, tmp_path: Path) -> None:
+        """export type { X } should be tracked and resolved by type imports."""
+        _write(tmp_path, "types.ts", """\
+            export type ButtonProps = { label: string };
+        """)
+        _write(tmp_path, "app.ts", """\
+            import type { ButtonProps } from './types';
+            const x: ButtonProps = { label: 'hi' };
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        assert "Unused export: ButtonProps" not in names
+
+    def test_js_intra_file_usage_not_flagged(self, tmp_path: Path) -> None:
+        """JS symbols used within the same file should not be flagged."""
+        _write(tmp_path, "utils.ts", """\
+            export const BASE_URL = 'https://api.example.com';
+            export function getUrl(path) { return BASE_URL + path; }
+        """)
+        det = DeadCodeDetector()
+        findings = det.detect(_ctx(tmp_path))
+        names = {f.title for f in findings}
+        # BASE_URL is used by getUrl — should not be flagged
+        assert "Unused export: BASE_URL" not in names
+
 
 # ---------------------------------------------------------------------------
 # Detector meta
