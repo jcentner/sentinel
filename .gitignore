@@ -41,4 +41,5 @@ sentinel.toml
 # notes
 tmp/
 scratch.md
-scratch.md*.pat
+*.pat
+.oai

@@ -101,6 +101,7 @@ def run_benchmark(
     *,
     provider: Any | None = None,
     skip_judge: bool = False,
+    skip_llm: bool = False,
     model: str = "unknown",
     provider_name: str = "unknown",
     model_capability: str = "basic",
@@ -116,17 +117,20 @@ def run_benchmark(
     Unlike run_scan, this does NOT use the full pipeline (no dedup,
     no persistence, no report). It focuses on raw detector output
     and timing for comparison purposes.
+
+    ``skip_judge`` disables the LLM judge pass (severity re-assessment).
+    ``skip_llm`` disables LLM-assisted detectors entirely (semantic-drift, etc).
     """
     repo_root = str(Path(repo_path).resolve())
     timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Build context
+    # Build context — separate skip_llm from skip_judge
     ctx = DetectorContext(
         repo_root=repo_root,
         scope=ScopeType.FULL,
         config={
             "provider": provider,
-            "skip_llm": skip_judge or provider is None,
+            "skip_llm": skip_llm or provider is None,
             "num_ctx": num_ctx,
             "model_capability": model_capability,
         },

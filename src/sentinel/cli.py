@@ -1358,6 +1358,7 @@ def doctor(output_json: bool) -> None:
 @click.option("--provider", "provider_name", default=None, help="Provider: ollama, openai, azure")
 @click.option("--api-base", default=None, help="API base URL for openai/azure provider")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
+@click.option("--skip-llm", "skip_llm", is_flag=True, help="Disable LLM-assisted detectors (semantic-drift, test-coherence)")
 @click.option("--capability", default=None, help="Model capability tier: none, basic, standard, advanced")
 @click.option("--ground-truth", default=None, type=click.Path(), help="Path to ground-truth.toml for eval")
 @click.option("--output-dir", default="benchmarks", help="Directory to save results (default: benchmarks/)")
@@ -1371,6 +1372,7 @@ def benchmark(
     provider_name: str | None,
     api_base: str | None,
     skip_judge: bool,
+    skip_llm: bool,
     capability: str | None,
     ground_truth: str | None,
     output_dir: str,
@@ -1407,9 +1409,10 @@ def benchmark(
     if capability:
         config.model_capability = capability
 
-    # Create provider if not skip_judge
+    # Create provider if LLM features are needed
     provider = None
-    if not skip_judge:
+    needs_provider = not (skip_judge and skip_llm)
+    if needs_provider:
         try:
             from sentinel.core.provider import create_provider
             provider = create_provider(config)
@@ -1434,6 +1437,7 @@ def benchmark(
         str(repo),
         provider=provider,
         skip_judge=skip_judge,
+        skip_llm=skip_llm,
         model=config.model,
         provider_name=config.provider,
         model_capability=config.model_capability,

@@ -114,11 +114,6 @@ title = "helper"
 [[expected]]
 detector = "dead-code"
 file_path = "processing.py"
-title = "process_records"
-
-[[expected]]
-detector = "dead-code"
-file_path = "processing.py"
 title = "long_report_generator"
 
 [[expected]]
