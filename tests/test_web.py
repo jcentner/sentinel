@@ -816,6 +816,28 @@ class TestThemeAndDesign:
         assert "Sentinel" in resp.text
 
 
+class TestCompatibilityPage:
+    def test_compatibility_page_loads(self, app: TestClient) -> None:
+        resp = app.get("/compatibility")
+        assert resp.status_code == 200
+        assert "Model-Detector Compatibility" in resp.text
+
+    def test_compatibility_shows_ratings(self, app: TestClient) -> None:
+        resp = app.get("/compatibility")
+        assert "Excellent" in resp.text or "excellent" in resp.text
+        assert "Poor" in resp.text or "poor" in resp.text
+
+    def test_compatibility_shows_detectors(self, app: TestClient) -> None:
+        resp = app.get("/compatibility")
+        assert "semantic-drift" in resp.text
+        assert "test-coherence" in resp.text
+
+    def test_compatibility_shows_model_classes(self, app: TestClient) -> None:
+        resp = app.get("/compatibility")
+        assert "qwen3.5:4b" in resp.text
+        assert "gpt-5.4-nano" in resp.text
+
+
 class TestSettingsPage:
     def test_settings_no_repo(self, app: TestClient) -> None:
         resp = app.get("/settings")

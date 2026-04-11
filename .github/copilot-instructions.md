@@ -34,6 +34,7 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - Strategy: [docs/vision/strategy.md](docs/vision/strategy.md)
 - Architecture: [docs/architecture/overview.md](docs/architecture/overview.md)
 - Detector design: [docs/architecture/detector-interface.md](docs/architecture/detector-interface.md)
+- Compatibility matrix: [docs/reference/compatibility-matrix.md](docs/reference/compatibility-matrix.md)
 - Open questions: [docs/reference/open-questions.md](docs/reference/open-questions.md)
 - Tech debt: [docs/reference/tech-debt.md](docs/reference/tech-debt.md)
 - Glossary: [docs/reference/glossary.md](docs/reference/glossary.md)
@@ -53,3 +54,4 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - The morning report must be scannable in under 2 minutes.
 - All external actions (GitHub issue creation) require explicit human approval.
 - Test coverage for detectors should include both true positives and known false positive scenarios.
+- **Model-detector compatibility must be transparent.** Different detectors have different model quality requirements. The compatibility matrix (`docs/reference/compatibility-matrix.md`) and web UI must show empirical quality ratings. When a model-detector combination has a known poor rating (e.g., test-coherence + 4B at ~40% FP), the system must warn the user — not silently produce noisy results. Trust requires transparency.

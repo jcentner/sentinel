@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 4.7
-> **Updated**: 2026-04-10
-> **Supersedes**: v4.6
+> **Version**: 4.8
+> **Updated**: 2026-04-11
+> **Supersedes**: v4.7
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -52,6 +52,7 @@ The model provider is **pluggable**: Ollama (local) is the default, but users ca
 | Dual interface | CLI for scripting and AI agent integration; web UI for human triage. Feature parity between them. |
 | Modular by default | Users install only the dependencies their projects need. Developers and agents can add detectors, language support, or integrations independently without touching core code. |
 | Opinionated defaults, extensible everything | Works out of the box with Ollama and sensible defaults. Every major axis — model provider, detector set, capability tier — is configurable for users who want different tradeoffs. |
+| Model-detector transparency | Users can see, before scanning, which models work for which detectors at what quality level. The system never hides poor performance behind defaults — it shows empirical compatibility ratings (excellent/good/fair/poor) based on real benchmarks. This is in the docs, the CLI, and the web UI. Trust requires transparency. |
 
 ## Technical Constraints
 
@@ -94,7 +95,7 @@ Tested on a production Next.js + Python project (~102 source files). After itera
 13 commands: `scan`, `scan-all`, `init`, `doctor`, `show`, `suppress`, `approve`, `create-issues`, `history`, `eval`, `eval-history`, `index`, `serve`, plus global `--version`/`-v`/`-q`. All key commands support `--json-output` for AI agent integration.
 
 ### Web UI (`sentinel serve`)
-Browser-based triage interface with run review, finding detail, bulk actions, GitHub issue creation, scan configuration, evaluation with trend chart, and run comparison. Dark/light themes.
+Browser-based triage interface with run review, finding detail, bulk actions, GitHub issue creation, scan configuration, evaluation with trend chart, run comparison, and **model-detector compatibility matrix**. The scan page shows compatibility warnings when detector/model combinations have known quality issues. Dark/light themes.
 
 ### GitHub Integration
 Issue creation from approved findings with fingerprint-based dedup. Environment variable config (no secrets in config files).
@@ -110,7 +111,8 @@ Based on real-world validation, the current detectors fall into three tiers:
 
 | Tier | Detectors | Capability Tier | Value |
 |------|-----------|----------------|-------|
-| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code), test-coherence (test staleness) | basic (4B) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift and test-coherence binary signals are high-value. Enhanced mode (standard+) provides structured gap analysis and specific inaccuracies. |
+| High | docs-drift (broken links, stale paths), semantic-drift (prose vs code) | basic (4B) | Catches real drift that accumulates silently. 97% accuracy for deterministic; semantic-drift binary signal is reliable across all tested models (<15% FP). Enhanced mode (standard+) provides structured gap analysis. |
+| High (with capable model) | test-coherence (test staleness) | basic (4B) / **recommended: cloud-nano** | High-value signal but **model-dependent quality**. 4B local: ~40% FP (poor). Cloud-nano: ~15% FP (good). The system warns users about this via the compatibility matrix. Per-detector model routing (`detector_providers`) lets users send just this detector to a cloud model while keeping everything else local. |
 | Medium | complexity | none (deterministic) | Surfaces genuinely complex functions. Most useful on first scan; diminishing value on repeat runs. |
 | Low | lint-runner, eslint-runner, go-linter, rust-clippy, todo-scanner | none (deterministic) | Duplicate what most dev toolchains already provide. Useful for repos without CI linting. |
 | Mixed | git-hotspots | none (deterministic) | Correctly identifies high-churn files but doesn't explain *why* the churn matters. Statistics without insight. |
@@ -123,6 +125,8 @@ Based on real-world validation, the current detectors fall into three tiers:
 | Mixed | dep-audit | none (deterministic) | Genuinely useful for CVE detection if user doesn't already run audit tools. Limited to Python with root-level project markers. |
 
 The **capability tier** column shows what model class a detector needs. Detectors with higher capability tiers are only useful when a sufficiently powerful model is configured. Users choose their own ceiling.
+
+**Critical distinction**: "Can run" ≠ "runs well." A 4B model *can* run test-coherence (it meets the minimum capability tier), but produces ~40% false positives. The [compatibility matrix](../reference/compatibility-matrix.md) shows empirical quality ratings per model-detector combination. The web UI displays this matrix and warns users during scan configuration when a detector/model combo has known quality issues.
 
 ## Success Criteria
 
@@ -275,6 +279,17 @@ These are explicitly excluded from the project's vision, not deferred:
 | Privacy story requires nuance | Low | Medium | "Local-first by default" is clear and honest. Cloud opt-in logs a startup warning. Docs state the tradeoff explicitly. |
 
 ## Changelog
+
+### v4.8
+Model-detector compatibility transparency — trust requires knowing what works.
+- **Product constraint added**: Model-detector transparency — empirical quality ratings visible in docs, CLI, and web UI
+- **Compatibility matrix**: New `docs/reference/compatibility-matrix.md` with per-model, per-detector quality ratings (excellent/good/fair/poor) based on real benchmarks
+- **Compatibility data module**: `src/sentinel/core/compatibility.py` — authoritative source for ratings, used by both docs and UI
+- **Web UI**: New `/compatibility` page with visual matrix. Scan page shows warnings for poor model-detector combinations (e.g., test-coherence + 4B local)
+- **Detector Value Assessment updated**: test-coherence split from semantic-drift — test-coherence requires a capable model (cloud-nano recommended, 4B has ~40% FP rate), while semantic-drift works well on all models
+- **Key finding documented**: qwen3.5:4b is insufficient for test-coherence (~40% FP) but excellent for semantic-drift (<15% FP). Different detectors have different model quality requirements.
+- **Test-coherence prompts refined**: Added explicit "coherent patterns" to reduce FPs for CLI tests, mock tests, simple tests. Self-scan FPs dropped from 14 to 7 on 4B.
+- **Eval system fixed**: Ground truth entries for LLM detectors; eval only counts expected entries from detectors that actually ran
 
 ### v4.7
 PyPI publication and public launch.

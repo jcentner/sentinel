@@ -495,6 +495,26 @@ async def eval_history_page(request: Request) -> Response:
     })
 
 
+async def compatibility_page(request: Request) -> Response:
+    """Model-detector compatibility matrix page."""
+    from sentinel.core.compatibility import (
+        MODEL_CLASSES,
+        build_summary_table,
+    )
+
+    rows = build_summary_table()
+    llm_rows = [r for r in rows if r["tier"] == "llm-assisted"]
+    det_rows = [r for r in rows if r["tier"] in ("deterministic", "heuristic")]
+    judge_row = next((r for r in rows if r["detector"] == "(judge)"), None)
+
+    return templates.TemplateResponse(request, "compatibility.html", {
+        "model_classes": MODEL_CLASSES,
+        "llm_rows": llm_rows,
+        "det_rows": det_rows,
+        "judge_row": judge_row,
+    })
+
+
 async def scan_page(request: Request) -> Response:
     """Show scan form (GET) or trigger a scan (POST)."""
     if request.method == "GET":
@@ -724,6 +744,7 @@ def create_app(
         Route("/findings/{finding_id:int}/annotations/{annotation_id:int}/delete", endpoint=annotation_delete, methods=["POST"]),
         Route("/runs/{run_id:int}/bulk-action", endpoint=bulk_action, methods=["POST"]),
         Route("/settings", endpoint=settings_page),
+        Route("/compatibility", endpoint=compatibility_page),
         Route("/eval", endpoint=eval_page, methods=["GET", "POST"]),
         Route("/eval/history", endpoint=eval_history_page),
         Route("/scan", endpoint=scan_page, methods=["GET", "POST"]),

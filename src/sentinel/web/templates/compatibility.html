@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Model Compatibility{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Model-Detector Compatibility</h1>
+  <p class="subtitle">Empirical quality ratings from real-world benchmarks</p>
+</div>
+
+<div class="card mb-2">
+  <h2 class="mb-1">Rating Legend</h2>
+  <div style="display:flex; gap:2rem; flex-wrap:wrap; font-size:0.9rem;">
+    <span><span class="compat-badge compat-excellent">Excellent</span> &lt;10% FP — recommended</span>
+    <span><span class="compat-badge compat-good">Good</span> 10–25% FP — reliable</span>
+    <span><span class="compat-badge compat-fair">Fair</span> 25–40% FP — noisy</span>
+    <span><span class="compat-badge compat-poor">Poor</span> &gt;40% FP — not recommended</span>
+    <span><span class="compat-badge compat-na">N/A</span> model not used</span>
+    <span><span class="compat-badge compat-untested">?</span> untested</span>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <h2 class="mb-1">LLM-Assisted Detectors</h2>
+  <p class="text-muted mb-1">These detectors use the model directly — model quality determines finding accuracy.</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Detector</th>
+          {% for mc in model_classes %}
+          <th style="text-align:center;">
+            {{ mc.name }}<br>
+            <small class="text-muted">{{ mc.example }}</small>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in llm_rows %}
+        <tr>
+          <td>
+            <strong>{{ row.detector }}</strong>
+            <br><small class="text-muted">{{ row.description }}</small>
+          </td>
+          {% for mc in model_classes %}
+          {% set cell = row.get(mc.id, {}) %}
+          <td style="text-align:center;">
+            <span class="compat-badge compat-{{ cell.rating }}" title="{{ cell.notes }}">
+              {{ cell.rating | title }}
+            </span>
+            <br><small class="text-muted">{{ cell.fp_rate }} FP</small>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <h2 class="mb-1">LLM Judge</h2>
+  <p class="text-muted mb-1">The judge evaluates findings from <em>all</em> detectors. It confirms or rejects each finding.</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Role</th>
+          {% for mc in model_classes %}
+          <th style="text-align:center;">
+            {{ mc.name }}<br>
+            <small class="text-muted">{{ mc.example }}</small>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% if judge_row %}
+        <tr>
+          <td>
+            <strong>Judge</strong>
+            <br><small class="text-muted">{{ judge_row.description }}</small>
+          </td>
+          {% for mc in model_classes %}
+          {% set cell = judge_row.get(mc.id, {}) %}
+          <td style="text-align:center;">
+            <span class="compat-badge compat-{{ cell.rating }}" title="{{ cell.notes }}">
+              {{ cell.rating | title }}
+            </span>
+            <br><small class="text-muted">{{ cell.fp_rate }} FP</small>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <h2 class="mb-1">Deterministic Detectors</h2>
+  <p class="text-muted mb-1">These work identically regardless of model. The model only affects the judge step.</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Detector</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Model Needed?</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in det_rows %}
+        <tr>
+          <td><strong>{{ row.detector }}</strong></td>
+          <td><span class="badge badge-sm">{{ row.tier }}</span></td>
+          <td>{{ row.description }}</td>
+          <td><span class="text-muted">No — detection is model-free</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mb-2">
+  <h2 class="mb-1">Recommended Configurations</h2>
+
+  <h3>Privacy-first (all local)</h3>
+  <div class="code-block mb-1">
+    <pre>[sentinel]
+provider = "ollama"
+model = "qwen3.5:4b"
+model_capability = "basic"
+# Skip test-coherence — 4B model has ~40% FP rate
+disabled_detectors = ["test-coherence"]</pre>
+  </div>
+
+  <h3>Best quality (hybrid local + cloud)</h3>
+  <div class="code-block mb-1">
+    <pre>[sentinel]
+provider = "ollama"
+model = "qwen3.5:4b"
+model_capability = "basic"
+
+# Route test-coherence to cloud for better precision
+[sentinel.detector_providers.test-coherence]
+provider = "openai"
+model = "gpt-5.4-nano"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"</pre>
+  </div>
+
+  <h3>No LLM (fastest, deterministic only)</h3>
+  <div class="code-block mb-1">
+    <pre>[sentinel]
+skip_judge = true
+skip_llm = true
+# Runs all heuristic + deterministic detectors with no model at all</pre>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="mb-1">Model Classes</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Example</th>
+          <th>VRAM</th>
+          <th>Speed</th>
+          <th>Best For</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mc in model_classes %}
+        <tr>
+          <td><strong>{{ mc.name }}</strong></td>
+          <td><code>{{ mc.example }}</code></td>
+          <td>{{ mc.vram }}</td>
+          <td>{{ mc.speed }}</td>
+          <td>
+            {% if mc.id == "4b-local" %}Default — judge, semantic-drift
+            {% elif mc.id == "9b-local" %}Not recommended on 8 GB VRAM
+            {% elif mc.id == "cloud-nano" %}test-coherence, highest precision
+            {% elif mc.id == "cloud-frontier" %}Not yet benchmarked
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-muted mt-1" style="font-size:0.8rem;">
+    Ratings based on benchmarks run 2026-04-11 against sample-repo, Sentinel self-scan, tsgbuilder, and wyoclear.
+    See <a href="https://github.com/jakcentner/sentinel/blob/main/docs/reference/model-benchmarks.md">model-benchmarks.md</a> for raw data.
+  </p>
+</div>
+{% endblock %}

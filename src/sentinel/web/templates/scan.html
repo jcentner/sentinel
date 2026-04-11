@@ -66,11 +66,14 @@
     {% if detectors %}
     <div class="form-group mb-2">
       <label class="form-label">Detectors</label>
-      <p class="form-hint">Select which detectors to run. Leave all unchecked to run all detectors.</p>
+      <p class="form-hint">Select which detectors to run. Leave all unchecked to run all detectors.
+        See <a href="/compatibility">compatibility matrix</a> for model-detector quality ratings.</p>
       <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:0.5rem;">
         {% for det in detectors %}
         <label class="form-check" title="{{ det.description }} ({{ det.tier }})">
-          <input type="checkbox" name="detectors" value="{{ det.name }}">
+          <input type="checkbox" name="detectors" value="{{ det.name }}"
+                 {% if det.tier != "none" %}data-llm-detector="true"{% endif %}
+                 {% if det.name == "test-coherence" %}data-needs-capable-model="true"{% endif %}>
           {{ det.name }}
           {% if det.tier != "none" %}
           <span class="badge badge-sm" style="margin-left:0.25rem;">{{ det.tier }}</span>
@@ -79,6 +82,8 @@
         {% endfor %}
       </div>
     </div>
+
+    <div id="compat-warnings"></div>
     {% endif %}
 
     <div class="actions-bar">
@@ -95,5 +100,41 @@ document.getElementById('scan-form').addEventListener('submit', function() {
   btn.textContent = 'Scanning…';
   document.getElementById('scan-status').textContent = 'This may take a minute…';
 });
+
+// Dynamic compatibility warnings
+(function() {
+  var form = document.getElementById('scan-form');
+  var warningsEl = document.getElementById('compat-warnings');
+  if (!form || !warningsEl) return;
+
+  function updateWarnings() {
+    var capability = form.querySelector('[name="capability"]').value || 'basic';
+    var provider = form.querySelector('[name="provider"]').value || 'ollama';
+    var isLocal4b = (provider === '' || provider === 'ollama') && (capability === '' || capability === 'basic');
+    var detCheckboxes = form.querySelectorAll('[name="detectors"]:checked');
+    var allUnchecked = detCheckboxes.length === 0;
+
+    var warnings = [];
+
+    // Check if test-coherence is selected (or all unchecked = all enabled)
+    var tcSelected = allUnchecked || Array.from(detCheckboxes).some(function(cb) {
+      return cb.value === 'test-coherence';
+    });
+
+    if (tcSelected && isLocal4b) {
+      warnings.push(
+        '<div class="compat-warning">' +
+        '<strong>⚠</strong> <span><strong>test-coherence</strong> has ~40% false positive rate with 4B local models. ' +
+        'Consider using a cloud model (gpt-5.4-nano) for this detector, or disable it. ' +
+        '<a href="/compatibility">View compatibility matrix →</a></span></div>'
+      );
+    }
+
+    warningsEl.innerHTML = warnings.join('');
+  }
+
+  form.addEventListener('change', updateWarnings);
+  updateWarnings();
+})();
 </script>
 {% endblock %}
