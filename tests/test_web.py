@@ -822,6 +822,11 @@ class TestCompatibilityPage:
         assert resp.status_code == 200
         assert "Model-Detector Compatibility" in resp.text
 
+    def test_detectors_page_loads(self, app: TestClient) -> None:
+        resp = app.get("/detectors")
+        assert resp.status_code == 200
+        assert "Model-Detector Compatibility" in resp.text
+
     def test_compatibility_shows_ratings(self, app: TestClient) -> None:
         resp = app.get("/compatibility")
         assert "Excellent" in resp.text or "excellent" in resp.text
@@ -843,7 +848,7 @@ class TestSettingsPage:
         resp = app.get("/settings")
         assert resp.status_code == 200
         assert "Settings" in resp.text
-        assert "Using defaults" in resp.text
+        assert "No repository configured" in resp.text
 
     def test_settings_with_repo(
         self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
@@ -868,17 +873,148 @@ class TestSettingsPage:
         assert "sentinel.toml found" in resp.text
         assert "custom-model" in resp.text
 
-    def test_settings_shows_env_vars(self, app: TestClient) -> None:
-        resp = app.get("/settings")
+    def test_settings_shows_env_vars(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/settings")
         assert "SENTINEL_GITHUB_OWNER" in resp.text
         assert "SENTINEL_GITHUB_REPO" in resp.text
         assert "SENTINEL_GITHUB_TOKEN" in resp.text
 
-    def test_settings_shows_all_fields(self, app: TestClient) -> None:
-        resp = app.get("/settings")
+    def test_settings_shows_all_fields(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/settings")
         for field_name in ["model", "ollama_url", "db_path", "output_dir", "skip_judge",
                            "embed_model", "embed_chunk_size", "embed_chunk_overlap", "detectors_dir"]:
             assert field_name in resp.text
+
+    def test_settings_save_creates_toml(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.post("/settings", data={
+            "provider": "openai",
+            "model": "gpt-5.4-nano",
+            "ollama_url": "http://localhost:11434",
+            "api_base": "https://api.openai.com/v1",
+            "api_key_env": "OPENAI_API_KEY",
+            "model_capability": "standard",
+            "num_ctx": "4096",
+            "embed_model": "",
+            "embed_chunk_size": "50",
+            "embed_chunk_overlap": "10",
+            "min_confidence": "0.0",
+            "enabled_detectors": "",
+            "disabled_detectors": "",
+            "detectors_dir": "",
+            "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        assert resp.status_code == 200  # Follows redirect to GET /settings?saved=1
+        toml_path = tmp_path / "sentinel.toml"
+        assert toml_path.exists()
+        content = toml_path.read_text()
+        assert 'provider = "openai"' in content
+        assert 'model = "gpt-5.4-nano"' in content
+
+    def test_settings_save_roundtrip(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        # Save settings
+        client.post("/settings", data={
+            "provider": "openai",
+            "model": "test-model",
+            "ollama_url": "http://localhost:11434",
+            "api_base": "",
+            "api_key_env": "",
+            "model_capability": "basic",
+            "num_ctx": "2048",
+            "embed_model": "",
+            "embed_chunk_size": "50",
+            "embed_chunk_overlap": "10",
+            "min_confidence": "0.0",
+            "enabled_detectors": "",
+            "disabled_detectors": "",
+            "detectors_dir": "",
+            "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        # Reload page and check value persisted
+        resp = client.get("/settings")
+        assert "test-model" in resp.text
+        assert "sentinel.toml found" in resp.text
+
+    def test_settings_save_no_repo(self, app: TestClient) -> None:
+        resp = app.post("/settings", data={"model": "test"})
+        assert resp.status_code == 400
+        assert "No repo configured" in resp.text
+
+    def test_settings_save_invalid_capability(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.post("/settings", data={
+            "provider": "ollama",
+            "model": "qwen3.5:4b",
+            "model_capability": "invalid",
+            "num_ctx": "2048",
+            "embed_chunk_size": "50",
+            "embed_chunk_overlap": "10",
+            "min_confidence": "0.0",
+            "ollama_url": "http://localhost:11434",
+            "api_base": "",
+            "api_key_env": "",
+            "enabled_detectors": "",
+            "disabled_detectors": "",
+            "detectors_dir": "",
+            "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        assert resp.status_code == 400
+        assert "Invalid capability" in resp.text
+
+    def test_settings_save_shows_success(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        client.post("/settings", data={
+            "provider": "ollama",
+            "model": "qwen3.5:4b",
+            "ollama_url": "http://localhost:11434",
+            "api_base": "",
+            "api_key_env": "",
+            "model_capability": "basic",
+            "num_ctx": "2048",
+            "embed_model": "",
+            "embed_chunk_size": "50",
+            "embed_chunk_overlap": "10",
+            "min_confidence": "0.0",
+            "enabled_detectors": "",
+            "disabled_detectors": "",
+            "detectors_dir": "",
+            "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        # The redirect goes to /settings?saved=1 which TestClient follows
+        # Check the final page has the success message
+        resp = client.get("/settings?saved=1")
+        assert "Settings saved" in resp.text
 
 
 class TestEvalPage:

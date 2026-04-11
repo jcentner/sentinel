@@ -29,7 +29,7 @@
         <a href="/runs" class="nav-link {{ 'active' if request.url.path.startswith('/runs') }}">Runs</a>
         <a href="/github" class="nav-link {{ 'active' if request.url.path.startswith('/github') }}">Issues</a>
         <a href="/eval" class="nav-link {{ 'active' if request.url.path.startswith('/eval') }}">Eval</a>
-        <a href="/compatibility" class="nav-link {{ 'active' if request.url.path == '/compatibility' }}">Compatibility</a>
+        <a href="/detectors" class="nav-link {{ 'active' if request.url.path in ('/detectors', '/compatibility') }}">Detectors</a>
         <a href="/settings" class="nav-link {{ 'active' if request.url.path == '/settings' }}">Settings</a>
       </nav>
       <div class="header-actions">

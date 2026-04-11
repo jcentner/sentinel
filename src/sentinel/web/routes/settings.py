@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import logging
 import os
 from pathlib import Path
@@ -31,18 +30,13 @@ async def settings_page(request: Request) -> Response:
         config = SentinelConfig()
         has_config_file = False
 
-    fields = [
-        {"name": f.name, "value": getattr(config, f.name), "type": f.type}
-        for f in dataclasses.fields(config)
-    ]
-
     env_vars = {
         v: bool(os.environ.get(v))
         for v in ["SENTINEL_GITHUB_OWNER", "SENTINEL_GITHUB_REPO", "SENTINEL_GITHUB_TOKEN"]
     }
 
     return templates.TemplateResponse(request, "settings.html", {
-        "fields": fields,
+        "config": config,
         "repo_path": repo_path,
         "has_config_file": has_config_file,
         "env_vars": env_vars,

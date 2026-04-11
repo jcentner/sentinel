@@ -71,7 +71,7 @@ MODEL_CLASSES = [
      "vram": "n/a", "speed": "varies",
      "tier": "advanced",
      "notes": "Near-frontier. GPT-5.4-mini and Haiku 4.5 are similar tier, not identical"},
-    {"id": "cloud-frontier", "name": "Cloud Frontier", "example": "gpt-5.4, Claude Sonnet 4",
+    {"id": "cloud-frontier", "name": "Cloud Frontier", "example": "gpt-5.4, Claude Sonnet 4.6",
      "vram": "n/a", "speed": "varies",
      "tier": "advanced",
      "notes": "Frontier models. Not yet benchmarked for Sentinel"},

@@ -98,29 +98,34 @@
 
 <div class="card mb-2">
   <h2 class="mb-1">Deterministic Detectors</h2>
-  <p class="text-muted mb-1">These work identically regardless of model. The model only affects the judge step.</p>
-  <div class="table-wrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Detector</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Model Needed?</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in det_rows %}
-        <tr>
-          <td><strong>{{ row.detector }}</strong></td>
-          <td><span class="badge badge-sm">{{ row.tier }}</span></td>
-          <td>{{ row.description }}</td>
-          <td><span class="text-muted">No — detection is model-free</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <p class="text-muted">
+    {{ det_rows | length }} detectors run without any model. They use structural analysis (AST parsing, 
+    link checking, dependency scanning, etc.) and produce identical results regardless of model choice. 
+    The LLM judge filters their output, but detection itself is model-free.
+  </p>
+  <details style="margin-top: 0.5rem;">
+    <summary style="cursor: pointer; font-size: 0.85rem; color: var(--text-dim);">Show all deterministic detectors</summary>
+    <div class="table-wrap" style="margin-top: 0.5rem;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Detector</th>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in det_rows %}
+          <tr>
+            <td><strong>{{ row.detector }}</strong></td>
+            <td><span class="badge badge-sm">{{ row.tier }}</span></td>
+            <td>{{ row.description }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
 </div>
 
 <div class="card mb-2">
@@ -191,6 +196,7 @@ skip_llm = true
   </div>
   <p class="text-muted mt-1" style="font-size:0.8rem;">
     Ratings based on benchmarks run 2026-04-11 against sample-repo, Sentinel self-scan, tsgbuilder, and wyoclear.
+    Speed values are approximate and vary significantly by hardware.
     See <a href="https://github.com/jakcentner/sentinel/blob/main/docs/reference/model-benchmarks.md">model-benchmarks.md</a> for raw data.
   </p>
 </div>

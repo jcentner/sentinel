@@ -3,71 +3,199 @@
 {% block content %}
 <div class="page-header">
   <h1>Settings</h1>
-  <p class="subtitle">Current configuration{% if repo_path %} for <span class="text-mono">{{ repo_path }}</span>{% endif %}</p>
+  <p class="subtitle">Configuration{% if repo_path %} for <span class="text-mono">{{ repo_path }}</span>{% endif %}</p>
 </div>
 
-<div class="card mb-2">
-  <div class="card-header">
-    <span class="card-title">Configuration Source</span>
-    {% if has_config_file %}
-    <span class="config-status"><span class="config-dot ready"></span> sentinel.toml found</span>
-    {% else %}
-    <span class="config-status"><span class="config-dot missing"></span> Using defaults</span>
-    {% endif %}
-  </div>
-  {% if not has_config_file %}
-  <p class="text-muted" style="font-size:0.85rem;">
-    No <code>sentinel.toml</code> found{% if repo_path %} in <code>{{ repo_path }}</code>{% endif %}. All settings use default values.
-  </p>
-  {% endif %}
-</div>
+{% if saved %}
+<div class="toast toast-success" style="position: static; margin-bottom: 1rem;">Settings saved to sentinel.toml</div>
+{% endif %}
 
+{% if not repo_path %}
 <div class="card mb-2">
-  <div class="card-header">
-    <span class="card-title">Active Settings</span>
-  </div>
-  <table class="settings-table">
-    <thead>
-      <tr>
-        <th>Setting</th>
-        <th>Value</th>
-        <th>Type</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for f in fields %}
-      <tr>
-        <td><code>{{ f.name }}</code></td>
-        <td class="text-mono">{{ f.value if f.value != '' else '(empty)' }}</td>
-        <td class="text-muted">{{ f.type }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <p class="text-muted">No repository configured. Start the server with a repo path to enable settings editing.</p>
 </div>
+{% else %}
+<form method="post" action="/settings">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
 
-<div class="card mb-2">
-  <div class="card-header">
-    <span class="card-title">Environment Variables</span>
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title">Configuration Source</span>
+      {% if has_config_file %}
+      <span class="config-status"><span class="config-dot ready"></span> sentinel.toml found</span>
+      {% else %}
+      <span class="config-status"><span class="config-dot missing"></span> Using defaults — save to create sentinel.toml</span>
+      {% endif %}
+    </div>
   </div>
-  <table class="settings-table">
-    <thead>
-      <tr>
-        <th>Variable</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for var, is_set in env_vars.items() %}
-      <tr>
-        <td><code>{{ var }}</code></td>
-        <td>
-          <span class="config-dot {{ 'ready' if is_set else 'missing' }}"></span>
-          {{ 'Set' if is_set else 'Not set' }}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title">Model &amp; Provider</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="provider">Provider</label>
+        <select id="provider" name="provider" class="form-select">
+          {% for p in ["ollama", "openai", "azure"] %}
+          <option value="{{ p }}" {{ 'selected' if config.provider == p }}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="model">Model</label>
+        <input type="text" id="model" name="model" class="form-input" value="{{ config.model }}" placeholder="qwen3.5:4b">
+        <p class="form-hint">Used by the judge and all LLM-assisted detectors</p>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="model_capability">Capability Tier</label>
+        <select id="model_capability" name="model_capability" class="form-select">
+          {% for c in ["none", "basic", "standard", "advanced"] %}
+          <option value="{{ c }}" {{ 'selected' if config.model_capability == c }}>{{ c }}</option>
+          {% endfor %}
+        </select>
+        <p class="form-hint">Determines which detectors are eligible to run. See <a href="/detectors">Detectors</a> for quality ratings.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="num_ctx">Context Window</label>
+        <input type="number" id="num_ctx" name="num_ctx" class="form-input" value="{{ config.num_ctx }}" min="512" step="256">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="ollama_url">Ollama URL</label>
+        <input type="text" id="ollama_url" name="ollama_url" class="form-input" value="{{ config.ollama_url }}" placeholder="http://localhost:11434">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="api_base">API Base URL</label>
+        <input type="text" id="api_base" name="api_base" class="form-input" value="{{ config.api_base }}" placeholder="https://api.openai.com/v1">
+        <p class="form-hint">For openai/azure providers</p>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="api_key_env">API Key Env Variable</label>
+      <input type="text" id="api_key_env" name="api_key_env" class="form-input" value="{{ config.api_key_env }}" placeholder="OPENAI_API_KEY">
+      <p class="form-hint">Name of the environment variable holding your API key (not the key itself)</p>
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title">Embeddings</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="embed_model">Embedding Model</label>
+        <input type="text" id="embed_model" name="embed_model" class="form-input" value="{{ config.embed_model }}" placeholder="(uses main model if empty)">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="embed_chunk_size">Chunk Size</label>
+        <input type="number" id="embed_chunk_size" name="embed_chunk_size" class="form-input" value="{{ config.embed_chunk_size }}" min="10" step="10">
+      </div>
+    </div>
+    <div class="form-group" style="max-width: calc(50% - 0.5rem);">
+      <label class="form-label" for="embed_chunk_overlap">Chunk Overlap</label>
+      <input type="number" id="embed_chunk_overlap" name="embed_chunk_overlap" class="form-input" value="{{ config.embed_chunk_overlap }}" min="0" step="5">
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title">Pipeline</span>
+    </div>
+    <div class="form-group">
+      <label class="form-check">
+        <input type="checkbox" name="skip_judge" {{ 'checked' if config.skip_judge }}>
+        Skip LLM judge
+      </label>
+      <p class="form-hint">Detectors run but findings are not filtered by the LLM judge</p>
+    </div>
+    <div class="form-group">
+      <label class="form-check">
+        <input type="checkbox" name="skip_llm" {{ 'checked' if config.skip_llm }}>
+        Skip LLM-assisted detectors
+      </label>
+      <p class="form-hint">Only run deterministic detectors (no model required)</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="min_confidence">Minimum Confidence</label>
+      <input type="number" id="min_confidence" name="min_confidence" class="form-input" value="{{ config.min_confidence }}" min="0" max="1" step="0.05" style="max-width: 200px;">
+      <p class="form-hint">Findings below this threshold excluded from report (0 = show all)</p>
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title">Detectors</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="enabled_detectors">Enabled Detectors</label>
+        <input type="text" id="enabled_detectors" name="enabled_detectors" class="form-input" value="{{ config.enabled_detectors | join(', ') }}" placeholder="(all enabled by default)">
+        <p class="form-hint">Comma-separated whitelist. Leave empty to run all.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="disabled_detectors">Disabled Detectors</label>
+        <input type="text" id="disabled_detectors" name="disabled_detectors" class="form-input" value="{{ config.disabled_detectors | join(', ') }}" placeholder="(none disabled by default)">
+        <p class="form-hint">Comma-separated blacklist. Cannot use with enabled.</p>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="detectors_dir">External Detectors Directory</label>
+      <input type="text" id="detectors_dir" name="detectors_dir" class="form-input" value="{{ config.detectors_dir }}" placeholder="(none)">
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title">Paths</span>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="db_path">Database Path</label>
+        <input type="text" id="db_path" name="db_path" class="form-input" value="{{ config.db_path }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="output_dir">Output Directory</label>
+        <input type="text" id="output_dir" name="output_dir" class="form-input" value="{{ config.output_dir }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title">Environment Variables</span>
+    </div>
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for var, is_set in env_vars.items() %}
+        <tr>
+          <td><code>{{ var }}</code></td>
+          <td>
+            <span class="config-dot {{ 'ready' if is_set else 'missing' }}"></span>
+            {{ 'Set' if is_set else 'Not set' }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="form-hint" style="margin-top: 0.5rem;">Environment variables must be set outside Sentinel (in your shell or .env file)</p>
+  </div>
+
+  <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 2rem;">
+    <button type="submit" class="btn btn-accent">Save Settings</button>
+    <span class="text-muted" style="font-size: 0.82rem;">
+      {% if has_config_file %}Updates sentinel.toml{% else %}Creates sentinel.toml{% endif %} in the repo root
+    </span>
+  </div>
+</form>
+{% endif %}
 {% endblock %}
