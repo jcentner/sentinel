@@ -30,19 +30,19 @@ Set up Sentinel as an overnight code health monitor for any repository. Sentinel
 
 ```bash
 # From PyPI (when published):
-# pip install local-repo-sentinel
+# pip install repo-sentinel
 
 # Core only (deterministic detectors, no web UI)
-pip install local-repo-sentinel
+pip install repo-sentinel
 
 # With web UI
-pip install "local-repo-sentinel[web]"
+pip install "repo-sentinel[web]"
 
 # With all language-specific detectors
-pip install "local-repo-sentinel[detectors]"
+pip install "repo-sentinel[detectors]"
 
 # Everything
-pip install "local-repo-sentinel[web,detectors]"
+pip install "repo-sentinel[web,detectors]"
 
 # From source (development)
 git clone https://github.com/jcentner/sentinel && cd sentinel

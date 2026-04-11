@@ -51,9 +51,9 @@ Running locally supports privacy, low marginal cost, offline iteration, and a wo
 **From PyPI:**
 
 ```bash
-pip install local-repo-sentinel
+pip install repo-sentinel
 # Or with all detector tools (ruff, pip-audit):
-pip install "local-repo-sentinel[detectors]"
+pip install "repo-sentinel[detectors]"
 ```
 
 **From source (for development):**
@@ -157,7 +157,7 @@ sentinel show <finding-id>
 **Launch the web UI for browser-based review:**
 
 ```bash
-pip install "local-repo-sentinel[web]"    # one-time: install web dependencies
+pip install "repo-sentinel[web]"    # one-time: install web dependencies
 sentinel serve /path/to/repo               # auto-opens browser
 sentinel serve /path/to/repo --port 9000
 sentinel serve /path/to/repo --no-open     # headless (for scripts/agents)

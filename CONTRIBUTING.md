@@ -272,7 +272,7 @@ Third-party detectors can be installed without modifying Sentinel itself. Create
 [project]
 name = "sentinel-detector-xyz"
 version = "0.1.0"
-dependencies = ["local-repo-sentinel>=0.1.0"]
+dependencies = ["repo-sentinel>=0.1.0"]
 
 [project.entry-points."sentinel.detectors"]
 xyz = "sentinel_detector_xyz.detector"  # module containing your Detector subclass

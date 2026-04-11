@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "local-repo-sentinel"
+name = "repo-sentinel"
 version = "0.1.0"
 description = "Local evidence-backed repository issue triage for overnight code health monitoring"
 readme = "README.md"

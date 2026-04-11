@@ -933,7 +933,7 @@ def serve(
         import uvicorn
     except ImportError:
         click.echo(
-            'Web UI dependencies not installed. Run: pip install "local-repo-sentinel[web]"',
+            'Web UI dependencies not installed. Run: pip install "repo-sentinel[web]"',
             err=True,
         )
         raise SystemExit(1) from None
