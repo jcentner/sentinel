@@ -83,12 +83,16 @@ class OpenAICompatibleProvider:
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            # Newer OpenAI models (gpt-5.x) require max_completion_tokens;
+            # older/compatible APIs use max_tokens.  We try the newer key
+            # first and fall back on 400 errors.
+            "max_completion_tokens": max_tokens,
         }
         if json_output:
             payload["response_format"] = {"type": "json_object"}
 
         t0 = time.monotonic()
+        _used_legacy_max_tokens = False
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 resp = httpx.post(
@@ -97,6 +101,14 @@ class OpenAICompatibleProvider:
                     headers=self._headers(),
                     timeout=_DEFAULT_TIMEOUT,
                 )
+                # Fall back to max_tokens if the API rejects max_completion_tokens
+                if (resp.status_code == 400
+                        and not _used_legacy_max_tokens
+                        and "max_completion_tokens" in resp.text):
+                    payload.pop("max_completion_tokens", None)
+                    payload["max_tokens"] = max_tokens
+                    _used_legacy_max_tokens = True
+                    continue
                 if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_RETRIES:
                     wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
                     # Respect Retry-After header if present

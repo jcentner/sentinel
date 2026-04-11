@@ -1357,6 +1357,7 @@ def doctor(output_json: bool) -> None:
 @click.option("--model", default=None, help="Model name (recorded in results)")
 @click.option("--provider", "provider_name", default=None, help="Provider: ollama, openai, azure")
 @click.option("--api-base", default=None, help="API base URL for openai/azure provider")
+@click.option("--api-key-env", default=None, help="Environment variable containing the API key (e.g. OPENAI_API_KEY)")
 @click.option("--skip-judge", is_flag=True, help="Skip LLM judge (use raw findings)")
 @click.option("--skip-llm", "skip_llm", is_flag=True, help="Disable LLM-assisted detectors (semantic-drift, test-coherence)")
 @click.option("--capability", default=None, help="Model capability tier: none, basic, standard, advanced")
@@ -1371,6 +1372,7 @@ def benchmark(
     model: str | None,
     provider_name: str | None,
     api_base: str | None,
+    api_key_env: str | None,
     skip_judge: bool,
     skip_llm: bool,
     capability: str | None,
@@ -1406,6 +1408,8 @@ def benchmark(
         config.model = model
     if api_base:
         config.api_base = api_base
+    if api_key_env:
+        config.api_key_env = api_key_env
     if capability:
         config.model_capability = capability
 
