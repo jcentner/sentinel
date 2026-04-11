@@ -283,7 +283,7 @@ def get_detector_recommendation(detector: str) -> str:
     return f"Recommended: {model_name} ({best.rating.value}, FP rate {best.fp_rate})"
 
 
-def build_summary_table() -> list[dict]:
+def build_summary_table() -> list[dict[str, object]]:
     """Build a summary table: one row per detector, columns per model class.
 
     Returns list of dicts with keys: detector, tier, capability,
@@ -291,7 +291,7 @@ def build_summary_table() -> list[dict]:
     """
     rows = []
     for det_name, det_info in DETECTOR_INFO.items():
-        row: dict = {
+        row: dict[str, object] = {
             "detector": det_name,
             "tier": det_info["tier"],
             "capability": det_info["capability"],
@@ -314,7 +314,7 @@ def build_summary_table() -> list[dict]:
         rows.append(row)
 
     # Add judge row
-    judge_row: dict = {
+    judge_row: dict[str, object] = {
         "detector": "(judge)",
         "tier": "llm",
         "capability": "basic",
