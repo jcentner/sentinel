@@ -1,54 +1,51 @@
 # Current State — Sentinel
 
-> Last updated: Session 31 — LLM detector validation, dead-code FP fix, benchmark improvements
+> Last updated: Session 32 — Full-pipeline validation, compatibility matrix, real-world scans
 
 ## Latest Session Summary
 
 ### Current Objective
-Fix TD-044 (JS/TS dead-code FPs), validate LLM-assisted detectors across models, improve benchmarking system.
+Full-pipeline E2E validation, test-coherence prompt refinement, real-world repo scanning, and model-detector compatibility matrix feature.
 
 ### What Was Accomplished
 
-#### TD-044 Resolved: Dead-code JS/TS monorepo FP reduction
-- Added barrel re-export tracking (`export * from`, `export { } from`)
-- Added TypeScript type export/import patterns
-- Added intra-file reference tracking for JS/TS (count-based, matching Python's existing approach)
-- Added `import * as` namespace import handling (all exports consumed)
-- Added package.json entry-point detection (main/exports/module/types fields)
-- 7 new tests covering all new patterns. 55 dead-code tests total, all passing.
+#### Full-pipeline E2E validation
+- Ran `sentinel scan tests/fixtures/sample-repo --model qwen3.5:4b --capability standard` — 35 findings, judge confirmed 30, rejected 5. Full morning report generated with evidence, judge reasoning, and clusters.
+- Ran `sentinel eval tests/fixtures/sample-repo --full-pipeline` — P=89%, R=100%. Judge correctly identified test fixture hints (not a real quality issue).
 
-#### Benchmarking system improvements
-- Decoupled `--skip-judge` from `--skip-llm` in benchmark CLI (previously aliased)
-- Added `--api-key-env` flag to benchmark CLI for cloud provider testing
-- Fixed OpenAI provider: `max_completion_tokens` for gpt-5.x models (auto-fallback to `max_tokens`)
-- Added test fixtures for LLM detectors: `tests/fixtures/sample-repo/tests/` with seeded test-code drift
+#### Test-coherence prompt refinement
+- Refined basic and enhanced test-coherence prompts with explicit "coherent patterns" guidance (CLI runners, mocked external deps, simple tests).
+- Self-scan FPs dropped from 14 → 7 (~50% reduction).
 
-#### LLM detector validation — three models compared
-Tested semantic-drift and test-coherence across qwen3.5:4b, qwen3.5:9b, and gpt-5.4-nano:
+#### LLM detector ground truth
+- Added 3 ground truth entries to sample-repo (1 semantic-drift, 2 test-coherence).
+- Fixed eval to only count expected entries from detectors that actually ran (prevents LLM ground truth from penalizing recall in non-full-pipeline mode).
 
-**Sample repo** (seeded fixture):
-| Model | semantic-drift | test-coherence | Total | Time |
-|-------|---------------|---------------|-------|------|
-| qwen3.5:4b | 1 | 2 | 3 | 9.2s |
-| qwen3.5:9b | 1 | 1 | 2 | 18.2s |
-| gpt-5.4-nano | 1 | 1 | 2 | 4.7s |
+#### Real-world validation — two external repos
+- **tsgbuilder** (Python CLI): 113 raw → 101 dedup → 93 confirmed. Test-coherence found 4 findings (all FPs on well-written edge-case tests in test_telemetry.py).
+- **wyoclear** (Next.js): 202 raw → 168 dedup → 152 confirmed. 58 dead-code, 73 docs-drift. Synthesis produced 5 clusters.
 
-**Sentinel self-scan** (real codebase):
-| Model | semantic-drift | test-coherence | Total | Time |
-|-------|---------------|---------------|-------|------|
-| qwen3.5:4b | 15 | 14 | 29 | 84s |
-| gpt-5.4-nano | 15 | 6 | 21 | 49s |
+#### Model-detector compatibility matrix (major feature)
+- Created `src/sentinel/core/compatibility.py` — authoritative data module with QualityRating enum, CompatibilityEntry dataclass, full matrix data for 14 detectors + judge × 4 model classes, query helpers (get_entry, get_detector_recommendation, build_summary_table).
+- Created `docs/reference/compatibility-matrix.md` — wiki documentation with rating legend, LLM-assisted detector matrix, judge quality table, recommended configurations, model classes reference.
+- Created `/compatibility` web UI page with color-coded quality badges (excellent/good/fair/poor).
+- Added scan page dynamic warnings — JS shows "⚠ test-coherence has ~40% FP rate with 4B local models" when poor combos selected.
+- Updated Vision lock to v4.8 — new "Model-detector transparency" product constraint.
+- Updated copilot-instructions.md with compatibility-matrix.md link and transparency quality standard.
+- Added 3 glossary terms: Compatibility matrix, Quality rating, Model class.
+- 4 new web tests for compatibility page (86 total web tests).
+- mypy strict clean.
 
-Key finding: gpt-5.4-nano is the most precise (estimated ~15% FP on test-coherence vs ~40% for 4B). Semantic-drift works well across all models. Full results in docs/reference/model-benchmarks.md.
-
-#### Verification
-- 1042 tests passing (+7 new dead-code tests, ruff + mypy strict clean)
-- Sample repo eval: P=89%, R=100% (with LLM detectors contributing 3 additional findings)
-- All 3 LLM detector benchmark runs saved to benchmarks/
+#### Commits this session
+- `b8248f5` — docs(benchmarks): LLM detector validation results and pytest config fix
+- `8d8501b` — fix(detectors): test-coherence prompt refinement (14→7 FPs)
+- `5d882a8` — feat(eval): LLM detector ground truth, eval active_expected fix
+- `730da4f` — feat(compatibility): model-detector compatibility matrix (11 files, +815 lines)
+- `09ecdce` — fix(compatibility): mypy strict type args
 
 ### Repository State
-- **Tests**: 1042 passing
-- **VISION-LOCK**: v4.7
+- **Tests**: 1046 passing, 3 skipped
+- **VISION-LOCK**: v4.8
 - **PyPI**: `repo-sentinel` v0.1.0 published
 - **Tech debt items**: 42 total, 35 resolved, 7 remaining (6 low + 1 medium)
 - **Open questions**: 18 total, 16 resolved, 2 remaining (OQ-006, OQ-016)
@@ -57,10 +54,10 @@ Key finding: gpt-5.4-nano is the most precise (estimated ~15% FP on test-coheren
 ### What Remains / Next Priority
 
 #### Next priorities
-1. **Full-pipeline scan** — Validate judge + synthesis + report end-to-end with a live model
-2. **Test-coherence prompt refinement** — Reduce FP rate for mock-based and CLI integration tests
-3. **Cross-detector data flow** (TD-043) — Let git-hotspots inform LLM detector targeting
-4. **Ground truth expansion** (TD-045) — Add LLM detector entries to ground-truth.toml
+1. **Cross-detector data flow** (TD-043) — Let git-hotspots inform LLM detector targeting
+2. **Async judge** (TD-016) — ThreadPoolExecutor-based parallel judging (~4x speedup)
+3. **`sentinel compatibility` CLI command** — Print compatibility matrix to terminal (glossary references it but not yet implemented)
+4. **wyoclear/tsgbuilder FP analysis** — Analyze dead-code and docs-drift FP rates for matrix refinement
 
 ---
 
