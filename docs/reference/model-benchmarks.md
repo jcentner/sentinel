@@ -1,6 +1,6 @@
 # Model Benchmarks
 
-Empirical comparison of Ollama models for the Sentinel LLM judge.
+Empirical comparison of models for Sentinel's LLM judge and LLM-assisted detectors.
 
 ## Test Setup
 
@@ -65,6 +65,75 @@ Both models significantly redistribute severity compared to raw detector output:
 ## Future Work
 
 - Benchmark with `num_predict: 256` to measure speedup
-- Run both models against the ground-truth fixture (`sentinel eval`) with LLM judge enabled to get formal precision/recall comparison
 - Test Q6_K quantization for the 4B model (if more VRAM headroom is desired)
 - Benchmark context gathering with embeddings enabled (adds ~500 tokens/finding from semantic context)
+- Expand LLM detector ground truth to strengthen precision/recall measurements
+- Test gpt-5.4-nano as judge (not just detector) when API quota allows
+
+---
+
+## LLM-Assisted Detector Benchmarks (2026-04-11)
+
+Comparison of `semantic-drift` and `test-coherence` detectors across three models.
+
+### Test Setup
+
+- **Sample repo**: `tests/fixtures/sample-repo/` — a seeded fixture with deliberate doc-code drift and stale tests
+- **Self-scan**: Sentinel's own codebase (~4500 LOC across 40+ modules)
+- **Models**: qwen3.5:4b (Ollama, local), qwen3.5:9b-q4_K_M (Ollama, local), gpt-5.4-nano (OpenAI)
+- **Mode**: `--skip-judge` (raw detector output, no judge severity re-assessment)
+- **Date**: 2026-04-11
+
+### Sample Repo Results
+
+The sample repo has seeded drift: README describes config incorrectly, test files have stale/misleading docstrings.
+
+| Detector | qwen3.5:4b | qwen3.5:9b | gpt-5.4-nano |
+|----------|-----------|-----------|-------------|
+| **semantic-drift** | 1 finding (6.0s) | 1 finding (11.2s) | 1 finding (1.7s) |
+| **test-coherence** | 2 findings (3.1s) | 1 finding (7.0s) | 1 finding (3.0s) |
+| **Total** | **3** | **2** | **2** |
+
+All three models found the same core signal:
+- **semantic-drift**: "Configuration" section in README.md vs `src/myapp/config.py` (correct — README describes stale paths)
+- **test-coherence**: `test_main_returns_data` flagged by all three — test asserts trivial properties that don't validate implementation intent
+
+The 4B model additionally flagged `test_main_runs` — a borderline finding (test only checks `not None`). The 9B model was more conservative. gpt-5.4-nano matched the 9B's selectivity but at 2-3× the speed.
+
+**None of the models detected** the deliberately seeded `test_old_handler` (references a removed function), `test_keyboard_interrupt_handling` (tests unimplemented behavior), or `test_process_validates_xml_format` (describes XML validation that doesn't exist). These are harder coherence gaps that require deeper semantic reasoning.
+
+### Sentinel Self-Scan Results
+
+Running LLM detectors on Sentinel's own codebase:
+
+| Detector | qwen3.5:4b | gpt-5.4-nano |
+|----------|-----------|-------------|
+| **semantic-drift** | 15 findings (45s) | 15 findings (18s) |
+| **test-coherence** | 14 findings (39s) | 6 findings (31s) |
+| **Total** | **29** | **21** |
+
+Key differences:
+- **semantic-drift**: Both models found the same 15 findings, all in `CONTRIBUTING.md`. The "Codebase Reading Guide" and other sections reference code files whose implementations have evolved. These are mostly true positives — the CONTRIBUTING doc does have stale descriptions.
+- **test-coherence**: The 4B model flagged 14 tests vs 6 for gpt-5.4-nano. The 4B model included many false positives (e.g., CLI tests that use Click's test runner, provider tests using mock). gpt-5.4-nano was significantly more precise, mostly flagging tests where the docstring/name implies validation that the test doesn't actually perform.
+
+### Analysis
+
+| Metric | qwen3.5:4b | qwen3.5:9b | gpt-5.4-nano |
+|--------|-----------|-----------|-------------|
+| Speed (sample repo) | 9.2s | 18.2s | 4.7s |
+| Speed (self-scan) | 84s | not tested | 49s |
+| Sensitivity | High (more findings) | Conservative | Selective |
+| FP rate (estimated) | ~40% test-coherence | ~30% | ~15% test-coherence |
+| Cost | Free (local) | Free (local) | ~$0.002/scan |
+
+### Recommendations
+
+1. **Use qwen3.5:4b as the default** — free, local, reasonable quality. The higher FP rate on test-coherence is acceptable for a morning triage tool where the human reviews findings anyway.
+
+2. **gpt-5.4-nano is the best quality option** — significantly lower FP rate, faster than local models, negligible cost. Recommended when privacy allows sending code snippets to OpenAI.
+
+3. **The 9B model offers no advantage** — slower than 4B, same or fewer findings, partial CPU offload hurts throughput. Not recommended unless running on hardware with >10GB VRAM.
+
+4. **semantic-drift works well across all models** — the binary "in sync / needs review" signal is robust even for the smallest model. FP rate is low because the prompt is highly constrained.
+
+5. **test-coherence needs prompt refinement** — the 4B model flags too many tests that are actually fine (CLI integration tests, mock-based tests). The prompt may need to better distinguish "test validates behavior differently than name suggests" from "test uses a framework pattern the model doesn't recognize."

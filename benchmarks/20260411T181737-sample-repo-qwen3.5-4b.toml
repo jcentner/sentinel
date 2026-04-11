@@ -1,0 +1,120 @@
+# Sentinel Benchmark Results
+# Generated: 2026-04-11T18:17:37Z
+
+[benchmark]
+repo_path = "/home/jakce/sentinel/tests/fixtures/sample-repo"
+timestamp = "2026-04-11T18:17:37Z"
+model = "qwen3.5:4b"
+provider = "ollama"
+model_capability = "basic"
+total_findings = 35
+total_duration_ms = 14653.3
+detector_count = 14
+
+[benchmark.eval]
+total_findings = 35
+true_positives = 31
+false_positives_found = 0
+missing_count = 0
+unexpected_fps_count = 0
+precision = 0.8857
+recall = 1.0000
+per_detector = {'complexity': {'detector': 'complexity', 'total_findings': 2, 'true_positives': 2, 'expected': 2, 'precision': 1.0, 'recall': 1.0}, 'dead-code': {'detector': 'dead-code', 'total_findings': 6, 'true_positives': 6, 'expected': 6, 'precision': 1.0, 'recall': 1.0}, 'docs-drift': {'detector': 'docs-drift', 'total_findings': 5, 'true_positives': 5, 'expected': 5, 'precision': 1.0, 'recall': 1.0}, 'lint-runner': {'detector': 'lint-runner', 'total_findings': 3, 'true_positives': 2, 'expected': 2, 'precision': 0.6666666666666666, 'recall': 1.0}, 'semantic-drift': {'detector': 'semantic-drift', 'total_findings': 1, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'stale-env': {'detector': 'stale-env', 'total_findings': 5, 'true_positives': 5, 'expected': 5, 'precision': 1.0, 'recall': 1.0}, 'test-coherence': {'detector': 'test-coherence', 'total_findings': 2, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'todo-scanner': {'detector': 'todo-scanner', 'total_findings': 8, 'true_positives': 8, 'expected': 8, 'precision': 1.0, 'recall': 1.0}, 'unused-deps': {'detector': 'unused-deps', 'total_findings': 3, 'true_positives': 3, 'expected': 3, 'precision': 1.0, 'recall': 1.0}}
+
+[[benchmark.detectors]]
+name = "todo-scanner"
+finding_count = 8
+duration_ms = 61.1
+tier = "deterministic"
+categories = ["todo-fixme"]
+
+[[benchmark.detectors]]
+name = "dead-code"
+finding_count = 6
+duration_ms = 3.9
+tier = "heuristic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "docs-drift"
+finding_count = 5
+duration_ms = 121.3
+tier = "llm-assisted"
+categories = ["docs-drift"]
+
+[[benchmark.detectors]]
+name = "stale-env"
+finding_count = 5
+duration_ms = 1.2
+tier = "deterministic"
+categories = ["config-drift"]
+
+[[benchmark.detectors]]
+name = "lint-runner"
+finding_count = 3
+duration_ms = 13.8
+tier = "deterministic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "unused-deps"
+finding_count = 3
+duration_ms = 2.1
+tier = "deterministic"
+categories = ["dependency"]
+
+[[benchmark.detectors]]
+name = "complexity"
+finding_count = 2
+duration_ms = 5.3
+tier = "heuristic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "test-coherence"
+finding_count = 2
+duration_ms = 3089.1
+tier = "llm-assisted"
+categories = ["test-coherence"]
+
+[[benchmark.detectors]]
+name = "semantic-drift"
+finding_count = 1
+duration_ms = 6044.4
+tier = "llm-assisted"
+categories = ["docs-drift"]
+
+[[benchmark.detectors]]
+name = "dep-audit"
+finding_count = 0
+duration_ms = 5307.4
+tier = "deterministic"
+categories = ["dependency"]
+
+[[benchmark.detectors]]
+name = "eslint-runner"
+finding_count = 0
+duration_ms = 0.8
+tier = "deterministic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "git-hotspots"
+finding_count = 0
+duration_ms = 0.1
+tier = "heuristic"
+categories = ["git-health"]
+
+[[benchmark.detectors]]
+name = "go-linter"
+finding_count = 0
+duration_ms = 0.7
+tier = "deterministic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "rust-clippy"
+finding_count = 0
+duration_ms = 1.0
+tier = "deterministic"
+categories = ["code-quality"]

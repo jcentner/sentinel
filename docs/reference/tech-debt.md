@@ -33,12 +33,12 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Add a pre-scan phase that runs cheap heuristic detectors first and builds a "risk profile" per file. LLM detectors can then consume this profile to prioritize which files to analyze deeply. Could be as simple as a `context.risk_signals` dict populated by git-hotspots and complexity before LLM detectors run.
 
 ### TD-044: Dead-code JS/TS monorepo false positives
-**Status**: Active
+**Status**: Resolved (Session 31)
 **Severity**: Medium
 **Introduced**: Session 28 (multi-repo validation — shadcn-ui)
 **Description**: The dead-code detector flags ~1700 FPs on shadcn-ui/ui. Remaining FPs come from non-auto-generated files where exports are consumed via dynamic `import()` patterns in other packages, registry-based component loading, and barrel re-exports.
 **Impact**: Dead-code detector is unusable for JS/TS monorepos. ~99% FP rate.
-**Proposed resolution**: (1) Cross-package import tracking for monorepos. (2) Detect registry/barrel patterns and suppress findings for registered exports. (3) Consider making JS/TS dead-code opt-in until accuracy improves.
+**Resolution**: Added barrel re-export tracking (`export * from`, `export { } from`), TypeScript type export/import tracking, intra-file reference tracking for JS/TS, `import * as` namespace import handling, and package.json entry-point detection (main/exports/module/types). Entry-point files' exports are treated as public API. 7 new tests covering all patterns.
 
 ### TD-045: Ground truth too small for statistical confidence
 **Status**: Active

@@ -1,50 +1,66 @@
 # Current State — Sentinel
 
-> Last updated: Session 30 — PyPI published, public launch ready
+> Last updated: Session 31 — LLM detector validation, dead-code FP fix, benchmark improvements
 
 ## Latest Session Summary
 
 ### Current Objective
-Prepare for public launch: PyPI publication, packaging fixes, from-scratch install verification.
+Fix TD-044 (JS/TS dead-code FPs), validate LLM-assisted detectors across models, improve benchmarking system.
 
 ### What Was Accomplished
 
-#### PyPI publication — `repo-sentinel` v0.1.0 live
-- Package published at https://pypi.org/project/repo-sentinel/
-- `pip install repo-sentinel` verified in clean venv: install → `sentinel --version` → `sentinel doctor` → `sentinel init` → `sentinel scan` all work
-- Extras verified: `[detectors]` (ruff, pip-audit), `[web]` (starlette, jinja2, uvicorn)
-- Trusted publishing configured via GitHub Actions release workflow on `v*` tags
+#### TD-044 Resolved: Dead-code JS/TS monorepo FP reduction
+- Added barrel re-export tracking (`export * from`, `export { } from`)
+- Added TypeScript type export/import patterns
+- Added intra-file reference tracking for JS/TS (count-based, matching Python's existing approach)
+- Added `import * as` namespace import handling (all exports consumed)
+- Added package.json entry-point detection (main/exports/module/types fields)
+- 7 new tests covering all new patterns. 55 dead-code tests total, all passing.
 
-#### Launch preparation fixes
-1. **Package name**: renamed from `local-repo-sentinel` to `repo-sentinel` for memorability
-2. **Install instructions**: added `pip install repo-sentinel` as primary install path in README, fixed all `pip install sentinel[web]` → `pip install "repo-sentinel[web]"` across README, cli.py, overview.md, SKILL.md, CONTRIBUTING.md
-3. **Authors field**: added to pyproject.toml (`Jacob Centner <contact@write-it-right.ai>`)
-4. **py.typed marker** (PEP 561): added for type checker support, included in package-data
-5. **scratch.md**: removed from git tracking, added to .gitignore (contained personal brainstorm notes)
-6. **Git clone URL**: replaced `<repo-url>` placeholder with `https://github.com/jcentner/sentinel.git` in README and CONTRIBUTING
-7. **VISION-LOCK**: bumped to v4.7. PyPI publication marked complete.
+#### Benchmarking system improvements
+- Decoupled `--skip-judge` from `--skip-llm` in benchmark CLI (previously aliased)
+- Added `--api-key-env` flag to benchmark CLI for cloud provider testing
+- Fixed OpenAI provider: `max_completion_tokens` for gpt-5.x models (auto-fallback to `max_tokens`)
+- Added test fixtures for LLM detectors: `tests/fixtures/sample-repo/tests/` with seeded test-code drift
+
+#### LLM detector validation — three models compared
+Tested semantic-drift and test-coherence across qwen3.5:4b, qwen3.5:9b, and gpt-5.4-nano:
+
+**Sample repo** (seeded fixture):
+| Model | semantic-drift | test-coherence | Total | Time |
+|-------|---------------|---------------|-------|------|
+| qwen3.5:4b | 1 | 2 | 3 | 9.2s |
+| qwen3.5:9b | 1 | 1 | 2 | 18.2s |
+| gpt-5.4-nano | 1 | 1 | 2 | 4.7s |
+
+**Sentinel self-scan** (real codebase):
+| Model | semantic-drift | test-coherence | Total | Time |
+|-------|---------------|---------------|-------|------|
+| qwen3.5:4b | 15 | 14 | 29 | 84s |
+| gpt-5.4-nano | 15 | 6 | 21 | 49s |
+
+Key finding: gpt-5.4-nano is the most precise (estimated ~15% FP on test-coherence vs ~40% for 4B). Semantic-drift works well across all models. Full results in docs/reference/model-benchmarks.md.
 
 #### Verification
-- 1035 tests passing, ruff + mypy strict clean
-- Clean build: sdist (208KB) + wheel (193KB)
-- Wheel contents verified: all 51 source files, 12 templates, 3 static files, py.typed, LICENSE
-- From-scratch install tested in clean venv from built wheel and from PyPI
+- 1042 tests passing (+7 new dead-code tests, ruff + mypy strict clean)
+- Sample repo eval: P=89%, R=100% (with LLM detectors contributing 3 additional findings)
+- All 3 LLM detector benchmark runs saved to benchmarks/
 
 ### Repository State
-- **Tests**: 1035 passing
+- **Tests**: 1042 passing
 - **VISION-LOCK**: v4.7
 - **PyPI**: `repo-sentinel` v0.1.0 published
-- **Tech debt items**: 42 total, 34 resolved, 8 remaining (7 low + 1 medium)
+- **Tech debt items**: 42 total, 35 resolved, 7 remaining (6 low + 1 medium)
 - **Open questions**: 18 total, 16 resolved, 2 remaining (OQ-006, OQ-016)
 - **ADRs**: 14
 
 ### What Remains / Next Priority
 
 #### Next priorities
-1. **LLM detector validation** — Run semantic-drift and test-coherence with a model provider (now possible with `--skip-judge` without `--skip-llm`)
-2. **Full-pipeline scan** — Validate judge + synthesis + report end-to-end
+1. **Full-pipeline scan** — Validate judge + synthesis + report end-to-end with a live model
+2. **Test-coherence prompt refinement** — Reduce FP rate for mock-based and CLI integration tests
 3. **Cross-detector data flow** (TD-043) — Let git-hotspots inform LLM detector targeting
-4. **Wiki maintenance** — Keep wiki in sync with code changes
+4. **Ground truth expansion** (TD-045) — Add LLM detector entries to ground-truth.toml
 
 ---
 
