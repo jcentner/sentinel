@@ -24,61 +24,13 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: LLM detectors treat all files equally instead of focusing on the highest-risk files first. Wastes LLM budget on stable files while potentially missing issues in frequently-broken ones.
 **Proposed resolution**: Add a pre-scan phase that runs cheap heuristic detectors first and builds a "risk profile" per file. LLM detectors can then consume this profile to prioritize which files to analyze deeply. Could be as simple as a `context.risk_signals` dict populated by git-hotspots and complexity before LLM detectors run.
 
-### TD-046: Settings page is read-only — no sentinel.toml creation or editing
-**Status**: Active
-**Severity**: Medium
-**Introduced**: Session 34 (user feedback)
-**Description**: The `/settings` page displays current config but cannot edit it. If no `sentinel.toml` exists, it shows "No sentinel.toml found" with no way to create one. Users must manually edit config files. The vision lock specifies "Dual interface: feature parity between CLI and web UI" but the web UI has no config editing capability equivalent to `sentinel init` or manual TOML editing.
-**Impact**: Web UI is not a first-class interaction method for configuration. Users who prefer the browser must still use the CLI or a text editor for all config changes.
-**Proposed resolution**: Add a config editor to the settings page: create `sentinel.toml` if missing (equivalent to `sentinel init`), edit key fields (model, provider, enabled/disabled detectors, capability tier), and save. Consider making the Detectors/Compatibility page the primary configuration surface for detector + model selection.
-
 ### TD-047: GitHub config not editable from web UI
-**Status**: Active
+**Status**: Active (deliberate — see ADR-015)
 **Severity**: Low
 **Introduced**: Session 34 (user feedback)
-**Description**: The `/github` page shows whether GitHub env vars are configured but provides no way to set them. Users must set `SENTINEL_GITHUB_OWNER`, `SENTINEL_GITHUB_REPO`, `SENTINEL_GITHUB_TOKEN` outside the UI.
-**Impact**: Setup friction for users who want to use the GitHub integration from the browser flow.
-**Proposed resolution**: Add a config form to the GitHub page. Could set env vars for the running process or persist to `sentinel.toml` (owner/repo only — token should remain env-var-only for security).
-
-### TD-048: Scan form "LLM Model" label is ambiguous
-**Status**: Active
-**Severity**: Low
-**Introduced**: Session 34 (user feedback)
-**Description**: The scan page labels the model field "LLM Model" but this sets the model for the judge and all LLM-assisted detectors. The label implies it's only for one purpose. No embedding model selector is provided with comparable UX.
-**Impact**: User confusion about what the model field controls. Embedding model selection is less discoverable.
-**Proposed resolution**: Rename to "Model" or "LLM / Judge Model" with a help tooltip explaining scope. Add embedding model to a comparable dropdown or autocomplete.
-
-### TD-049: Compatibility page shows redundant deterministic detector info
-**Status**: Active
-**Severity**: Low
-**Introduced**: Session 34 (user feedback)
-**Description**: The deterministic detectors section lists every non-LLM detector with "No — detection is model-free." This information is implied by the section title and doesn't help the user make decisions. The page's value is helping users choose models for LLM detectors.
-**Impact**: Visual noise. The page is longer than necessary without adding decision-relevant information.
-**Proposed resolution**: Either remove the deterministic section entirely, or collapse it to a single sentence: "All other detectors are deterministic and model-free." Alternatively, show language-specific detectors with flags indicating whether they apply to the currently-opened repo (if repo context is available).
-
-### TD-050: Model Classes table tok/s data not useful without per-user hardware context
-**Status**: Active
-**Severity**: Low
-**Introduced**: Session 34 (user feedback)
-**Description**: The Model Classes table at the bottom of `/compatibility` shows static tok/s estimates. Performance varies enormously by hardware, making static numbers misleading. Would be more valuable if populated dynamically from actual scan data.
-**Impact**: Users may set expectations based on irrelevant speed numbers.
-**Proposed resolution**: Remove static tok/s or mark as "approximate, varies by hardware." Better: populate Model Classes dynamically from actual scan timing data for the user's repo (if scan history exists). Show real measured tok/s from their runs.
-
-### TD-051: Compatibility matrix model list outdated (Sonnet 4 → 4.6)
-**Status**: Active
-**Severity**: Low
-**Introduced**: Session 34 (user feedback)
-**Description**: The compatibility matrix lists "Claude Sonnet 4" as a cloud-frontier model. Sonnet 4.6 is the current frontier model, on par with GPT-5.4. The matrix should reflect current model landscape.
-**Impact**: Stale model references reduce trust in the matrix data.
-**Proposed resolution**: Update cloud-frontier examples to Sonnet 4.6: "GPT-5.4, Claude Sonnet 4.6" in compatibility.py and all references.
-
-### TD-052: Compatibility page naming — consider "Detectors" 
-**Status**: Active
-**Severity**: Low
-**Introduced**: Session 34 (user feedback)
-**Description**: The page is named "Compatibility" but shows all detector information (LLM-assisted matrix, deterministic list, model classes). "Detectors" may be a better name since the page is becoming a detector reference + configuration surface.
-**Impact**: Navigation clarity. Minor.
-**Proposed resolution**: Rename to "Detectors" if the page evolves to include detector toggles and per-detector model selection (see TD-046). Keep "Compatibility" if it remains read-only reference.
+**Description**: The `/github` page shows whether GitHub env vars are configured but provides no way to set them. Token must remain env-var-only for security. Owner/repo could be added to sentinel.toml but the value is low — most users set these once.
+**Impact**: Minor setup friction.
+**Proposed resolution**: Won't implement token editing (security). May add owner/repo to sentinel.toml in future if demand emerges.
 
 ### TD-053: Roadmap phases/ directory is stale and inconsistent
 **Status**: Active

@@ -161,7 +161,8 @@ Optional browser-based review and management interface (`sentinel serve <repo>`)
 | `/findings/{id}` | Finding detail: metadata, description, evidence, approve/suppress with reason |
 | `/scan` | Configurable scan form: repo path, model override, skip-judge, incremental |
 | `/github` | GitHub Issues dashboard: config status, approved findings, create/dry-run |
-| `/settings` | Read-only configuration viewer: sentinel.toml status, GitHub env vars |
+| `/settings` | Configuration editor: view and modify sentinel.toml settings, create file if missing |
+| `/detectors` | Model-detector compatibility matrix, detector reference, recommended configs |
 | `/eval` | Evaluation form + results: run detectors against ground-truth TOML |
 | `/eval/history` | Evaluation history: precision/recall trends over time |
 | `/runs/{id}/compare/{base_id}` | Run comparison: new, resolved, and persistent findings between two runs |

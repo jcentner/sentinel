@@ -177,8 +177,15 @@ def _toml_value(value: object) -> str:
     if isinstance(value, float):
         return str(value)
     if isinstance(value, str):
-        # Escape backslashes and double quotes for TOML basic strings
+        # Escape for TOML basic strings (backslash, quotes, and control chars)
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        escaped = (
+            escaped.replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+            .replace("\b", "\\b")
+            .replace("\f", "\\f")
+        )
         return f'"{escaped}"'
     if isinstance(value, list):
         items = ", ".join(_toml_value(item) for item in value)
@@ -230,12 +237,10 @@ def save_config(repo_path: str | Path, config: SentinelConfig) -> Path:
         dir=str(config_file.parent), suffix=".tmp", prefix=".sentinel-"
     )
     try:
-        os.write(fd, content.encode("utf-8"))
-        os.close(fd)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
         os.replace(tmp_path, str(config_file))
     except BaseException:
-        with contextlib.suppress(OSError):
-            os.close(fd)
         with contextlib.suppress(OSError):
             os.unlink(tmp_path)
         raise

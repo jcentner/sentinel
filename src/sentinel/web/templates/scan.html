@@ -67,7 +67,7 @@
     <div class="form-group mb-2">
       <label class="form-label">Detectors</label>
       <p class="form-hint">Select which detectors to run. Leave all unchecked to run all detectors.
-        See <a href="/compatibility">compatibility matrix</a> for model-detector quality ratings.</p>
+        See <a href="/detectors">detectors page</a> for model-detector quality ratings.</p>
       <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:0.5rem;">
         {% for det in detectors %}
         <label class="form-check" title="{{ det.description }} ({{ det.tier }})">
@@ -92,7 +92,7 @@
         Override the model, provider, or capability tier for specific detectors.
         Leave blank to use the global settings above. This is how you route
         test-coherence to a cloud model while keeping everything else local.
-        See <a href="/compatibility">compatibility matrix</a> for quality ratings.
+        See <a href="/detectors">detectors page</a> for quality ratings.
       </p>
       <div id="detector-overrides">
         <template id="override-template">
@@ -184,7 +184,7 @@ document.getElementById('scan-form').addEventListener('submit', function() {
         '<div class="compat-warning">' +
         '<strong>⚠</strong> <span><strong>test-coherence</strong> has ~40% false positive rate with 4B local models. ' +
         'Consider using a cloud model (gpt-5.4-nano) for this detector, or disable it. ' +
-        '<a href="/compatibility">View compatibility matrix →</a></span></div>'
+        '<a href="/detectors">View detectors page →</a></span></div>'
       );
     }
 

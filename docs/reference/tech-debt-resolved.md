@@ -4,6 +4,42 @@ Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.
 
 ## Resolved
 
+### TD-046: Settings page is read-only — no sentinel.toml creation or editing
+**Status**: Resolved (Session 35 — ADR-015)
+**Severity**: Medium
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Settings page rewritten as editable form. Saves to sentinel.toml via new `save_config()` in config.py. Creates file if missing. Groups: Model & Provider, Embeddings, Pipeline, Detectors, Paths. Success toast on save.
+
+### TD-048: Scan form "LLM Model" label is ambiguous
+**Status**: Resolved (Session 35)
+**Severity**: Low
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Renamed to "Model" with hint: "Used by LLM judge and all LLM-assisted detectors."
+
+### TD-049: Compatibility page shows redundant deterministic detector info
+**Status**: Resolved (Session 35)
+**Severity**: Low
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Deterministic detectors section collapsed to a summary count with expandable `<details>` for the full list. Removed redundant "No — detection is model-free" column.
+
+### TD-050: Model Classes table tok/s data not useful without per-user hardware context
+**Status**: Partially resolved (Session 35)
+**Severity**: Low
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Added "Speed values are approximate and vary significantly by hardware" caveat. Dynamic population from scan timing data deferred.
+
+### TD-051: Compatibility matrix model list outdated (Sonnet 4 → 4.6)
+**Status**: Resolved (Session 35)
+**Severity**: Low
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Updated cloud-frontier example to "gpt-5.4, Claude Sonnet 4.6" in compatibility.py.
+
+### TD-052: Compatibility page naming — consider "Detectors"
+**Status**: Resolved (Session 35)
+**Severity**: Low
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Nav link renamed to "Detectors." Both `/detectors` and `/compatibility` routes work (backward compat). Page itself still titled "Model-Detector Compatibility" for clarity.
+
 ### TD-054: VISION-LOCK growing beyond strategic scope
 **Status**: Resolved (Session 34)
 **Severity**: Medium

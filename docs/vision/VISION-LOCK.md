@@ -1,6 +1,6 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 5.0
+> **Version**: 5.1
 > **Updated**: 2026-04-11
 > **Supersedes**: v4.9 ([archived](archive/VISION-LOCK-v4.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
@@ -37,7 +37,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 | Morning report scannability | Scannable in under 2 minutes |
 | Evidence-backed findings | Every finding cites concrete evidence |
 | Precision over breadth | 3 real issues beats 20 noisy ones |
-| Dual interface | CLI (agent-consumable) + web UI (human triage). Feature parity. |
+| Dual interface | CLI (automation, scripting, agents) + web UI (discovery, triage, configuration). Feature parity — web is first-class, not read-only (ADR-015). |
 | Model-detector transparency | Empirical quality ratings visible before scanning — docs, CLI, web UI |
 | Modular by default | Optional deps; plugin ecosystem via entry-points |
 
@@ -86,8 +86,8 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 Priority-ordered next investments. Each connects to a validated gap.
 
-### Web UI as first-class configuration surface
-The settings page is read-only. GitHub config isn't editable. The Detectors/Compatibility page should become the primary configuration UI — toggle detectors, select models per-detector, create `sentinel.toml` from the browser. Feature parity with CLI for configuration, not just triage.
+### Web UI as first-class interaction surface
+Settings page is editable and saves to `sentinel.toml` (ADR-015). Nav renamed Compatibility → Detectors. Route split complete. Remaining: Detectors page with inline model/toggle config, `doctor` health check page, `index` command page.
 
 ### Phase 10: Advanced detectors
 New detectors for `standard+` and `advanced` model capabilities:
@@ -118,6 +118,14 @@ Let git-hotspots inform LLM detector targeting. High-churn, fix-heavy files are 
 
 ## Changelog
 
+### v5.1 (2026-04-11)
+Web UI first-class interaction surface (ADR-015).
+- Settings page is editable — saves to sentinel.toml, creates file if missing
+- Route split: app.py 796→101 lines, 7 route modules
+- Nav: Compatibility → Detectors (both routes work)
+- Display fixes: TD-048 (label), TD-049 (collapse), TD-050 (caveat), TD-051 (Sonnet 4.6)
+- Dual interface constraint refined: web is discovery + config + triage, not just triage
+
 ### v5.0 (2026-04-11)
 Strategic document reset — pruned from 432 to <200 lines per document health rules.
 - Archived v4.9 to `archive/VISION-LOCK-v4.md`
@@ -127,6 +135,3 @@ Strategic document reset — pruned from 432 to <200 lines per document health r
 - Removed evaluation criteria table (captured in ADR-008)
 - Added "Web UI as first-class configuration surface" as top priority in Where We're Going
 - Trimmed changelog to 2 most recent entries; older entries in archived versions
-
-### v4.9
-Empirically-grounded capability tiers — model-to-tier mapping based on measured quality, not parameter count. See [archived v4.9](archive/VISION-LOCK-v4.md) for full details.

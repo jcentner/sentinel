@@ -171,7 +171,7 @@ The web UI runs on `http://127.0.0.1:8888` by default. It provides:
 - **GitHub Issues page** — view approved findings, create GitHub issues or dry-run, config status indicator
 - **Configurable scan** — form-based scan with repo path, model override, embedding model, skip-judge, incremental
 - **Evaluation page** — run detectors against a ground-truth file to measure precision/recall
-- **Settings page** — view active configuration, sentinel.toml status, and GitHub env var status
+- **Settings page** — edit and save configuration to sentinel.toml, view GitHub env var status
 - **Run history** — all past scan runs with finding counts and scope badges
 - **Run comparison** — compare two runs to see new, resolved, and persistent findings
 - **Eval trend chart** — server-side SVG chart showing precision/recall trends over time
