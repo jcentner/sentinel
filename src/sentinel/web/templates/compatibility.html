@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1>Detectors</h1>
-  <p class="subtitle">Compatibility matrix, configuration, and quality ratings</p>
+  <p class="subtitle">Quality ratings, configuration, and model compatibility</p>
 </div>
 
 {% if saved is defined and saved %}
@@ -11,20 +11,9 @@
 {% endif %}
 
 <div class="card mb-2">
-  <h2 class="mb-1">Rating Legend</h2>
-  <div style="display:flex; gap:2rem; flex-wrap:wrap; font-size:0.9rem;">
-    <span><span class="compat-badge compat-excellent">Excellent</span> &lt;10% FP — recommended</span>
-    <span><span class="compat-badge compat-good">Good</span> 10–25% FP — reliable</span>
-    <span><span class="compat-badge compat-fair">Fair</span> 25–40% FP — noisy</span>
-    <span><span class="compat-badge compat-poor">Poor</span> &gt;40% FP — not recommended</span>
-    <span><span class="compat-badge compat-na">N/A</span> model not used</span>
-    <span><span class="compat-badge compat-untested">?</span> untested</span>
-  </div>
-</div>
-
-<div class="card mb-2">
   <h2 class="mb-1">LLM-Assisted Detectors</h2>
-  <p class="text-muted mb-1">These detectors use the model directly — model quality determines finding accuracy.</p>
+  <p class="text-muted mb-1">These detectors use the model directly — model quality determines finding accuracy.
+    The <strong>capability tier</strong> in parentheses is what you set in config to use that model class.</p>
   <div class="table-wrap">
     <table class="table">
       <thead>
@@ -33,6 +22,7 @@
           {% for mc in model_classes %}
           <th style="text-align:center;">
             {{ mc.name }}<br>
+            <span class="badge badge-sm" style="font-size:0.65rem;">{{ mc.tier }}</span><br>
             <small class="text-muted">{{ mc.example }}</small>
           </th>
           {% endfor %}
@@ -51,7 +41,9 @@
             <span class="compat-badge compat-{{ cell.rating }}" title="{{ cell.notes }}">
               {{ cell.rating | title }}
             </span>
+            {% if cell.fp_rate and cell.fp_rate != 'n/a' and cell.fp_rate != '?' %}
             <br><small class="text-muted">{{ cell.fp_rate }} FP</small>
+            {% endif %}
           </td>
           {% endfor %}
         </tr>
@@ -59,11 +51,18 @@
       </tbody>
     </table>
   </div>
+  <div style="display:flex; gap:1rem; flex-wrap:wrap; font-size:0.78rem; color: var(--text-faint); margin-top:0.75rem; padding-top:0.5rem; border-top: 1px solid var(--border);">
+    <span><span class="compat-badge compat-excellent" style="font-size:0.7rem;">Excellent</span> &lt;10% FP</span>
+    <span><span class="compat-badge compat-good" style="font-size:0.7rem;">Good</span> 10–25% FP</span>
+    <span><span class="compat-badge compat-fair" style="font-size:0.7rem;">Fair</span> 25–40% FP</span>
+    <span><span class="compat-badge compat-poor" style="font-size:0.7rem;">Poor</span> &gt;40% FP</span>
+    <span><span class="compat-badge compat-untested" style="font-size:0.7rem;">?</span> untested</span>
+  </div>
 </div>
 
 <div class="card mb-2">
   <h2 class="mb-1">LLM Judge</h2>
-  <p class="text-muted mb-1">The judge evaluates findings from <em>all</em> detectors. It confirms or rejects each finding.</p>
+  <p class="text-muted mb-1">The judge evaluates findings from <em>all</em> detectors — it confirms or rejects each finding after detection.</p>
   <div class="table-wrap">
     <table class="table">
       <thead>
@@ -72,6 +71,7 @@
           {% for mc in model_classes %}
           <th style="text-align:center;">
             {{ mc.name }}<br>
+            <span class="badge badge-sm" style="font-size:0.65rem;">{{ mc.tier }}</span><br>
             <small class="text-muted">{{ mc.example }}</small>
           </th>
           {% endfor %}
@@ -90,7 +90,9 @@
             <span class="compat-badge compat-{{ cell.rating }}" title="{{ cell.notes }}">
               {{ cell.rating | title }}
             </span>
+            {% if cell.fp_rate and cell.fp_rate != 'n/a' and cell.fp_rate != '?' %}
             <br><small class="text-muted">{{ cell.fp_rate }} FP</small>
+            {% endif %}
           </td>
           {% endfor %}
         </tr>
@@ -101,41 +103,44 @@
 </div>
 
 <div class="card mb-2">
-  <h2 class="mb-1">Deterministic Detectors</h2>
-  <p class="text-muted">
-    {{ det_rows | length }} detectors run without any model. They use structural analysis (AST parsing, 
-    link checking, dependency scanning, etc.) and produce identical results regardless of model choice. 
-    The LLM judge filters their output, but detection itself is model-free.
+  <h2 class="mb-1">Other Detectors</h2>
+  <p class="text-muted mb-1">
+    {{ det_rows | length }} detectors run without any model — they use structural analysis
+    (AST parsing, link checking, dependency scanning, etc.).
+    Language-specific detectors only produce findings if the repo contains matching files.
   </p>
-  <details style="margin-top: 0.5rem;">
-    <summary style="cursor: pointer; font-size: 0.85rem; color: var(--text-dim);">Show all deterministic detectors</summary>
-    <div class="table-wrap" style="margin-top: 0.5rem;">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Detector</th>
-            <th>Type</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in det_rows %}
-          <tr>
-            <td><strong>{{ row.detector }}</strong></td>
-            <td><span class="badge badge-sm">{{ row.tier }}</span></td>
-            <td>{{ row.description }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </details>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Detector</th>
+          <th>Language</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in det_rows %}
+        <tr>
+          <td><strong>{{ row.detector }}</strong></td>
+          <td>
+            {% if row.language and row.language != 'Any' %}
+            <code style="font-size:0.78rem;">{{ row.language }}</code>
+            {% else %}
+            <span class="text-faint">any</span>
+            {% endif %}
+          </td>
+          <td class="text-muted">{{ row.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <div class="card mb-2">
   <h2 class="mb-1">Recommended Configurations</h2>
 
-  <h3>Privacy-first (all local)</h3>
+  <h3 style="font-size:0.88rem; margin-bottom:0.5rem;">Privacy-first (all local)</h3>
   <div class="code-block mb-1">
     <pre>[sentinel]
 provider = "ollama"
@@ -145,7 +150,7 @@ model_capability = "basic"
 disabled_detectors = ["test-coherence"]</pre>
   </div>
 
-  <h3>Best quality (hybrid local + cloud)</h3>
+  <h3 style="font-size:0.88rem; margin-bottom:0.5rem;">Best quality (hybrid local + cloud)</h3>
   <div class="code-block mb-1">
     <pre>[sentinel]
 provider = "ollama"
@@ -161,7 +166,7 @@ api_key_env = "OPENAI_API_KEY"
 model_capability = "standard"</pre>
   </div>
 
-  <h3>No LLM (fastest, deterministic only)</h3>
+  <h3 style="font-size:0.88rem; margin-bottom:0.5rem;">No LLM (fastest, deterministic only)</h3>
   <div class="code-block mb-1">
     <pre>[sentinel]
 skip_judge = true
@@ -174,7 +179,8 @@ skip_llm = true
 <div class="card mb-2">
   <h2 class="mb-1">Detector Configuration</h2>
   {% if repo_path %}
-  <p class="text-muted mb-1">Toggle detectors and set per-detector model overrides. Changes are saved to <code>sentinel.toml</code>.</p>
+  <p class="text-muted mb-1">Toggle detectors on/off and set per-detector overrides.
+    Per-detector settings override the defaults from <a href="/settings">Settings</a>.</p>
   <form method="post" action="/detectors">
     <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
     <div class="table-wrap">
@@ -183,7 +189,6 @@ skip_llm = true
           <tr>
             <th style="width: 2rem;">On</th>
             <th>Detector</th>
-            <th>Type</th>
             <th>Override Provider</th>
             <th>Override Model</th>
             <th>Override Tier</th>
@@ -198,12 +203,14 @@ skip_llm = true
             </td>
             <td>
               <strong>{{ det.name }}</strong>
+              {% if det.tier == "llm-assisted" %}
+              <span class="badge badge-sm" style="margin-left:0.25rem;">LLM</span>
+              {% endif %}
               <br><small class="text-muted">{{ det.description }}</small>
             </td>
-            <td><span class="badge badge-sm">{{ det.tier }}</span></td>
             <td>
               <select name="override_provider_{{ det.name }}" class="form-select" style="font-size: 0.82rem; padding: 0.25rem 0.5rem;">
-                <option value="">(global)</option>
+                <option value="">(default)</option>
                 {% for p in ["ollama", "openai", "azure"] %}
                 <option value="{{ p }}" {{ 'selected' if det.override_provider == p }}>{{ p }}</option>
                 {% endfor %}
@@ -211,12 +218,12 @@ skip_llm = true
             </td>
             <td>
               <input type="text" name="override_model_{{ det.name }}" class="form-input"
-                     value="{{ det.override_model }}" placeholder="(global)"
+                     value="{{ det.override_model }}" placeholder="(default)"
                      style="font-size: 0.82rem; padding: 0.25rem 0.5rem;">
             </td>
             <td>
               <select name="override_capability_{{ det.name }}" class="form-select" style="font-size: 0.82rem; padding: 0.25rem 0.5rem;">
-                <option value="">(global)</option>
+                <option value="">(default)</option>
                 {% for c in ["none", "basic", "standard", "advanced"] %}
                 <option value="{{ c }}" {{ 'selected' if det.override_capability == c }}>{{ c }}</option>
                 {% endfor %}
@@ -242,15 +249,20 @@ skip_llm = true
 
 <div class="card">
   <h2 class="mb-1">Model Classes</h2>
+  <p class="text-muted mb-1" style="font-size:0.85rem;">
+    Set the <strong>capability tier</strong> in <a href="/settings">Settings</a> to match your model.
+    Per-detector overrides above let you mix tiers — e.g., local basic for most detectors, cloud standard for test-coherence.
+  </p>
   <div class="table-wrap">
     <table class="table">
       <thead>
         <tr>
           <th>Class</th>
-          <th>Tier</th>
+          <th>Capability Tier</th>
           <th>Example</th>
           <th>VRAM</th>
           <th>Speed</th>
+          <th>Your Measured Speed</th>
           <th>Best For</th>
         </tr>
       </thead>
@@ -258,10 +270,18 @@ skip_llm = true
         {% for mc in model_classes %}
         <tr>
           <td><strong>{{ mc.name }}</strong></td>
-          <td><span class="badge badge-sm">{{ mc.get('tier', '?') }}</span></td>
+          <td><code>{{ mc.tier }}</code></td>
           <td><code>{{ mc.example }}</code></td>
           <td>{{ mc.vram }}</td>
           <td>{{ mc.speed }}</td>
+          <td>
+            {% if model_class_speed is defined and mc.id in model_class_speed %}
+            <strong>{{ model_class_speed[mc.id].avg_tok_s }} tok/s</strong>
+            <br><small class="text-muted">{{ model_class_speed[mc.id].calls }} calls · {{ model_class_speed[mc.id].total_tokens }} tokens</small>
+            {% else %}
+            <span class="text-faint" style="font-size:0.82rem;">After first scan</span>
+            {% endif %}
+          </td>
           <td>{{ mc.get('notes', '') }}</td>
         </tr>
         {% endfor %}
@@ -269,9 +289,13 @@ skip_llm = true
     </table>
   </div>
   <p class="text-muted mt-1" style="font-size:0.8rem;">
-    Ratings based on benchmarks run 2026-04-11 against sample-repo, Sentinel self-scan, tsgbuilder, and wyoclear.
-    Speed values are approximate and vary significantly by hardware.
-    See <a href="https://github.com/jakcentner/sentinel/blob/main/docs/reference/model-benchmarks.md">model-benchmarks.md</a> for raw data.
+    {% if model_class_speed is defined and model_class_speed %}
+    "Your Measured Speed" is computed from actual scan data stored in the LLM log.
+    {% else %}
+    Run a scan to populate "Your Measured Speed" with actual performance on your hardware.
+    {% endif %}
+    Reference values vary by hardware.
+    See <a href="https://github.com/jakcentner/sentinel/blob/main/docs/reference/model-benchmarks.md">model-benchmarks.md</a> for raw benchmark data.
   </p>
 </div>
 {% endblock %}

@@ -61,7 +61,7 @@ async def scan_page(request: Request) -> Response:
     config = load_config(repo)
 
     # Incremental scan support
-    from sentinel.models import ScopeType
+    from sentinel.models import Finding, RunSummary, ScopeType
 
     scan_scope = ScopeType.FULL
     scan_changed_files: list[str] | None = None
@@ -127,9 +127,8 @@ async def scan_page(request: Request) -> Response:
                 model_capability=cap,
             )
 
-    def _do_scan():
+    def _do_scan() -> tuple[RunSummary, list[Finding], str]:
         from sentinel.core.provider import create_provider
-        from sentinel.models import RunSummary
 
         provider = create_provider(config)
         return run_scan(

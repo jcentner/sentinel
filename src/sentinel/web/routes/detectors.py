@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
-from sentinel.web.shared import templates
+from sentinel.web.shared import _get_conn, templates
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def detectors_page(request: Request) -> Response:
 
     # Build detector state for template
     all_detector_names = sorted(DETECTOR_INFO.keys())
-    detector_states: list[dict] = []
+    detector_states: list[dict[str, Any]] = []
     for name in all_detector_names:
         info = DETECTOR_INFO[name]
         enabled = True  # Default: all enabled
@@ -72,6 +73,38 @@ async def detectors_page(request: Request) -> Response:
             "override_capability": override.model_capability if override else "",
         })
 
+    # Aggregate measured model speed from LLM log
+    model_speed: dict[str, dict[str, Any]] = {}
+    model_class_speed: dict[str, dict[str, Any]] = {}
+    conn = _get_conn(request.app)
+    if conn is not None:
+        from sentinel.store.llm_log import get_model_speed_stats
+
+        try:
+            model_speed = get_model_speed_stats(conn)
+        except Exception:
+            logger.debug("Could not load model speed stats", exc_info=True)
+
+    # Map per-model stats to model class IDs (handles multi-model examples
+    # like "gpt-5.4-mini, Claude Haiku 4.5")
+    if model_speed:
+        for mc in MODEL_CLASSES:
+            example_models = [m.strip() for m in mc["example"].split(",")]
+            matched = [model_speed[m] for m in example_models if m in model_speed]
+            if matched:
+                total_tokens = sum(m["total_tokens"] for m in matched)
+                total_calls = sum(m["calls"] for m in matched)
+                # Weighted average tok/s across matched models
+                weighted = sum(
+                    m["avg_tok_s"] * m["calls"] for m in matched
+                )
+                avg_tok_s = round(weighted / total_calls, 1) if total_calls else 0
+                model_class_speed[mc["id"]] = {
+                    "avg_tok_s": avg_tok_s,
+                    "calls": total_calls,
+                    "total_tokens": total_tokens,
+                }
+
     return templates.TemplateResponse(request, "compatibility.html", {
         "model_classes": MODEL_CLASSES,
         "llm_rows": llm_rows,
@@ -82,16 +115,17 @@ async def detectors_page(request: Request) -> Response:
         "repo_path": repo_path,
         "has_config_file": has_config_file,
         "saved": request.query_params.get("saved") == "1",
+        "model_class_speed": model_class_speed,
     })
 
 
-async def _detectors_save(request: Request, repo_path: str, detector_info: dict) -> Response:
+async def _detectors_save(request: Request, repo_path: str, detector_info: dict[str, Any]) -> Response:
     """Handle POST to save detector toggles and per-detector overrides."""
     import re
 
     from sentinel.config import (
-        ProviderOverride,
         _VALID_CAPABILITIES,
+        ProviderOverride,
         load_config,
         save_config,
     )

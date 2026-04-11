@@ -80,14 +80,23 @@ def run_doctor_checks(repo_path: str | Path | None = None) -> list[CheckResult]:
     if repo_path:
         from sentinel.config import ConfigError, load_config
 
+        toml_path = Path(repo_path) / "sentinel.toml"
         try:
             cfg = load_config(repo_path)
-            results.append(CheckResult(
-                tool="sentinel.toml",
-                status="ok",
-                version=f"provider={cfg.provider}, model={cfg.model}",
-                description="Project configuration",
-            ))
+            if toml_path.exists():
+                results.append(CheckResult(
+                    tool="sentinel.toml",
+                    status="ok",
+                    version=f"provider={cfg.provider}, model={cfg.model}",
+                    description="Project configuration",
+                ))
+            else:
+                results.append(CheckResult(
+                    tool="sentinel.toml",
+                    status="ok",
+                    version=f"Using defaults (provider={cfg.provider}, model={cfg.model})",
+                    description="No sentinel.toml found — using defaults. Save settings to create one.",
+                ))
         except ConfigError as exc:
             results.append(CheckResult(
                 tool="sentinel.toml",

@@ -105,3 +105,39 @@ def get_llm_log_stats(conn: sqlite3.Connection, run_id: int | None = None) -> di
         ).fetchone()
 
     return dict(row) if row else {}
+
+
+def get_model_speed_stats(conn: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """Aggregate tok/s and call counts per model from the LLM log.
+
+    Returns a dict keyed by model name, e.g.::
+
+        {"qwen3.5:4b": {"calls": 42, "avg_tok_s": 53.1, "total_tokens": 12400}}
+    """
+    rows = conn.execute(
+        """\
+        SELECT
+            model,
+            COUNT(*) AS calls,
+            SUM(tokens_generated) AS total_tokens,
+            SUM(generation_ms) AS total_ms
+        FROM llm_log
+        WHERE tokens_generated IS NOT NULL
+          AND generation_ms IS NOT NULL
+          AND generation_ms > 0
+        GROUP BY model
+        """,
+    ).fetchall()
+
+    result: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        r = dict(row)
+        total_ms = r["total_ms"] or 0
+        total_tokens = r["total_tokens"] or 0
+        avg_tok_s = (total_tokens / (total_ms / 1000)) if total_ms > 0 else 0
+        result[r["model"]] = {
+            "calls": r["calls"],
+            "total_tokens": total_tokens,
+            "avg_tok_s": round(avg_tok_s, 1),
+        }
+    return result

@@ -16,11 +16,11 @@ async def doctor_page(request: Request) -> Response:
     """System health check page — web equivalent of ``sentinel doctor``."""
     import anyio
 
-    from sentinel.core.doctor import run_doctor_checks
+    from sentinel.core.doctor import CheckResult, run_doctor_checks
 
     repo_path = getattr(request.app.state, "repo_path", None) or ""
 
-    def _run_checks():
+    def _run_checks() -> list[CheckResult]:
         return run_doctor_checks(repo_path or None)
 
     try:

@@ -82,58 +82,72 @@ DETECTOR_INFO = {
     "lint-runner": {
         "tier": "deterministic", "capability": "none",
         "description": "Runs ruff lint on Python source files",
+        "language": "Python",
     },
     "eslint-runner": {
         "tier": "deterministic", "capability": "none",
         "description": "Runs ESLint on JavaScript/TypeScript files",
+        "language": "JS/TS",
     },
     "todo-scanner": {
         "tier": "deterministic", "capability": "none",
         "description": "Finds TODO/FIXME/HACK/XXX comments",
+        "language": "Any",
     },
     "docs-drift": {
         "tier": "deterministic", "capability": "none",
         "description": "Detects broken links, stale paths, and dependency drift in docs",
+        "language": "Any",
     },
     "complexity": {
         "tier": "heuristic", "capability": "none",
         "description": "Flags functions with high cyclomatic complexity or length",
+        "language": "Python",
     },
     "dead-code": {
         "tier": "heuristic", "capability": "none",
         "description": "Identifies exported symbols never imported elsewhere",
+        "language": "Python",
     },
     "unused-deps": {
         "tier": "deterministic", "capability": "none",
         "description": "Flags declared dependencies not imported in source",
+        "language": "Python",
     },
     "stale-env": {
         "tier": "deterministic", "capability": "none",
         "description": "Detects drift between .env docs and actual env var usage",
+        "language": "Any",
     },
     "dep-audit": {
         "tier": "deterministic", "capability": "none",
         "description": "Checks for known vulnerabilities via pip-audit/npm audit",
+        "language": "Python, JS",
     },
     "git-hotspots": {
         "tier": "heuristic", "capability": "none",
         "description": "Identifies high-churn, fix-heavy files from git history",
+        "language": "Any",
     },
     "go-linter": {
         "tier": "deterministic", "capability": "none",
         "description": "Runs go vet and staticcheck on Go modules",
+        "language": "Go",
     },
     "rust-clippy": {
         "tier": "deterministic", "capability": "none",
         "description": "Runs cargo clippy on Rust projects",
+        "language": "Rust",
     },
     "semantic-drift": {
         "tier": "llm-assisted", "capability": "basic",
         "description": "Compares doc sections against code for semantic consistency",
+        "language": "Any",
     },
     "test-coherence": {
         "tier": "llm-assisted", "capability": "basic",
         "description": "Checks whether tests meaningfully validate their implementations",
+        "language": "Python",
     },
 }
 
@@ -277,6 +291,7 @@ def build_summary_table() -> list[dict[str, object]]:
             "tier": det_info["tier"],
             "capability": det_info["capability"],
             "description": det_info["description"],
+            "language": det_info.get("language", "Any"),
         }
         for mc in MODEL_CLASSES:
             entry = get_entry(det_name, mc["id"], det_info["capability"])

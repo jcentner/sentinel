@@ -24,6 +24,7 @@
     Set <code>SENTINEL_GITHUB_OWNER</code>, <code>SENTINEL_GITHUB_REPO</code>, and
     <code>SENTINEL_GITHUB_TOKEN</code> environment variables, then restart the server.
   </p>
+  <p class="form-hint" style="margin-top: 0.25rem;">Environment variables must be set outside Sentinel (in your shell or .env file). Tokens cannot be configured through the web UI for security.</p>
   {% endif %}
 </div>
 
@@ -50,12 +51,14 @@
     {% if gh_configured %}
     <form method="post" action="/github/create-issues"
           hx-post="/github/create-issues" hx-target="#issue-results" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
       <input type="hidden" name="dry_run" value="false">
       <button type="submit" class="btn btn-success btn-sm">Create Issues</button>
     </form>
     {% endif %}
     <form method="post" action="/github/create-issues"
           hx-post="/github/create-issues" hx-target="#issue-results" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
       <input type="hidden" name="dry_run" value="true">
       <button type="submit" class="btn btn-sm">Dry Run</button>
     </form>

@@ -27,6 +27,7 @@
       <span class="config-status"><span class="config-dot missing"></span> Using defaults — save to create sentinel.toml</span>
       {% endif %}
     </div>
+    <p class="form-hint">These are the default settings. Per-detector overrides on the <a href="/detectors">Detectors page</a> take precedence over these defaults.</p>
   </div>
 
   <div class="card mb-2">
@@ -44,8 +45,14 @@
       </div>
       <div class="form-group">
         <label class="form-label" for="model">Model</label>
-        <input type="text" id="model" name="model" class="form-input" value="{{ config.model }}" placeholder="qwen3.5:4b">
-        <p class="form-hint">Used by the judge and all LLM-assisted detectors</p>
+        <input type="text" id="model" name="model" class="form-input" value="{{ config.model }}" placeholder="qwen3.5:4b" list="model-suggestions">
+        <datalist id="model-suggestions">
+          <option value="qwen3.5:4b">
+          <option value="qwen3.5:9b-q4_K_M">
+          <option value="gpt-5.4-nano">
+          <option value="gpt-5.4-mini">
+        </datalist>
+        <p class="form-hint">Used by the judge and all LLM-assisted detectors. See <a href="/detectors">Detectors</a> for quality ratings per model.</p>
       </div>
     </div>
     <div class="form-row">
@@ -88,7 +95,14 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="embed_model">Embedding Model</label>
-        <input type="text" id="embed_model" name="embed_model" class="form-input" value="{{ config.embed_model }}" placeholder="(uses main model if empty)">
+        <input type="text" id="embed_model" name="embed_model" class="form-input" value="{{ config.embed_model }}" placeholder="(uses main model if empty)" list="embed-model-suggestions">
+        <datalist id="embed-model-suggestions">
+          <option value="nomic-embed-text">
+          <option value="mxbai-embed-large">
+          <option value="all-minilm">
+          <option value="snowflake-arctic-embed">
+        </datalist>
+        <p class="form-hint">For semantic context enrichment. Local Ollama embedding models are fast and sufficient — no cloud needed.</p>
       </div>
       <div class="form-group">
         <label class="form-label" for="embed_chunk_size">Chunk Size</label>

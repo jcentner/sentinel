@@ -237,8 +237,8 @@ def save_config(repo_path: str | Path, config: SentinelConfig) -> Path:
         dir=str(config_file.parent), suffix=".tmp", prefix=".sentinel-"
     )
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(content)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
         os.replace(tmp_path, str(config_file))
     except BaseException:
         with contextlib.suppress(OSError):

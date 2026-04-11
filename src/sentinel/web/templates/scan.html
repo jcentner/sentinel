@@ -19,14 +19,26 @@
       <div class="form-group">
         <label class="form-label" for="model">Model</label>
         <input class="form-input" type="text" name="model" id="model"
-               placeholder="Default from config" value="">
-        <p class="form-hint">Used by LLM judge and all LLM-assisted detectors (leave blank for default)</p>
+               placeholder="Default from config" value="" list="model-suggestions">
+        <datalist id="model-suggestions">
+          <option value="qwen3.5:4b">
+          <option value="qwen3.5:9b-q4_K_M">
+          <option value="gpt-5.4-nano">
+          <option value="gpt-5.4-mini">
+        </datalist>
+        <p class="form-hint">LLM judge and all LLM-assisted detectors. See <a href="/detectors">Detectors</a> for model-quality ratings.</p>
       </div>
       <div class="form-group">
         <label class="form-label" for="embed_model">Embedding Model</label>
         <input class="form-input" type="text" name="embed_model" id="embed_model"
-               placeholder="Optional" value="">
-        <p class="form-hint">For semantic context enrichment</p>
+               placeholder="Optional" value="" list="embed-suggestions">
+        <datalist id="embed-suggestions">
+          <option value="nomic-embed-text">
+          <option value="mxbai-embed-large">
+          <option value="all-minilm">
+          <option value="snowflake-arctic-embed">
+        </datalist>
+        <p class="form-hint">Local Ollama embedding models are fast and sufficient. Leave blank to use the main model.</p>
       </div>
     </div>
 
@@ -90,7 +102,7 @@
       <summary style="cursor:pointer; font-weight:600;">Per-Detector Model Overrides</summary>
       <p class="form-hint" style="margin:0.5rem 0;">
         Override the model, provider, or capability tier for specific detectors.
-        Leave blank to use the global settings above. This is how you route
+        Leave blank to use the default settings above. This is how you route
         test-coherence to a cloud model while keeping everything else local.
         See <a href="/detectors">detectors page</a> for quality ratings.
       </p>
@@ -111,7 +123,7 @@
             <div>
               <label class="form-label" style="font-size:0.8rem;">Provider</label>
               <select class="form-input" name="override_provider[]">
-                <option value="">Same as global</option>
+                <option value="">Same as default</option>
                 <option value="ollama">Ollama</option>
                 <option value="openai">OpenAI</option>
                 <option value="azure">Azure</option>
@@ -124,7 +136,7 @@
             <div>
               <label class="form-label" style="font-size:0.8rem;">Capability</label>
               <select class="form-input" name="override_capability[]">
-                <option value="">Same as global</option>
+                <option value="">Same as default</option>
                 <option value="basic">Basic</option>
                 <option value="standard">Standard</option>
                 <option value="advanced">Advanced</option>

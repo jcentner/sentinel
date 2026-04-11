@@ -10,6 +10,7 @@ from sentinel.store.llm_log import (
     LLMLogEntry,
     get_llm_log_for_run,
     get_llm_log_stats,
+    get_model_speed_stats,
     insert_llm_log,
 )
 from sentinel.store.runs import create_run
@@ -161,3 +162,65 @@ class TestFalsePositiveTracking:
         assert rows[0]["is_real"] == 1
         assert rows[1]["is_real"] == 0
         assert rows[2]["is_real"] is None
+
+
+class TestModelSpeedStats:
+    def test_empty_table(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        result = get_model_speed_stats(conn)
+        assert result == {}
+
+    def test_multiple_models(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        # Model A: 100 tokens in 2000ms = 50 tok/s
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="qwen3.5:4b", prompt="p1",
+            tokens_generated=60, generation_ms=1000,
+        ))
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="qwen3.5:4b", prompt="p2",
+            tokens_generated=40, generation_ms=1000,
+        ))
+        # Model B: 200 tokens in 2000ms = 100 tok/s
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="gpt-5.4-nano", prompt="p3",
+            tokens_generated=200, generation_ms=2000,
+        ))
+
+        result = get_model_speed_stats(conn)
+        assert "qwen3.5:4b" in result
+        assert "gpt-5.4-nano" in result
+
+        qwen = result["qwen3.5:4b"]
+        assert qwen["calls"] == 2
+        assert qwen["total_tokens"] == 100
+        assert qwen["avg_tok_s"] == 50.0
+
+        nano = result["gpt-5.4-nano"]
+        assert nano["calls"] == 1
+        assert nano["total_tokens"] == 200
+        assert nano["avg_tok_s"] == 100.0
+
+    def test_null_and_zero_excluded(self, tmp_path):
+        """Rows with NULL or zero generation_ms are excluded."""
+        conn = _make_conn(tmp_path)
+        # Valid row
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p",
+            tokens_generated=50, generation_ms=1000,
+        ))
+        # NULL tokens_generated — excluded
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p",
+            tokens_generated=None, generation_ms=500,
+        ))
+        # NULL generation_ms — excluded
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p",
+            tokens_generated=30, generation_ms=None,
+        ))
+
+        result = get_model_speed_stats(conn)
+        assert result["m1"]["calls"] == 1
+        assert result["m1"]["total_tokens"] == 50
+        assert result["m1"]["avg_tok_s"] == 50.0
