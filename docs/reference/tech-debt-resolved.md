@@ -2,13 +2,15 @@
 
 Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.md).
 
+## Resolved
+
 ### TD-054: VISION-LOCK growing beyond strategic scope
 **Status**: Resolved (Session 34)
 **Severity**: Medium
 **Introduced**: Session 34 (user feedback)
 **Description**: VISION-LOCK is 432 lines. The changelog alone is ~180 lines (41% of the document). It has drifted from a strategic document to a cumulative feature log. Sections like "What Exists Today" list every detector, every CLI command, every web feature — duplicating content from README and architecture docs.
 **Impact**: The document no longer serves its strategic purpose efficiently. Hard to scan for product direction. Changelog adds noise with every version bump.
-**Resolution**: Prune VISION-LOCK to strategic content: problem, user, concept, constraints, invariants, success criteria, where-we're-going. Move "What Exists Today" detail to architecture/overview.md. Compress changelog to last 2 versions inline, archive older entries to git history. Target: <200 lines.
+**Proposed resolution**: Prune VISION-LOCK to strategic content: problem, user, concept, constraints, invariants, success criteria, where-we're-going. Move "What Exists Today" detail to architecture/overview.md. Compress changelog to last 2 versions inline, archive older entries to git history. Target: <200 lines.
 **Resolution**: Archived v4.9, wrote clean v5.0 at 132 lines. Document health rules added to AGENTS.md.
 
 ### TD-056: Tech debt file accumulates resolved items
@@ -27,8 +29,6 @@ Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.
 **Description**: The git-hotspots detector correctly identifies high-churn files but doesn't explain *why* the churn matters. A file changed 50 times could be healthy (frequently improved) or problematic (constantly breaking). Without context about *what* changed, churn alone is weak signal.
 **Impact**: Findings are technically accurate but not actionable. Developers see "this file changed a lot" and shrug.
 **Resolution**: Enriched with commit message classification (fix/refactor/feature/other), author concentration analysis (bus-factor, coordination overhead), and actionable insights in descriptions. Bug-fix-heavy churn escalates severity. Evidence now includes commit type breakdown.
-
-## Resolved
 
 ### TD-044: Dead-code JS/TS monorepo false positives
 **Status**: Resolved (Session 31)

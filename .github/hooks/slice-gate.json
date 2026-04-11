@@ -1,4 +1,5 @@
 {
+  "_comment": "Workspace-level stop hook. Also registered as agent-scoped hook in autonomous-builder.agent.md frontmatter. This file serves as fallback for non-agent-mode usage.",
   "hooks": {
     "Stop": [
       {

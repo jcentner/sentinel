@@ -52,7 +52,7 @@ Growing documents erode their usefulness. Enforce these targets:
 | Document | Target | Rule |
 |----------|--------|------|
 | `VISION-LOCK.md` | <200 lines | Strategic content only. Keep 2 most recent changelog entries inline; archive older ones to git history. "What Exists Today" is product-level summary, not per-detector/per-command lists. |
-| `tech-debt.md` | Active items at top | Resolved items in a `## Resolved` section at the bottom. When resolved exceeds 30 items, archive to `tech-debt-resolved.md`. |
+| `tech-debt.md` | Active items at top | Resolved items archived to `docs/reference/tech-debt-resolved.md`. Active file contains only current debt. |
 | `README.md` | <150 lines | Problem statement, quick start, link to wiki. Delegate CLI reference, web UI docs, config, scheduling, architecture to wiki or docs/. |
 | `CURRENT-STATE.md` | Current session only | Replace previous session's summary on each new session start. Historical data lives in git history. |
 

@@ -25,12 +25,14 @@ def main():
         return
 
     # Check CURRENT-STATE.md for phase status
+    # Note: VS Code runs hook commands from the workspace root.
+    # The "cwd" field from hook input is used if available, otherwise "." (workspace root).
     checkpoint = os.path.join(
         input_data.get("cwd", "."), "roadmap", "CURRENT-STATE.md"
     )
 
     if os.path.exists(checkpoint):
-        with open(checkpoint) as f:
+        with open(checkpoint, encoding="utf-8") as f:
             content = f.read()
 
         # Machine-readable status field: **Phase Status**: Complete
