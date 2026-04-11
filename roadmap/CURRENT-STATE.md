@@ -1,103 +1,65 @@
 # Current State — Sentinel
 
-> Last updated: Session 33 — Empirical tier redesign, ADR-011 amendment, per-detector config UI
+> Last updated: Session 34 — Autonomous framework redesign
+
+**Phase Status**: In Progress
 
 ## Latest Session Summary
 
 ### Current Objective
-Complete the empirical capability tier redesign and ensure all docs, ADRs, vision, and instructions are consistent with the new tier definitions.
+Holistic redesign of the autonomous development framework to improve reliability, enforce discipline via deterministic hooks, and reduce document entropy.
 
 ### What Was Accomplished
 
-#### Empirical capability tier redesign (Session 31–33)
-- **Tier boundaries are now evidence-based**: 4B and 9B both map to `basic` (same empirical class, scores ~27-32). Cloud-nano (gpt-5.4-nano, ~38-44) is the `standard` boundary. Cloud-small (gpt-5.4-mini ~38-49, Haiku 4.5 ~31-37) maps to `advanced`.
-- The tier boundary between basic→standard is the test-coherence quality jump: POOR/FAIR at 4B/9B → GOOD at cloud-nano.
-- Added `cloud-small` model class (5 total: 4b-local, 9b-local, cloud-nano, cloud-small, cloud-frontier).
+#### Autonomous framework redesign (Session 34)
+- **AGENTS.md created** — cross-agent conventions extracted from 456-line autonomous-builder. Document health rules, authority order, slice protocol. Works with Copilot, Claude Code, etc.
+- **Stop hook** (`slice-gate.py`) — deterministic enforcement. Reads `**Phase Status**` from this file. Blocks premature stopping. Agent-scoped hook in autonomous-builder frontmatter. Requires `chat.useCustomAgentHooks: true`.
+- **autonomous-builder.agent.md** slimmed from 456 → 190 lines. Conventions moved to AGENTS.md. Phase 0 / first-run / manual-cycle sections removed.
+- **Reviewer enhanced** — now owns doc-sync checklist (was in builder, never enforced). Added UI/CLI parity check, document health check (file size targets), security standards expansion.
+- **Tester subagent** created — `user-invocable: false`, writes tests from spec before implementation, context isolation.
+- **VISION-LOCK v5.0** — archived v4.9 (432 lines) to `archive/VISION-LOCK-v4.md`, wrote clean 132-line strategic document. No per-detector inventories, no per-command lists, 2 changelog entries inline.
+- **Tech-debt restructured** — 37 resolved items archived to `tech-debt-resolved.md`. Active-only tech-debt.md: 160 lines (was 315). TD-054 and TD-056 resolved.
+- **Stack skills** — `starlette-htmx` and `sqlite-patterns` skills created.
+- **Tech debt items filed** — TD-046 through TD-056 for UI/UX feedback from user review.
 
-#### ADR-011 amendment
-- Amended ADR-011 with empirical tier boundary rationale, benchmark evidence references, cloud-small model class, and updated consequences.
+#### Files created
+- `AGENTS.md` — cross-agent conventions
+- `.github/hooks/scripts/slice-gate.py` — stop hook
+- `.github/hooks/slice-gate.json` — hook config
+- `.github/agents/tester.agent.md` — test-from-spec subagent
+- `.github/skills/starlette-htmx/SKILL.md` — web UI skill
+- `.github/skills/sqlite-patterns/SKILL.md` — database skill
+- `docs/vision/archive/VISION-LOCK-v4.md` — archived vision
+- `docs/reference/tech-debt-resolved.md` — resolved TD archive
 
-#### Per-detector model overrides in web UI
-- Added collapsible "Per-Detector Model Overrides" section to scan form (scan.html).
-- Backend parses override arrays into `ProviderOverride` instances with validated fields.
-- Detectors can now be individually configured with different models/providers from the UI.
-
-#### `sentinel compatibility` CLI command
-- New command: `sentinel compatibility` — prints color-coded terminal matrix.
-- Supports `--detector`, `--model`, `--json-output` flags.
-- 6 new tests.
-
-#### Compatibility matrix data + docs rewrite
-- Updated `src/sentinel/core/compatibility.py` with 5 model classes and dynamic matrix generation.
-- Full rewrite of `docs/reference/compatibility-matrix.md` with empirical tier rationale sections.
-- Updated `/compatibility` web UI page with tier column and dynamic notes.
-
-#### Vision and instructions alignment
-- VISION-LOCK bumped to v4.9 with empirical tier table and rationale paragraph.
-- `.github/copilot-instructions.md` updated with empirical tier grounding principle.
-- Compatibility-matrix.md sections: "Why 9B local maps to basic, not standard" and "Why cloud-small ≠ cloud-nano".
-
-#### TD-044 dead-code JS/TS FP fix
-- Rewrote barrel re-exports, type exports, intra-file refs, package.json entry points. 55 tests.
-
-#### OpenAI provider fix
-- `max_completion_tokens` for gpt-5.x with auto-fallback. Added `--api-key-env` CLI flag.
-
-#### Test-coherence prompt refinement
-- Explicit "coherent patterns" guidance. Self-scan FPs dropped 14→7 (~50% reduction).
-
-#### LLM detector ground truth + eval fix
-- 3 ground truth entries. Eval filters expected entries to only count running detectors.
-
-#### Full-pipeline validation
-- Sample-repo: 35 findings, 30 confirmed, 5 rejected. P=97%, R=100%.
-- tsgbuilder (Python CLI): 113 raw → 101 dedup → 93 confirmed.
-- wyoclear (Next.js): 202 raw → 168 dedup → 152 confirmed, 5 synthesis clusters.
-
-#### Commits this session (Session 31–33)
-- `bf74452` — fix(detectors): dead-code JS/TS false positive fixes (TD-044)
-- `c9c806d` — feat(benchmark): decouple --skip-judge from --skip-llm
-- `0d0547f` — feat(openai): max_completion_tokens for gpt-5.x, --api-key-env
-- `b8248f5` — docs(benchmarks): LLM detector validation results and pytest config fix
-- `8d8501b` — fix(detectors): test-coherence prompt refinement (14→7 FPs)
-- `5d882a8` — feat(eval): LLM detector ground truth, eval active_expected fix
-- `66bf98e` — docs(tiers): empirically-grounded capability tiers and model classes
-- `798ebe3` — feat(cli): add sentinel compatibility command
-- `60fe031` — feat(web): per-detector model overrides in scan form
-- `d2805e0` — docs(tiers): amend ADR-011, VISION-LOCK v4.9, empirical tier instructions
-- Created `/compatibility` web UI page with color-coded quality badges (excellent/good/fair/poor).
-- Added scan page dynamic warnings — JS shows "⚠ test-coherence has ~40% FP rate with 4B local models" when poor combos selected.
-- Updated Vision lock to v4.8 — new "Model-detector transparency" product constraint.
-- Updated copilot-instructions.md with compatibility-matrix.md link and transparency quality standard.
-- Added 3 glossary terms: Compatibility matrix, Quality rating, Model class.
-- 4 new web tests for compatibility page (86 total web tests).
-- mypy strict clean.
-
-#### Commits this session
-- `b8248f5` — docs(benchmarks): LLM detector validation results and pytest config fix
-- `8d8501b` — fix(detectors): test-coherence prompt refinement (14→7 FPs)
-- `5d882a8` — feat(eval): LLM detector ground truth, eval active_expected fix
-- `730da4f` — feat(compatibility): model-detector compatibility matrix (11 files, +815 lines)
-- `09ecdce` — fix(compatibility): mypy strict type args
+#### Files modified
+- `.github/agents/autonomous-builder.agent.md` — rewritten (456 → 190 lines)
+- `.github/agents/reviewer.agent.md` — enhanced with doc-sync, health checks
+- `docs/vision/VISION-LOCK.md` — v5.0 (432 → 132 lines)
+- `docs/reference/tech-debt.md` — restructured (315 → 160 lines)
 
 ### Repository State
 - **Tests**: 1052 passing, 3 skipped
-- **VISION-LOCK**: v4.9
+- **VISION-LOCK**: v5.0
 - **PyPI**: `repo-sentinel` v0.1.0 published
-- **Tech debt items**: 9 remaining (7 low + 2 medium: TD-016 async judge [deprioritized], TD-043 cross-detector data flow)
+- **Tech debt items**: 19 active (was 9 before new items filed + 2 resolved)
 - **Open questions**: 18 total, 16 resolved, 2 remaining (OQ-006, OQ-016)
-- **ADRs**: 14 (ADR-011 amended with empirical tier rationale)
+- **ADRs**: 14
 
 ### What Remains / Next Priority
 
-#### Next priorities
-1. **Cross-detector data flow** (TD-043, medium) — Let git-hotspots inform LLM detector targeting
-2. **wyoclear/tsgbuilder FP analysis** — Analyze dead-code and docs-drift FP rates for matrix refinement
-3. **Real-world benchmark ground truth** — Add ground truth for tsgbuilder/wyoclear to improve eval precision
-4. **Cloud-small benchmarking** — Test gpt-5.4-mini and Haiku 4.5 to fill ❓ Untested cells in compatibility matrix
+#### Immediate
+1. **Log agent improvement** — document framework redesign in agent-improvement-log.md
+2. **Roadmap phases cleanup** (TD-053) — archive stale phases/
+
+#### Next feature priorities
+1. **Web UI configuration** (TD-046, TD-052) — Detectors page with toggles, settings editing, sentinel.toml creation
+2. **Compatibility page refinement** (TD-049, TD-050, TD-051) — remove redundant info, update model list
+3. **README pruning** (TD-055) — delegate to wiki, target <150 lines
+4. **Cross-detector data flow** (TD-043) — git-hotspots → LLM targeting
 
 #### Deprioritized
-- **Async judge** (TD-016) — Low priority per user; design runs in background so latency is not material
+- Async judge (TD-016) — low priority, design runs in background
 
 ---
 

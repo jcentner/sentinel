@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 .github/hooks/scripts/slice-gate.py"
+      }
+    ]
+  }
+}
