@@ -56,7 +56,7 @@ Check these file sizes and flag as **Minor** if exceeded:
 | Document | Target | Action if exceeded |
 |----------|--------|--------------------|
 | `docs/vision/VISION-LOCK.md` | <200 lines | Needs pruning: compress "What Exists Today," archive oldest changelog entries |
-| `docs/reference/tech-debt.md` | Active at top | Resolved items should be in `## Resolved` section at bottom |
+| `docs/reference/tech-debt.md` | Active at top | Resolved items archived to `docs/reference/tech-debt-resolved.md`. Active file contains only current debt. |
 | `README.md` | <150 lines | Delegate detail to wiki or docs/ |
 
 ## Behavior
