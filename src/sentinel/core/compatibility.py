@@ -50,15 +50,31 @@ class CompatibilityEntry:
 # Models tested: qwen3.5:4b, qwen3.5:9b-q4_K_M, gpt-5.4-nano
 
 # Model class definitions for display
+#
+# These represent empirically-tested model classes, not assumed equivalences.
+# Rankings based on aggregate benchmarks (independent scores: 4B≈27, 9B≈32,
+# gpt-5.4-nano≈38-44, Haiku 4.5≈31-37, gpt-5.4-mini≈38-49).
 MODEL_CLASSES = [
     {"id": "4b-local", "name": "4B Local", "example": "qwen3.5:4b",
-     "vram": "~3.4 GB", "speed": "~53 tok/s"},
+     "vram": "~3.4 GB", "speed": "~53 tok/s",
+     "tier": "basic",
+     "notes": "Best value for deterministic detectors + judge + semantic-drift"},
     {"id": "9b-local", "name": "9B Local", "example": "qwen3.5:9b-q4_K_M",
-     "vram": "~6.6 GB", "speed": "~19 tok/s"},
+     "vram": "~6.6 GB", "speed": "~19 tok/s",
+     "tier": "basic",
+     "notes": "Marginal improvement over 4B at 2-3× slower. Not recommended on 8 GB VRAM"},
     {"id": "cloud-nano", "name": "Cloud Nano", "example": "gpt-5.4-nano",
-     "vram": "n/a", "speed": "~100 tok/s"},
-    {"id": "cloud-frontier", "name": "Cloud Frontier", "example": "gpt-5.4",
-     "vram": "n/a", "speed": "varies"},
+     "vram": "n/a", "speed": "~100 tok/s",
+     "tier": "standard",
+     "notes": "Substantially stronger than local models. Best for test-coherence"},
+    {"id": "cloud-small", "name": "Cloud Small", "example": "gpt-5.4-mini, Claude Haiku 4.5",
+     "vram": "n/a", "speed": "varies",
+     "tier": "advanced",
+     "notes": "Near-frontier. GPT-5.4-mini and Haiku 4.5 are similar tier, not identical"},
+    {"id": "cloud-frontier", "name": "Cloud Frontier", "example": "gpt-5.4, Claude Sonnet 4",
+     "vram": "n/a", "speed": "varies",
+     "tier": "advanced",
+     "notes": "Frontier models. Not yet benchmarked for Sentinel"},
 ]
 
 # Detector metadata for the matrix
@@ -140,54 +156,11 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     # ── Deterministic detectors (model only used for judge) ──────
     # Judge quality is the only model-dependent axis for these.
     # All models can confirm/reject findings; 4B is acceptably accurate.
-    _e("lint-runner", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("lint-runner", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("todo-scanner", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("todo-scanner", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("docs-drift", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("docs-drift", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("complexity", "4b-local", "none", QualityRating.NA, "n/a",
-       "Heuristic detector — model not used for detection"),
-    _e("complexity", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Heuristic detector — model not used for detection"),
-    _e("dead-code", "4b-local", "none", QualityRating.NA, "n/a",
-       "Heuristic detector — model not used for detection"),
-    _e("dead-code", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Heuristic detector — model not used for detection"),
-    _e("unused-deps", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("unused-deps", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("stale-env", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("stale-env", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("dep-audit", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("dep-audit", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("git-hotspots", "4b-local", "none", QualityRating.NA, "n/a",
-       "Heuristic detector — model not used for detection"),
-    _e("git-hotspots", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Heuristic detector — model not used for detection"),
-    _e("go-linter", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("go-linter", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("rust-clippy", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("rust-clippy", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("eslint-runner", "4b-local", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
-    _e("eslint-runner", "cloud-nano", "none", QualityRating.NA, "n/a",
-       "Deterministic detector — model not used for detection"),
+    *[_e(det, mc, "none", QualityRating.NA, "n/a",
+         f"{'Deterministic' if DETECTOR_INFO[det]['tier'] == 'deterministic' else 'Heuristic'}"
+         " detector — model not used for detection")
+      for det in DETECTOR_INFO if DETECTOR_INFO[det]["capability"] == "none"
+      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
 
     # ── Judge quality per model class ────────────────────────────
     # These rate how well the model performs as a *judge* of findings
@@ -198,10 +171,12 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     _e("(judge)", "9b-local", "basic", QualityRating.FAIR, "~10%",
        "More skeptical — rejects 58% of findings. Over-filters real issues.",
        "2026-04-06"),
-    _e("(judge)", "cloud-nano", "basic", QualityRating.GOOD, "~10%",
+    _e("(judge)", "cloud-nano", "standard", QualityRating.GOOD, "~10%",
        "Selective and fast. Good balance of confirmation and filtering.",
        "2026-04-11"),
-    _e("(judge)", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
+    _e("(judge)", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
+       "Not yet benchmarked as judge"),
+    _e("(judge)", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
        "Not yet benchmarked as judge"),
 
     # ── semantic-drift (LLM-assisted, basic tier) ────────────────
@@ -209,13 +184,15 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "Binary signal is robust even for small models. Finds real doc-code drift.",
        "2026-04-11"),
     _e("semantic-drift", "9b-local", "basic", QualityRating.GOOD, "<15%",
-       "Same quality as 4B but 2-3× slower. No advantage.",
+       "Same quality as 4B but 2-3× slower on 8 GB VRAM. No advantage.",
        "2026-04-11"),
     _e("semantic-drift", "cloud-nano", "basic", QualityRating.EXCELLENT, "<10%",
        "Fastest and most precise. Finds the same issues with fewer false signals.",
        "2026-04-11"),
     _e("semantic-drift", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode (structured explanations) not yet benchmarked with cloud-nano"),
+    _e("semantic-drift", "cloud-small", "standard", QualityRating.UNTESTED, "?",
+       "Enhanced mode not yet benchmarked"),
     _e("semantic-drift", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode not yet benchmarked"),
 
@@ -225,13 +202,17 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "as stale. Not recommended — use a stronger model or skip this detector.",
        "2026-04-11"),
     _e("test-coherence", "9b-local", "basic", QualityRating.FAIR, "~30%",
-       "Somewhat better than 4B but still noisy. 2-3× slower with marginal improvement.",
+       "Somewhat better than 4B but still noisy. Marginal improvement does not justify "
+       "2-3× slower speed on 8 GB VRAM.",
        "2026-04-11"),
     _e("test-coherence", "cloud-nano", "basic", QualityRating.GOOD, "~15%",
-       "Significantly more precise. Correctly handles CLI runners, mocks, and simple tests.",
+       "Significantly more precise. Correctly handles CLI runners, mocks, and simple tests. "
+       "Minimum recommended model for this detector.",
        "2026-04-11"),
     _e("test-coherence", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode (structured gap analysis) not yet benchmarked"),
+    _e("test-coherence", "cloud-small", "standard", QualityRating.UNTESTED, "?",
+       "Enhanced mode not yet benchmarked"),
     _e("test-coherence", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode not yet benchmarked"),
 ]
@@ -321,9 +302,12 @@ def build_summary_table() -> list[dict[str, object]]:
         "description": "LLM judge that evaluates all findings for validity",
     }
     for mc in MODEL_CLASSES:
-        entry = get_entry("(judge)", mc["id"], "basic")
-        if not entry:
-            entry = get_entry("(judge)", mc["id"], "standard")
+        # Judge entries exist at various tiers per model class
+        entry = None
+        for tier in ("basic", "standard", "advanced"):
+            entry = get_entry("(judge)", mc["id"], tier)
+            if entry:
+                break
         if entry:
             judge_row[mc["id"]] = {
                 "rating": entry.rating.value,

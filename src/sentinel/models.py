@@ -60,15 +60,18 @@ class DetectorTier(str, enum.Enum):
 class CapabilityTier(str, enum.Enum):
     """Model capability tier a detector requires.
 
-    Detectors declare what model class they need. The runner warns
-    (but does not block) when a detector's tier exceeds the configured
-    model's capability.
+    Detectors declare the minimum analysis capability they need.
+    The runner warns (but does not block) when a detector's tier
+    exceeds the configured model's measured capability.
+
+    Tier-to-model mapping is empirical, not assumed from parameter count.
+    See docs/reference/compatibility-matrix.md for measured ratings.
     """
 
     NONE = "none"  # Deterministic — no model needed
-    BASIC = "basic"  # 4B+ models (binary signals, simple judgment)
-    STANDARD = "standard"  # 9B+ or small cloud (reasoning, structured output)
-    ADVANCED = "advanced"  # Frontier cloud (deep semantic analysis)
+    BASIC = "basic"  # Binary signals, simple classification (4B local sufficient)
+    STANDARD = "standard"  # Reasoning + structured output (cloud-nano+ or strong local)
+    ADVANCED = "advanced"  # Deep multi-artifact analysis (frontier models)
 
 
 @dataclass(frozen=True)
