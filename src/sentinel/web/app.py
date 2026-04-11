@@ -598,6 +598,34 @@ async def scan_page(request: Request) -> Response:
                 return Response(f"Invalid detector name: {det_name}", status_code=400)
         config.enabled_detectors = [str(d) for d in selected_detectors]
 
+    # Per-detector model overrides from the form
+    from sentinel.config import _VALID_CAPABILITIES, ProviderOverride
+    override_dets = form.getlist("override_detector[]")
+    override_providers = form.getlist("override_provider[]")
+    override_models = form.getlist("override_model[]")
+    override_caps = form.getlist("override_capability[]")
+    _VALID_PROVIDERS_SET = {"ollama", "openai", "azure"}
+    for i in range(len(override_dets)):
+        det_name = str(override_dets[i]).strip() if i < len(override_dets) else ""
+        if not det_name:
+            continue
+        if not _DET_NAME_RE.match(det_name):
+            return Response(f"Invalid detector name in override: {det_name}", status_code=400)
+        prov = str(override_providers[i]).strip() if i < len(override_providers) else ""
+        model = str(override_models[i]).strip() if i < len(override_models) else ""
+        cap = str(override_caps[i]).strip() if i < len(override_caps) else ""
+        if prov and prov not in _VALID_PROVIDERS_SET:
+            return Response(f"Invalid provider in override: {prov}", status_code=400)
+        if cap and cap not in _VALID_CAPABILITIES:
+            return Response(f"Invalid capability in override: {cap}", status_code=400)
+        # Only create override if at least one field is set
+        if prov or model or cap:
+            config.detector_providers[det_name] = ProviderOverride(
+                provider=prov,
+                model=model,
+                model_capability=cap,
+            )
+
     def _do_scan() -> tuple[RunSummary, list[Finding], str]:
         from sentinel.core.provider import create_provider
 

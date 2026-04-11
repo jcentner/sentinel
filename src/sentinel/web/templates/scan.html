@@ -45,9 +45,9 @@
         <select class="form-input" name="capability" id="capability">
           <option value="">Default from config</option>
           <option value="none">None (no model)</option>
-          <option value="basic">Basic (4B+)</option>
-          <option value="standard">Standard (9B+ / small cloud)</option>
-          <option value="advanced">Advanced (frontier)</option>
+          <option value="basic">Basic (4B+ local)</option>
+          <option value="standard">Standard (cloud-nano+)</option>
+          <option value="advanced">Advanced (cloud-small/frontier)</option>
         </select>
       </div>
     </div>
@@ -86,6 +86,57 @@
     <div id="compat-warnings"></div>
     {% endif %}
 
+    <details class="card" style="margin-bottom:1.5rem; border:1px solid var(--border-color, #ddd); padding:1rem;">
+      <summary style="cursor:pointer; font-weight:600;">Per-Detector Model Overrides</summary>
+      <p class="form-hint" style="margin:0.5rem 0;">
+        Override the model, provider, or capability tier for specific detectors.
+        Leave blank to use the global settings above. This is how you route
+        test-coherence to a cloud model while keeping everything else local.
+        See <a href="/compatibility">compatibility matrix</a> for quality ratings.
+      </p>
+      <div id="detector-overrides">
+        <template id="override-template">
+          <div class="override-row" style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap:0.5rem; align-items:end; margin-bottom:0.5rem;">
+            <div>
+              <label class="form-label" style="font-size:0.8rem;">Detector</label>
+              <select class="form-input" name="override_detector[]">
+                <option value="">Select…</option>
+                {% for det in detectors %}
+                {% if det.tier != "none" %}
+                <option value="{{ det.name }}">{{ det.name }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.8rem;">Provider</label>
+              <select class="form-input" name="override_provider[]">
+                <option value="">Same as global</option>
+                <option value="ollama">Ollama</option>
+                <option value="openai">OpenAI</option>
+                <option value="azure">Azure</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.8rem;">Model</label>
+              <input class="form-input" type="text" name="override_model[]" placeholder="e.g. gpt-5.4-nano">
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.8rem;">Capability</label>
+              <select class="form-input" name="override_capability[]">
+                <option value="">Same as global</option>
+                <option value="basic">Basic</option>
+                <option value="standard">Standard</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="this.closest('.override-row').remove()" title="Remove">✕</button>
+          </div>
+        </template>
+      </div>
+      <button type="button" class="btn btn-sm" onclick="addOverrideRow()">+ Add Override</button>
+    </details>
+
     <div class="actions-bar">
       <button type="submit" class="btn btn-accent">Start Scan</button>
       <span id="scan-status" class="text-muted" style="font-size:0.85rem;"></span>
@@ -94,6 +145,13 @@
 </div>
 
 <script>
+function addOverrideRow() {
+  var tmpl = document.getElementById('override-template');
+  var container = document.getElementById('detector-overrides');
+  var clone = tmpl.content.cloneNode(true);
+  container.appendChild(clone);
+}
+
 document.getElementById('scan-form').addEventListener('submit', function() {
   var btn = this.querySelector('button[type="submit"]');
   btn.disabled = true;

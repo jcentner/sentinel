@@ -148,7 +148,8 @@ model_capability = "basic"
 provider = "openai"
 model = "gpt-5.4-nano"
 api_base = "https://api.openai.com/v1"
-api_key_env = "OPENAI_API_KEY"</pre>
+api_key_env = "OPENAI_API_KEY"
+model_capability = "standard"</pre>
   </div>
 
   <h3>No LLM (fastest, deterministic only)</h3>
@@ -167,6 +168,7 @@ skip_llm = true
       <thead>
         <tr>
           <th>Class</th>
+          <th>Tier</th>
           <th>Example</th>
           <th>VRAM</th>
           <th>Speed</th>
@@ -177,16 +179,11 @@ skip_llm = true
         {% for mc in model_classes %}
         <tr>
           <td><strong>{{ mc.name }}</strong></td>
+          <td><span class="badge badge-sm">{{ mc.get('tier', '?') }}</span></td>
           <td><code>{{ mc.example }}</code></td>
           <td>{{ mc.vram }}</td>
           <td>{{ mc.speed }}</td>
-          <td>
-            {% if mc.id == "4b-local" %}Default — judge, semantic-drift
-            {% elif mc.id == "9b-local" %}Not recommended on 8 GB VRAM
-            {% elif mc.id == "cloud-nano" %}test-coherence, highest precision
-            {% elif mc.id == "cloud-frontier" %}Not yet benchmarked
-            {% endif %}
-          </td>
+          <td>{{ mc.get('notes', '') }}</td>
         </tr>
         {% endfor %}
       </tbody>
