@@ -1,75 +1,60 @@
 # Current State — Sentinel
 
-> Last updated: Session 35 — Web UI first-class interaction surface
+> Last updated: Session 36 — Web UI UX refinement
 
 **Phase Status**: Complete
 
 ## Latest Session Summary
 
 ### Current Objective
-Make the web UI a first-class interaction surface (ADR-015). Users landing in the browser should be able to discover, configure, and operate Sentinel without leaving the web UI.
+Refine the web UI based on user testing feedback — fix discoverability, naming confusion, and missing features across all pages.
 
 ### What Was Accomplished
 
-#### Web UI first-class interaction (Session 35 — ADR-015)
-- **ADR-015**: Recorded decision — web UI is a first-class interaction surface, not a read-only dashboard
-- **Config write layer**: `save_config()` in config.py — atomic TOML write, manual serialization (no new deps), only writes non-default values
-- **Route split**: app.py 796→101 lines. 7 route modules in `web/routes/` + `web/shared.py` for templates/DB helpers
-- **Settings page**: Rewritten as editable form — creates/updates sentinel.toml. Groups: Model & Provider, Embeddings, Pipeline, Detectors, Paths. Success toast, field validation.
-- **Detectors page config**: Inline toggles for enabling/disabling detectors, per-detector provider/model/capability overrides, saves to sentinel.toml
-- **Doctor page**: Web equivalent of `sentinel doctor` — shared `core/doctor.py` module used by both CLI and web. Shows health check table with tool status, nav link added.
-- **CLI doctor refactor**: Replaced ~80-line inline implementation with delegation to shared `core/doctor.py`
-- **Nav rename**: Compatibility → Detectors (both `/detectors` and `/compatibility` routes work). Added Doctor to nav.
-- **TD-048 fix**: Scan form "LLM Model" → "Model" with accurate hint
-- **TD-049 fix**: Deterministic detectors collapsed to summary with expandable `<details>`
-- **TD-050 partial**: Added hardware speed caveat to Model Classes table
-- **TD-051 fix**: Claude Sonnet 4 → 4.6 in compatibility.py
-- **Tech debt**: 6 items resolved (TD-046,048,049,050,051,052), TD-047 updated to deliberate/low-pri
-- **VISION-LOCK v5.1**: Dual interface constraint refined, "Where We're Going" updated
+#### Detectors page UX overhaul (Session 36)
+- **Tier badges in matrix headers**: Each model class column now shows its capability tier (basic/standard/advanced) under the name, connecting matrix ratings to config settings
+- **"Your Measured Speed" column**: Model Classes table shows actual tok/s from scan data per model, aggregated from `llm_log`. Shows "After first scan" placeholder when no data exists. Handles multi-model classes (e.g., "gpt-5.4-mini, Claude Haiku 4.5") via weighted average.
+- **Language column for Other Detectors**: Replaced collapsed deterministic section with "Other Detectors" table showing language column (Python, JS/TS, Go, Rust, Any)
+- **Inline rating legend**: Moved from separate card to compact inline footer within LLM table
+- **"(global)" → "(default)"**: All config dropdowns and override text now say "(default)" to clarify fallback hierarchy
 
-#### Files created
-- `docs/architecture/decisions/015-web-ui-first-class-interface.md`
-- `src/sentinel/core/doctor.py`
-- `src/sentinel/web/shared.py`
-- `src/sentinel/web/routes/__init__.py`
-- `src/sentinel/web/routes/doctor.py`
-- `src/sentinel/web/templates/doctor.html`
-- `src/sentinel/web/routes/` — findings.py, runs.py, scan.py, settings.py, detectors.py, eval.py, github.py
+#### Cross-page improvements
+- **Settings hierarchy hint**: "Per-detector overrides on the Detectors page take precedence over these defaults"
+- **Model datalists**: Settings + Scan pages now offer autocomplete suggestions for model and embedding model inputs (qwen3.5:4b, gpt-5.4-nano, nomic-embed-text, etc.)
+- **GitHub Issues CSRF**: Added missing CSRF tokens to both Create Issues and Dry Run forms
+- **Env var disclaimer**: GitHub + Settings pages now explain env vars must be set outside Sentinel
+- **Doctor defaults fix**: sentinel.toml check now says "Using defaults (provider=..., model=...)" when no file exists
+- **Embed model hints**: "Local Ollama embedding models are fast and sufficient — no cloud needed"
+
+#### Infrastructure
+- `get_model_speed_stats()` in `store/llm_log.py` — per-model tok/s aggregation from LLM log, excludes NULL/zero rows
+- Model class speed mapping in `/detectors` route — maps per-model stats to model class IDs via example model matching
+- 3 new tests for model speed stats (empty, multi-model, null exclusion)
 
 #### Files modified
-- `src/sentinel/web/app.py` — slimmed to factory + index (796→101 lines), added doctor route
-- `src/sentinel/cli.py` — refactored doctor command to use core/doctor.py
-- `src/sentinel/config.py` — added save_config(), _toml_value()
-- `src/sentinel/core/compatibility.py` — Sonnet 4 → 4.6
-- `src/sentinel/web/templates/settings.html` — editable form
-- `src/sentinel/web/templates/base.html` — Detectors + Doctor nav
-- `src/sentinel/web/templates/compatibility.html` — collapsed deterministic section + speed caveat + config table
-- `src/sentinel/web/templates/scan.html` — model label fix
-- `tests/test_web.py` — settings save tests, detectors config tests, doctor tests
+- `src/sentinel/core/compatibility.py` — added `language` field to all 14 DETECTOR_INFO entries
+- `src/sentinel/core/doctor.py` — sentinel.toml defaults check
+- `src/sentinel/store/llm_log.py` — `get_model_speed_stats()`
+- `src/sentinel/web/routes/detectors.py` — model speed wiring, import fix
+- `src/sentinel/web/templates/compatibility.html` — major rewrite
+- `src/sentinel/web/templates/github.html` — CSRF + disclaimer
+- `src/sentinel/web/templates/settings.html` — hierarchy hint + datalists
+- `src/sentinel/web/templates/scan.html` — datalists + "default" labels
+- `tests/test_llm_log.py` — model speed tests
 
 ### Repository State
-- **Tests**: 1066 passing, 3 skipped
+- **Tests**: 1069 passing, 3 skipped
 - **VISION-LOCK**: v5.1
-- **PyPI**: `repo-sentinel` v0.1.0 published
-- **Tech debt items**: 13 active (was 19; 6 resolved)
+- **Tech debt items**: 13 active
 - **Open questions**: 18 total, 16 resolved, 2 remaining (OQ-006, OQ-016)
 - **ADRs**: 15
-- **Commits this session**: 7
+- **Commits this session**: 1
 
 ### What Remains / Next Priority
-
-#### ADR-015 complete — web UI is now first-class
-All immediate items delivered: settings editing, detectors config, doctor page, route split, display fixes.
-
-#### Follow-up (low priority)
 1. **README pruning** (TD-055) — delegate to wiki, target <150 lines
 2. **Roadmap phases cleanup** (TD-053) — archive stale phases/
 3. **Cross-detector data flow** (TD-043) — git-hotspots → LLM targeting
 4. **Index management page** — web equivalent of `sentinel index`
-
-#### Deprioritized
-- Async judge (TD-016) — low priority, design runs in background
-- GitHub config editing (TD-047) — token must stay env-var, owner/repo low value
 
 ---
 
