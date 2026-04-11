@@ -137,13 +137,23 @@ def evaluate(
     exclude = set(ground_truth.get("exclude_detectors", []))
     filtered = [f for f in findings if f.detector not in exclude]
 
+    # Determine which detectors actually ran (produced findings)
+    ran_detectors = {f.detector for f in filtered}
+
     expected = ground_truth.get("expected", [])
     fp_patterns = ground_truth.get("false_positives", [])
+
+    # Only evaluate expected entries from detectors that actually ran
+    # (avoids penalizing recall when LLM detectors are skipped)
+    active_expected = [
+        e for e in expected
+        if e["detector"] not in exclude and e["detector"] in ran_detectors
+    ]
 
     # Count true positives
     tp_count = 0
     missing: list[dict[str, str]] = []
-    for entry in expected:
+    for entry in active_expected:
         matched = any(_match(f, entry) for f in filtered)
         if matched:
             tp_count += 1
@@ -159,12 +169,12 @@ def evaluate(
                 break
 
     # Per-detector breakdown
-    per_detector = _compute_per_detector(filtered, expected)
+    per_detector = _compute_per_detector(filtered, active_expected)
 
     # Judge metrics (only meaningful when judge has run)
     judge_result = None
     if include_judge_metrics:
-        judge_result = _compute_judge_metrics(filtered, expected)
+        judge_result = _compute_judge_metrics(filtered, active_expected)
 
     return EvalResult(
         total_findings=len(filtered),

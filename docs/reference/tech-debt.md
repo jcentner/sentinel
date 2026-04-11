@@ -32,14 +32,6 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: LLM detectors treat all files equally instead of focusing on the highest-risk files first. Wastes LLM budget on stable files while potentially missing issues in frequently-broken ones.
 **Proposed resolution**: Add a pre-scan phase that runs cheap heuristic detectors first and builds a "risk profile" per file. LLM detectors can then consume this profile to prioritize which files to analyze deeply. Could be as simple as a `context.risk_signals` dict populated by git-hotspots and complexity before LLM detectors run.
 
-### TD-044: Dead-code JS/TS monorepo false positives
-**Status**: Resolved (Session 31)
-**Severity**: Medium
-**Introduced**: Session 28 (multi-repo validation — shadcn-ui)
-**Description**: The dead-code detector flags ~1700 FPs on shadcn-ui/ui. Remaining FPs come from non-auto-generated files where exports are consumed via dynamic `import()` patterns in other packages, registry-based component loading, and barrel re-exports.
-**Impact**: Dead-code detector is unusable for JS/TS monorepos. ~99% FP rate.
-**Resolution**: Added barrel re-export tracking (`export * from`, `export { } from`), TypeScript type export/import tracking, intra-file reference tracking for JS/TS, `import * as` namespace import handling, and package.json entry-point detection (main/exports/module/types). Entry-point files' exports are treated as public API. 7 new tests covering all patterns.
-
 ### TD-045: Ground truth too small for statistical confidence
 **Status**: Active
 **Severity**: Low
@@ -73,6 +65,14 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Enriched with commit message classification (fix/refactor/feature/other), author concentration analysis (bus-factor, coordination overhead), and actionable insights in descriptions. Bug-fix-heavy churn escalates severity. Evidence now includes commit type breakdown.
 
 ## Resolved
+
+### TD-044: Dead-code JS/TS monorepo false positives
+**Status**: Resolved (Session 31)
+**Severity**: Medium
+**Introduced**: Session 28 (multi-repo validation — shadcn-ui)
+**Description**: The dead-code detector flags ~1700 FPs on shadcn-ui/ui. Remaining FPs come from non-auto-generated files where exports are consumed via dynamic `import()` patterns in other packages, registry-based component loading, and barrel re-exports.
+**Impact**: Dead-code detector is unusable for JS/TS monorepos. ~99% FP rate.
+**Resolution**: Added barrel re-export tracking (`export * from`, `export { } from`), TypeScript type export/import tracking, intra-file reference tracking for JS/TS, `import * as` namespace import handling, and package.json entry-point detection (main/exports/module/types). Entry-point files' exports are treated as public API. 7 new tests covering all patterns.
 
 ### TD-001: Context gatherer uses file-proximity only
 **Status**: Resolved (Session 9)

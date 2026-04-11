@@ -175,6 +175,23 @@ detector = "unused-deps"
 file_path = "pyproject.toml"
 title = "sqlalchemy"
 
+# semantic-drift: docs section doesn't match code reality
+[[expected]]
+detector = "semantic-drift"
+file_path = "README.md"
+title = "Configuration"
+
+# test-coherence: seeded test-code drift in fixture test files
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_main.py"
+title = "test_main_runs"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_main.py"
+title = "test_main_returns_data"
+
 # ── Known false positive patterns (should NOT appear) ────────────
 
 # Code block content should not be flagged
