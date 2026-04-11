@@ -918,3 +918,49 @@ class TestDoctorCommand:
         # (e.g. golangci-lint, cargo clippy, biome are not commonly installed)
         statuses = {c["status"] for c in data["checks"]}
         assert "missing" in statuses or "ok" in statuses  # at least one result
+
+
+class TestCompatibilityCommand:
+    def test_compatibility_full_matrix(self, runner):
+        result = runner.invoke(main, ["compatibility"])
+        assert result.exit_code == 0
+        assert "Detector" in result.output
+        assert "4b-local" in result.output
+        assert "Legend:" in result.output
+        # Should show key detectors
+        assert "semantic-drift" in result.output
+        assert "test-coherence" in result.output
+
+    def test_compatibility_single_detector(self, runner):
+        result = runner.invoke(main, ["compatibility", "-d", "test-coherence"])
+        assert result.exit_code == 0
+        assert "test-coherence" in result.output
+        assert "Recommended:" in result.output
+        assert "4b-local" in result.output
+
+    def test_compatibility_single_model(self, runner):
+        result = runner.invoke(main, ["compatibility", "-m", "4b-local"])
+        assert result.exit_code == 0
+        assert "4b-local" in result.output
+        assert "qwen3.5:4b" in result.output
+
+    def test_compatibility_json_output(self, runner):
+        result = runner.invoke(main, ["compatibility", "--json-output"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "compatibility" in data
+        assert len(data["compatibility"]) > 0
+        # Each row should have detector and tier
+        for row in data["compatibility"]:
+            assert "detector" in row
+            assert "tier" in row
+
+    def test_compatibility_unknown_detector(self, runner):
+        result = runner.invoke(main, ["compatibility", "-d", "nonexistent"])
+        assert result.exit_code != 0
+        assert "Unknown detector" in result.output
+
+    def test_compatibility_unknown_model(self, runner):
+        result = runner.invoke(main, ["compatibility", "-m", "nonexistent"])
+        assert result.exit_code != 0
+        assert "Unknown model class" in result.output

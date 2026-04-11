@@ -1353,6 +1353,127 @@ def doctor(output_json: bool) -> None:
 
 
 @main.command()
+@click.option("--detector", "-d", default=None, help="Show matrix for a specific detector")
+@click.option("--model", "-m", default=None, help="Show matrix for a specific model class")
+@click.option("--json-output", "output_json", is_flag=True, help="Output as JSON")
+def compatibility(detector: str | None, model: str | None, output_json: bool) -> None:
+    """Show model-detector compatibility matrix.
+
+    Displays empirical quality ratings for each model class and detector
+    combination, based on real-world benchmarks. Use this to choose models
+    that work well with the detectors you need.
+
+    \b
+    Examples:
+      sentinel compatibility                  # Full matrix
+      sentinel compatibility -d test-coherence  # One detector
+      sentinel compatibility -m 4b-local      # One model class
+      sentinel compatibility --json-output    # Machine-readable
+    """
+    from sentinel.core.compatibility import (
+        DETECTOR_INFO,
+        MODEL_CLASSES,
+        QualityRating,
+        build_summary_table,
+        get_detector_recommendation,
+        get_matrix_for_detector,
+        get_matrix_for_model,
+    )
+
+    if output_json:
+        rows = build_summary_table()
+        if detector:
+            rows = [r for r in rows if r["detector"] == detector]
+        if model:
+            rows = [
+                {k: v for k, v in r.items() if k in ("detector", "tier", "capability", "description", model)}
+                for r in rows
+            ]
+        click.echo(json.dumps({"compatibility": rows}, indent=2))
+        return
+
+    # Determine what to show
+    if detector:
+        entries = get_matrix_for_detector(detector)
+        if not entries:
+            click.echo(f"Unknown detector: {detector}")
+            click.echo(f"Available: {', '.join(DETECTOR_INFO.keys())}")
+            raise SystemExit(1)
+        click.echo(f"Compatibility: {detector}\n")
+        for e in entries:
+            _print_compat_entry(e)
+        click.echo(f"\n{get_detector_recommendation(detector)}")
+        return
+
+    if model:
+        entries = get_matrix_for_model(model)
+        if not entries:
+            click.echo(f"Unknown model class: {model}")
+            click.echo(f"Available: {', '.join(m['id'] for m in MODEL_CLASSES)}")
+            raise SystemExit(1)
+        mc_info = next((m for m in MODEL_CLASSES if m["id"] == model), None)
+        click.echo(f"Compatibility: {model}")
+        if mc_info:
+            click.echo(f"  Example: {mc_info['example']}\n")
+        for e in entries:
+            _print_compat_entry(e, show_detector=True)
+        return
+
+    # Full matrix table
+    mc_ids = [m["id"] for m in MODEL_CLASSES]
+    rows = build_summary_table()
+
+    # Header
+    det_width = max(len(str(r["detector"])) for r in rows) + 2
+    col_width = 12
+    header = f"{'Detector':<{det_width}}"
+    for mc_id in mc_ids:
+        header += f"{mc_id:^{col_width}}"
+    click.echo(header)
+    click.echo("─" * len(header))
+
+    rating_symbols = {
+        QualityRating.EXCELLENT.value: "★★★",
+        QualityRating.GOOD.value: "★★ ",
+        QualityRating.FAIR.value: "★  ",
+        QualityRating.POOR.value: "✗  ",
+        QualityRating.NA.value: "─  ",
+        QualityRating.UNTESTED.value: "?  ",
+    }
+
+    for row in rows:
+        det_name = str(row["detector"])
+        line = f"{det_name:<{det_width}}"
+        for mc_id in mc_ids:
+            cell = row.get(mc_id)
+            if isinstance(cell, dict):
+                rating = str(cell.get("rating", "untested"))
+                symbol = rating_symbols.get(rating, "?  ")
+                line += f"{symbol:^{col_width}}"
+            else:
+                line += f"{'─':^{col_width}}"
+        click.echo(line)
+
+    click.echo()
+    click.echo("Legend: ★★★ excellent  ★★ good  ★ fair  ✗ poor  ─ n/a  ? untested")
+    click.echo("\nFor details: sentinel compatibility -d <detector>")
+
+
+def _print_compat_entry(e: Any, show_detector: bool = False) -> None:
+    """Print a single compatibility entry in human-readable form."""
+    rating_colors = {
+        "excellent": "green",
+        "good": "blue",
+        "fair": "yellow",
+        "poor": "red",
+    }
+    color = rating_colors.get(e.rating.value)
+    label = click.style(e.rating.value.upper(), fg=color, bold=color == "red")
+    prefix = f"{e.detector:20s}" if show_detector else f"  {e.model_class:15s}"
+    click.echo(f"{prefix} {label:20s} FP: {e.fp_rate:8s}  {e.notes}")
+
+
+@main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option("--model", default=None, help="Model name (recorded in results)")
 @click.option("--provider", "provider_name", default=None, help="Provider: ollama, openai, azure")
