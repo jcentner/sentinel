@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-14 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact). Two LLM-assisted detectors (semantic-drift, test-coherence) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1134 tests. Published on PyPI as `repo-sentinel`.
+15 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD). Two LLM-assisted detectors (semantic-drift, test-coherence) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1134 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -91,7 +91,7 @@ Settings page editable (ADR-015). Detectors page with inline model/toggle config
 
 ### Phase 10: Advanced detectors
 New detectors requiring stronger models (benchmark data will guide minimum model recommendations):
-- CI/CD config drift (basic) — stale paths in GitHub Actions, Dockerfiles
+- ~~CI/CD config drift (basic)~~ — **shipped** (deterministic: stale paths in GitHub Actions, Dockerfiles)
 - Inline comment drift (advanced) — docstring accuracy vs adjacent code
 - Intent comparison (advanced) — multi-artifact triangulation
 - Architecture drift (advanced) — import graph vs documented architecture

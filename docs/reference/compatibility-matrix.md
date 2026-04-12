@@ -33,7 +33,7 @@ These detectors **use the model directly** to analyze code. Model quality direct
 
 These 12 detectors work identically regardless of model. The model is only used by the **judge** to filter findings after detection.
 
-lint-runner · eslint-runner · todo-scanner · docs-drift · unused-deps · stale-env · dep-audit · go-linter · rust-clippy · complexity · dead-code · git-hotspots
+lint-runner · eslint-runner · todo-scanner · docs-drift · unused-deps · stale-env · cicd-drift · dep-audit · go-linter · rust-clippy · complexity · dead-code · git-hotspots
 
 **Model recommendation for deterministic detectors**: Any model works. The 4B local model is sufficient as judge for these. Skip the model entirely (`--skip-judge`) for fastest results.
 

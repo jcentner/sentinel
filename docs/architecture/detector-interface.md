@@ -121,7 +121,7 @@ The tier is `LLM_ASSISTED` because the LLM comparison is available, but the prim
 | `test-runner` | Deterministic | test-health | Planned | Runs test suite, captures failures |
 | `sql-antipattern` | Deterministic + LLM | performance | Planned | SQLFluff + LLM for semantic suggestions (CTE, N+1) |
 | `semgrep-runner` | Deterministic | security, code-quality | Planned | Wraps Semgrep with custom rules |
-| `config-drift` | Deterministic | config-drift | Planned | Compare env configs, schema vs. defaults |
+| `cicd-drift` | Deterministic | config-drift | ✅ Implemented | Detects stale path references in GitHub Actions and Dockerfiles |
 ## Custom detectors
 
 Sentinel supports loading user-defined detectors from a directory configured via `detectors_dir` in `sentinel.toml`. Each `.py` file in the directory is dynamically imported at scan time. Any class extending `Detector` is auto-registered via `__init_subclass__` and participates in the scan.
