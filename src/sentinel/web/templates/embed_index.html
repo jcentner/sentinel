@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — Embedding Index{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Embedding Index</h1>
+  <p class="subtitle">Semantic context for LLM-assisted detectors</p>
+</div>
+
+<div class="card mb-2">
+  <h2 class="mb-1">Index Status</h2>
+  <dl>
+    <dt>Files Indexed</dt>
+    <dd>{{ file_count }}</dd>
+
+    <dt>Total Chunks</dt>
+    <dd>{{ chunk_count }}</dd>
+
+    <dt>Embedding Model</dt>
+    <dd>{% if embed_model %}<code class="text-mono">{{ embed_model }}</code>{% else %}<span class="text-muted">Not set — run <code>sentinel index &lt;repo&gt;</code> to build</span>{% endif %}</dd>
+
+    {% if repo_path %}
+    <dt>Repository</dt>
+    <dd class="text-mono">{{ repo_path }}</dd>
+    {% endif %}
+  </dl>
+</div>
+
+{% if chunk_count == 0 %}
+<div class="card mb-2">
+  <p class="text-muted" style="text-align: center; padding: 1.5rem 0;">
+    No embedding index found. Build one with:
+  </p>
+  <div class="code-block" style="margin: 0 auto; max-width: 32rem;">
+    <pre>sentinel index {{ repo_path or '&lt;repo-path&gt;' }}</pre>
+  </div>
+  <p class="text-muted" style="text-align: center; padding: 1rem 0 0;">
+    The embedding index enables semantic context gathering — finding related code
+    snippets when analyzing LLM-assisted detector results.
+  </p>
+</div>
+{% else %}
+<div class="card mb-2">
+  <h2 class="mb-1">Usage</h2>
+  <p class="text-muted mb-1">The embedding index is used during scans to gather semantic context for findings.
+    To rebuild after code changes:</p>
+  <div class="code-block mb-1">
+    <pre>sentinel index {{ repo_path or '&lt;repo-path&gt;' }}        # Incremental update
+sentinel index {{ repo_path or '&lt;repo-path&gt;' }} --clear  # Full rebuild</pre>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

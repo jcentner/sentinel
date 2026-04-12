@@ -1753,3 +1753,35 @@ class TestLLMLogPage:
         resp = app.get("/llm-log?page=abc")
         assert resp.status_code == 200
         assert "LLM Call Log" in resp.text
+
+
+# ── Embedding Index page tests ─────────────────────────────────────
+
+
+class TestEmbedIndexPage:
+    """Tests for the /embed-index route."""
+
+    def test_empty_index(self, app: CSRFTestClient) -> None:
+        """Empty database shows empty state with instructions."""
+        resp = app.get("/embed-index")
+        assert resp.status_code == 200
+        assert "Embedding Index" in resp.text
+        assert "sentinel index" in resp.text
+
+    def test_with_chunks(self, db_conn: sqlite3.Connection) -> None:
+        """Page shows file and chunk counts when index exists."""
+        from sentinel.store.embeddings import set_meta, upsert_chunks
+
+        upsert_chunks(db_conn, "src/main.py", [
+            {"start_line": 1, "end_line": 10, "content": "code here",
+             "embedding": [0.1] * 384, "content_hash": "abc123"},
+        ], embed_model="nomic-embed-text")
+        set_meta(db_conn, "embed_model", "nomic-embed-text")
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/embed-index")
+        assert resp.status_code == 200
+        assert "nomic-embed-text" in resp.text
+        # Should show at least 1 file and 1 chunk
+        assert ">1<" in resp.text or "1\n" in resp.text
