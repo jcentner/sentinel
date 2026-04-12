@@ -8,7 +8,7 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 
 ## What it does
 
-- **15 detectors** — lint (Python/JS/TS/Go/Rust), docs-drift, semantic docs-drift, test-code coherence, dependency audit, complexity, dead code, git hotspots, TODO scanner, stale env config, unused deps, CI/CD config drift
+- **16 detectors** — lint (Python/JS/TS/Go/Rust), docs-drift, semantic docs-drift, test-code coherence, inline comment drift, dependency audit, complexity, dead code, git hotspots, TODO scanner, stale env config, unused deps, CI/CD config drift
 - **Cross-artifact LLM analysis** — compares docs vs code, tests vs implementation via pluggable model providers (Ollama local, Azure, OpenAI-compatible)
 - **Deduplication + persistence** — fingerprints findings across runs, tracks recurrence, suppresses false positives
 - **Morning report** — severity-grouped markdown, scannable in under 2 minutes

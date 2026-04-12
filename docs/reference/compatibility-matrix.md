@@ -31,7 +31,7 @@ These detectors **use the model directly** to analyze code. Model quality direct
 
 ### Deterministic Detectors (no model needed for detection)
 
-These 12 detectors work identically regardless of model. The model is only used by the **judge** to filter findings after detection.
+These 13 deterministic detectors work identically regardless of model. The model is only used by the **judge** to filter findings after detection.
 
 lint-runner · eslint-runner · todo-scanner · docs-drift · unused-deps · stale-env · cicd-drift · dep-audit · go-linter · rust-clippy · complexity · dead-code · git-hotspots
 
@@ -51,6 +51,10 @@ The 4B model cannot reliably distinguish between:
 - A simple serialization test (matches method complexity) ← flags as stale
 
 **Recommendation**: Use `gpt-5.4-nano` or equivalent for test-coherence. If privacy requires local-only, either accept the noise or skip this detector with 4B.
+
+### inline-comment-drift (new — no benchmark data yet)
+
+Uses the same binary prompt pattern as semantic-drift. Expected to work well at 4B for clear factual inaccuracies (wrong parameter names, wrong return values). May need cloud-nano for subtle semantic drift in complex docstrings. Python-only in v1.
 
 Configure per-detector model in `sentinel.toml`:
 

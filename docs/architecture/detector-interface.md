@@ -1,6 +1,6 @@
 # Detector Interface Specification
 
-> **Status**: Active — reflects implementation as of 2026-04-07.
+> **Status**: Active — reflects implementation as of 2026-04-13.
 
 ## Design principle
 
@@ -103,6 +103,8 @@ DetectorContext:
 | `stale-env` | Deterministic | config-drift | ✅ Implemented | Detects drift between .env.example and env var usage in code |
 | `unused-deps` | Deterministic | dependency | ✅ Implemented | Flags declared dependencies never imported in source |
 | `dead-code` | Heuristic | code-quality | ✅ Implemented | AST-based reachability analysis for exported symbols never imported elsewhere |
+| `cicd-drift` | Deterministic | config-drift | ✅ Implemented | Detects stale path references in GitHub Actions and Dockerfiles |
+| `inline-comment-drift` | LLM-assisted | docs-drift | ✅ Implemented | Detects docstrings that no longer accurately describe their code |
 
 ### docs-drift implementation notes
 
@@ -121,7 +123,7 @@ The tier is `LLM_ASSISTED` because the LLM comparison is available, but the prim
 | `test-runner` | Deterministic | test-health | Planned | Runs test suite, captures failures |
 | `sql-antipattern` | Deterministic + LLM | performance | Planned | SQLFluff + LLM for semantic suggestions (CTE, N+1) |
 | `semgrep-runner` | Deterministic | security, code-quality | Planned | Wraps Semgrep with custom rules |
-| `cicd-drift` | Deterministic | config-drift | ✅ Implemented | Detects stale path references in GitHub Actions and Dockerfiles |
+
 ## Custom detectors
 
 Sentinel supports loading user-defined detectors from a directory configured via `detectors_dir` in `sentinel.toml`. Each `.py` file in the directory is dynamically imported at scan time. Any class extending `Detector` is auto-registered via `__init_subclass__` and participates in the scan.
