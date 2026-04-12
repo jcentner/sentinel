@@ -72,38 +72,40 @@ model_capability = "standard"
 
 On 8 GB VRAM hardware, the 9B model partially offloads to CPU, making it 2–3× slower than 4B with only marginal quality improvement. The aggregate quality gap between 4B and 9B (scores ~27 vs ~32) does not justify the speed penalty for Sentinel's use cases.
 
-## Capability Tiers
+## Capability Tiers (backward-compatible config hint)
 
-Detectors declare a **minimum capability tier** — the weakest model class that can run them at all. But "can run" ≠ "runs well." The matrix above shows what actually works in practice.
+The `model_capability` config field is preserved for backward compatibility. It provides an explicit override for prompt strategy selection. **When benchmark data exists for your model, it takes precedence.** See [ADR-016](../architecture/decisions/016-benchmark-driven-model-quality.md).
 
-Tier-to-model mapping is **empirical, not assumed from parameter count**. Two models with similar parameter counts can land in different tiers based on measured quality.
+| Config value | Prompt mode | When to use |
+|-------------|-------------|-------------|
+| `"basic"` (default) | Binary prompts | Safe default. Works with any model. |
+| `"standard"` | Enhanced prompts | When you *know* your model handles structured reasoning well. |
+| `"advanced"` | Enhanced prompts | Same as standard (future detectors may differentiate). |
 
-| Tier | What It Enables | Models That Qualify | Detectors |
-|------|----------------|-------------------|-----------|
-| **none** | Deterministic analysis only | No model needed | All 12 deterministic + heuristic detectors |
-| **basic** | Binary LLM signals | 4B+ local (qwen3.5:4b) | semantic-drift (binary), test-coherence (binary — but noisy at 4B) |
-| **standard** | Reasoning + structured output | Cloud nano+ (gpt-5.4-nano) | Enhanced semantic-drift, test-coherence with acceptable quality |
-| **advanced** | Deep multi-artifact analysis | Cloud small/frontier (gpt-5.4-mini, Haiku 4.5, gpt-5.4) | Planned — not yet implemented |
+## Recommendations by Situation
 
-### Why 9B local maps to basic, not standard
+These are editorial recommendations, not computed from a taxonomy. Your mileage may vary — run `sentinel benchmark` for your specific setup.
 
-Independent aggregate rankings place qwen3.5:9b at ~32, only 5 points above qwen3.5:4b at ~27. Both are in the same capability class for Sentinel's tasks. Meanwhile gpt-5.4-nano scores ~38-44 — a different league — and our benchmarks confirm this: test-coherence goes from POOR/FAIR at 4B/9B to GOOD at cloud-nano.
+| Your Situation | Recommended Setup |
+|----------------|-------------------|
+| **8 GB VRAM, privacy-required** | qwen3.5:4b — works well for everything except test-coherence. Skip test-coherence or accept noise. |
+| **12–16 GB VRAM, privacy-required** | Larger local model (14B class). Run `sentinel benchmark` to verify quality — likely better than 4B/9B. |
+| **24+ GB VRAM** | 30B–70B local model. Should perform well — benchmark to confirm and unlock enhanced prompts. |
+| **Cloud OK, budget-sensitive** | gpt-5.4-nano for LLM detectors, local 4B for deterministic. Best cost/quality ratio tested. |
+| **Cloud OK, quality-first** | gpt-5.4-mini or Claude Haiku 4.5 for all LLM detectors. |
+| **CPU-only (no GPU)** | qwen3.5:4b on CPU — slow but functional. Consider cloud API for LLM detectors. |
 
-The tier boundary between basic and standard is the empirically observed quality jump for test-coherence, not a parameter count threshold.
+## Benchmarked Models
 
-### Why cloud-small ≠ cloud-nano
+Our reference benchmarks cover these models. For all other models, run `sentinel benchmark --model <name>` to generate your own quality data.
 
-GPT-5.4-mini (~38-49 depending on reasoning effort) and Claude Haiku 4.5 (~31-37) are both "fast production models" but they are not identical. Haiku 4.5 has near-frontier coding ability at one-third the cost of Sonnet 4, while GPT-5.4-mini is stronger on aggregate rankings at higher reasoning settings. They belong in the same broad tier (advanced) but are not interchangeable.
+| Model | Type | VRAM / Cost | Speed | Notes |
+|-------|------|-------------|-------|-------|
+| **qwen3.5:4b** | Local | ~3.4 GB | ~53 tok/s | Best value for 8 GB VRAM. Default recommendation. |
+| **qwen3.5:9b-q4_K_M** | Local | ~6.6 GB | ~19 tok/s | Marginal improvement over 4B at 2–3× slower. Not recommended on 8 GB. |
+| **gpt-5.4-nano** | Cloud | Low cost | ~100 tok/s | Substantially stronger. Best tested model for test-coherence. |
 
-## Model Classes Reference
-
-| Class | Tier | Example Models | VRAM | Speed | Best For |
-|-------|------|----------------|------|-------|----------|
-| **4B Local** | basic | qwen3.5:4b | ~3.4 GB | ~53 tok/s | Default — deterministic detectors + judge + semantic-drift |
-| **9B Local** | basic | qwen3.5:9b-q4_K_M | ~6.6 GB | ~19 tok/s | Not recommended on 8 GB VRAM — use 4B instead |
-| **Cloud Nano** | standard | gpt-5.4-nano | n/a | ~100 tok/s | test-coherence, highest precision, low cost |
-| **Cloud Small** | advanced | gpt-5.4-mini, Claude Haiku 4.5 | n/a | varies | Near-frontier analysis (not yet benchmarked) |
-| **Cloud Frontier** | advanced | gpt-5.4, Claude Sonnet 4 | n/a | varies | Frontier models (not yet benchmarked) |
+Models like gpt-5.4-mini, Claude Haiku 4.5, larger local models (14B, 30B, 70B), and other providers are not yet benchmarked. Quality is unknown until measured — the system defaults to conservative (binary) prompts for untested models.
 
 ## How These Numbers Were Measured
 

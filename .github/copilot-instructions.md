@@ -23,10 +23,11 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - ADR-008: Evaluation criteria defined before implementation
 - ADR-009: Embedding-based context gatherer
 - ADR-010: Pluggable model provider interface (Ollama default, OpenAI-compatible supported)
-- ADR-011: Capability tier system for detectors
+- ADR-011: Capability tier system for detectors (superseded by ADR-016)
 - ADR-012: Entry-points plugin system for third-party detectors
 - ADR-013: Per-detector model providers
 - ADR-014: Replay-based eval for judge and synthesis paths
+- ADR-016: Benchmark-driven model quality (supersedes ADR-011 tier system)
 
 ## Documentation
 
@@ -56,4 +57,4 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - All external actions (GitHub issue creation) require explicit human approval.
 - Test coverage for detectors should include both true positives and known false positive scenarios.
 - **Model-detector compatibility must be transparent.** Different detectors have different model quality requirements. The compatibility matrix (`docs/reference/compatibility-matrix.md`) and web UI must show empirical quality ratings. When a model-detector combination has a known poor rating (e.g., test-coherence + 4B at ~40% FP), the system must warn the user — not silently produce noisy results. Trust requires transparency.
-- **Capability tiers are empirical, not assumed.** Tier-to-model mapping is based on measured benchmark quality, not parameter count. 9B local maps to basic (not standard) because it's in the same empirical class as 4B for Sentinel's tasks. The standard tier boundary is the quality jump at cloud-nano. Never equate models based on size alone — always cite benchmark evidence.
+- **Model quality is benchmark-driven, not tier-based.** Quality ratings come from empirical per-model×detector benchmarks, not from classifying models into capability tiers. Reference benchmarks are shipped; user benchmarks accumulate via `sentinel benchmark`. The `model_capability` config is a backward-compatible hint, not the primary signal. When benchmark data exists, it takes precedence over the tier label for prompt strategy selection. See ADR-016.

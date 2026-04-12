@@ -92,9 +92,9 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Status**: Active
 **Severity**: Low
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: Finding cluster synthesis requires `model_capability >= standard`. Since the default model is Qwen3.5 4B (`basic` tier), synthesis is disabled for most users. The noise-reduction step that collapses N symptoms into 1 root cause simply doesn't run in the default configuration.
+**Description**: Finding cluster synthesis requires `model_capability >= standard`. Since the default model is Qwen3.5 4B (`basic` tier), synthesis is disabled for most users. The noise-reduction step that collapses N symptoms into 1 root cause simply doesn't run in the default configuration. With ADR-016 (benchmark-driven quality), the gating should also consider benchmark data — if a model benchmarks well, it should qualify for synthesis regardless of tier label.
 **Impact**: Default users get noisier reports than the system is capable of producing. Pattern-based clustering in report.py partially compensates but lacks root-cause annotation.
-**Proposed resolution**: Consider a simplified synthesis prompt ("are these the same issue?" → yes/no) that could work at `basic` tier. Reserve full root-cause analysis for `standard+`.
+**Proposed resolution**: Consider a simplified synthesis prompt ("are these the same issue?" → yes/no) that could work at `basic` tier. Also consider gating on benchmark quality rather than tier alone.
 
 ### TD-039: Doc data duplication (hardcoded counts)
 **Status**: Active

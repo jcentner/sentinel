@@ -40,10 +40,11 @@ What other options were evaluated and why were they rejected?
 | [008](008-evaluation-criteria.md) | Evaluation criteria defined before implementation | Accepted | 2026-04-04 |
 | [009](009-embedding-context-gatherer.md) | Embedding-based context gatherer | Accepted | 2026-04-05 |
 | [010](010-pluggable-model-provider.md) | Pluggable model provider interface | Accepted | 2026-04-07 |
-| [011](011-capability-tier-system.md) | Capability tier system for detectors | Accepted | 2026-04-08 |
+| [011](011-capability-tier-system.md) | Capability tier system for detectors | Superseded by ADR-016 | 2026-04-08 |
 | [012](012-entry-points-plugin-system.md) | Entry-points plugin system for third-party detectors | Accepted | 2026-04-08 |
 | [013](013-per-detector-model-providers.md) | Per-detector model providers | Accepted | 2026-04-09 |
 | [014](014-replay-based-eval.md) | Replay-based eval for judge and synthesis paths | Accepted | 2026-04-10 |
+| [016](016-benchmark-driven-model-quality.md) | Benchmark-driven model quality (supersedes ADR-011) | Accepted | 2026-04-12 |
 
 ## Creating a new ADR
 

@@ -15,6 +15,12 @@ Tracked questions that need resolution before or during implementation. Each que
 
 ## Open
 
+### OQ-019: Benchmark drill-down UI for power users
+**Status**: Open
+**Priority**: Medium
+**Context**: The `llm_log` table already records full prompt, response, model, timing, and verdict for every LLM call. Power users want to inspect exactly what prompt was sent, what context was included, and what the model output for specific benchmark runs — to make informed model selection decisions. This is especially valuable when comparing two models: "why did model A flag this as needs_review but model B said it's fine?"
+**Current thinking**: Surface this in the web UI as a drill-down from the compatibility matrix. Click a quality rating cell → see individual benchmark findings with expandable prompt/response detail. The data already exists in `llm_log`; the work is UI/routing. Consider also a CLI `sentinel benchmark --show-detail` for terminal users.
+
 ### OQ-008: How should semantic docs-drift pair doc sections with code?
 **Status**: Resolved
 **Priority**: High

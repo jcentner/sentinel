@@ -1,6 +1,6 @@
 # ADR-011: Capability tier system for detectors
 
-**Status**: Accepted (amended Session 33)
+**Status**: Superseded by ADR-016
 **Date**: 2026-04-08 (amended 2026-04-10)
 **Deciders**: Autonomous builder (Session 28–29), human + autonomous builder (Session 33)
 

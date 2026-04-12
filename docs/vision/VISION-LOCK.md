@@ -1,7 +1,7 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 5.1
-> **Updated**: 2026-04-11
+> **Version**: 5.2
+> **Updated**: 2026-04-12
 > **Supersedes**: v4.9 ([archived](archive/VISION-LOCK-v4.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
@@ -19,7 +19,7 @@ A developer on Windows 11 + WSL 2 Ubuntu with 8 GB VRAM GPUs, comfortable with l
 
 Local Repo Sentinel combines **deterministic detectors** (structural issues: broken links, lint, complexity, CVEs, dead code) with **LLM-powered cross-artifact analysis** (docs vs code, tests vs implementation, config vs usage). Both flow through a common pipeline: fingerprinting → dedup → context → judge → store → report. The LLM is both a **judge** (filters detector output) and an **analyst** (directly compares artifacts for semantic drift).
 
-The model provider is **pluggable** (Ollama default, OpenAI-compatible supported). More powerful models unlock deeper analysis through **capability-tiered detectors**. The pipeline is the product; model and provider are configuration.
+The model provider is **pluggable** (Ollama default, OpenAI-compatible supported). More powerful models unlock deeper analysis through **benchmark-driven prompt adaptation** — the system uses empirical quality data, not assumed tiers, to decide how to use each model (ADR-016). The pipeline is the product; model and provider are configuration.
 
 ## Explicit Non-Goals
 
@@ -38,7 +38,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 | Evidence-backed findings | Every finding cites concrete evidence |
 | Precision over breadth | 3 real issues beats 20 noisy ones |
 | Dual interface | CLI (automation, scripting, agents) + web UI (discovery, triage, configuration). Feature parity — web is first-class, not read-only (ADR-015). |
-| Model-detector transparency | Empirical quality ratings visible before scanning — docs, CLI, web UI |
+| Model-detector transparency | Empirical quality ratings visible before scanning — reference benchmarks shipped, user benchmarks accumulated via `sentinel benchmark` |
 | Modular by default | Optional deps; plugin ecosystem via entry-points |
 
 ## Technical Constraints
@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-14 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact). Two LLM-assisted detectors (semantic-drift, test-coherence) with capability-tiered enhanced modes. Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, eval dashboard). GitHub issue creation. Multi-repo scanning. 1052 tests. Published on PyPI as `repo-sentinel`.
+14 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact). Two LLM-assisted detectors (semantic-drift, test-coherence) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, eval dashboard). GitHub issue creation. Multi-repo scanning. 1052 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -90,7 +90,7 @@ Priority-ordered next investments. Each connects to a validated gap.
 Settings page is editable and saves to `sentinel.toml` (ADR-015). Nav renamed Compatibility → Detectors. Route split complete. Remaining: Detectors page with inline model/toggle config, `doctor` health check page, `index` command page.
 
 ### Phase 10: Advanced detectors
-New detectors for `standard+` and `advanced` model capabilities:
+New detectors requiring stronger models (benchmark data will guide minimum model recommendations):
 - CI/CD config drift (basic) — stale paths in GitHub Actions, Dockerfiles
 - Inline comment drift (advanced) — docstring accuracy vs adjacent code
 - Intent comparison (advanced) — multi-artifact triangulation
@@ -112,21 +112,21 @@ Let git-hotspots inform LLM detector targeting. High-churn, fix-heavy files are 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | LLM judge fabricates reasoning | High | Fix FPs at detector level, not judge level |
-| test-coherence noisy at 4B | High | Binary signal + compatibility warnings + per-detector model routing |
+| test-coherence noisy at 4B | High | Binary signal + benchmark-driven quality warnings + per-detector model routing (ADR-016) |
 | FP rate erodes trust | High | 88% confirmation rate via iterative FP reduction |
 | Most detectors duplicate dev tooling | Medium | Focus investment on cross-artifact analysis |
 
 ## Changelog
 
-### v5.1 (2026-04-11)
-Web UI first-class interaction surface (ADR-015).
-- Settings page is editable — saves to sentinel.toml, creates file if missing
-- Route split: app.py 796→101 lines, 7 route modules
-- Nav: Compatibility → Detectors (both routes work)
-- Display fixes: TD-048 (label), TD-049 (collapse), TD-050 (caveat), TD-051 (Sonnet 4.6)
-- Dual interface constraint refined: web is discovery + config + triage, not just triage
+### v5.2 (2026-04-12)
+Benchmark-driven model quality (ADR-016, supersedes ADR-011 tier system).
+- Model quality ratings are empirical per-model×detector, not tier-based taxonomy
+- Prompt strategy (binary vs enhanced) driven by benchmark data, not config label
+- Reference benchmarks shipped; user benchmarks accumulated via `sentinel benchmark`
+- `CapabilityTier` config preserved for backward compat as explicit override
+- Benchmark drill-down planned for power users (inspect prompts, context, outputs)
 
-### v5.0 (2026-04-11)
+### v5.1 (2026-04-11)
 Strategic document reset — pruned from 432 to <200 lines per document health rules.
 - Archived v4.9 to `archive/VISION-LOCK-v4.md`
 - Compressed "What Exists Today" to product-level summary (was per-detector/per-command inventory)
