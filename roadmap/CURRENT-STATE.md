@@ -1,58 +1,54 @@
 # Current State — Sentinel
 
-> Last updated: Session 40 — Phase 10 detectors: cicd-drift + inline-comment-drift
+> Last updated: Session 41 — Phase 10 complete: intent-comparison detector
 
 **Phase Status**: In Progress
 
 ## Latest Session Summary
 
 ### Current Objective
-Phase 10: Advanced detectors — ship new detectors for CI/CD config drift and inline comment drift.
+Phase 10: Complete advanced detectors — ship intent-comparison (multi-artifact triangulation).
 
 ### What Was Accomplished
 
-#### CI/CD config drift detector (Session 40)
-- New `cicd-drift` deterministic detector (config-drift category)
-- GitHub Actions: local action refs, working-directory, path/file/entrypoint keys
-- Dockerfiles: COPY/ADD source paths, recursive scan, multi-context check
-- Skips: remote actions, globs, variables, absolute/tilde paths, --from=stage
-- 32 tests, reviewer findings fixed (tilde/absolute FP, recursive Dockerfiles)
-
-#### Inline comment drift detector (Session 40)
-- New `inline-comment-drift` LLM-assisted detector (docs-drift category)
-- Python AST extraction of (docstring, code body) pairs
+#### Intent comparison detector (Session 41)
+- New `intent-comparison` LLM-assisted detector (cross-artifact category)
+- First ADVANCED-tier detector — requires frontier-class models
+- Multi-artifact triangulation: gathers code, docstring, tests, doc sections per function
+- Only triggers when 3+ artifacts available (pairwise detectors cover 2-artifact cases)
+- AST symbol extraction, test lookup (exact + prefix match), doc lookup (backtick refs)
 - Binary LLM prompt with basic/enhanced mode (ADR-016)
 - Risk-based file sorting via churn signals (TD-043)
-- Per-file (20) and per-scan (100) LLM call limits
-- 24 tests, reviewer findings fixed (risk signal keys, VISION-LOCK version)
+- Per-file (10) and per-scan (50) LLM call limits
+- 55 tests, reviewer findings fixed (_build_evidence elif→independent if, artifact name leniency)
 
-#### Architecture drift detector (Session 40)
-- New `architecture-drift` deterministic detector (config-drift category)
-- Rules in `[sentinel.architecture]` section of sentinel.toml
-- Layer ordering, shared module exemptions, forbidden imports
-- AST import graph with relative import resolution
-- 43 tests, reviewer findings fixed (relative imports, evidence type, doc labels)
+#### Phase 10 now complete
+All 4 Phase 10 detectors shipped:
+- cicd-drift (deterministic, Session 40)
+- inline-comment-drift (LLM-assisted, Session 40)
+- architecture-drift (deterministic, Session 40)
+- intent-comparison (LLM-assisted, Session 41)
 
 #### Docs updated
-- VISION-LOCK v5.5: 17 detectors, Phase 10 3/4 shipped, changelog pruned
-- detector-interface.md: 3 new rows, stale entries removed, date updated
-- overview.md: detector list updated, date updated
-- compatibility-matrix.md: 14 deterministic + inline-comment-drift section
-- README.md: 17 detectors, test count updated
+- VISION-LOCK v5.6: 18 detectors, Phase 10 marked complete
+- detector-interface.md: new row for intent-comparison, cross-artifact category added
+- overview.md: Tier 3 description updated, detector list updated
+- compatibility-matrix.md: intent-comparison row (untested, ADVANCED tier)
+- README.md: 18 detectors, test count 1290
 
 ### Repository State
-- **Tests**: 1235 passing, 3 skipped
-- **VISION-LOCK**: v5.5
+- **Tests**: 1290 passing, 3 skipped
+- **VISION-LOCK**: v5.6
 - **Tech debt items**: 10 active
 - **Open questions**: 2 partially resolved (OQ-009, OQ-019), 2 open (OQ-006, OQ-016)
 - **ADRs**: 16
-- **Detectors**: 17 (was 14)
-- **Commits this session**: 6
+- **Detectors**: 18 (was 17)
+- **Commits this session**: 2
 
 ### What Remains / Next Priority
-1. **Phase 10 remaining** — intent comparison (multi-artifact triangulation)
-2. **Benchmark DB integration** — make `sentinel benchmark` write to `llm_log` for full drill-down
-3. **OQ-016 (low)** — message list protocol evolution
+1. **Benchmark DB integration** — make `sentinel benchmark` write to `llm_log` for full drill-down
+2. **OQ-016 (low)** — message list protocol evolution
+3. **Vision expansion** — all Phase 10 goals complete, assess next directions
 
 ---
 
