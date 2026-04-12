@@ -40,7 +40,7 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Pipeline order:** Detectors → Fingerprint → Dedup → Embed Index (opt-in) → Context → Judge → Synthesis (standard+) → Persistence → Store → Report. Dedup runs *before* context gathering and judging to avoid wasting effort on suppressed or duplicate findings.
+**Pipeline order:** Detectors (phase 1: deterministic + heuristic) → Risk signals → Detectors (phase 2: LLM-assisted) → Fingerprint → Dedup → Embed Index (opt-in) → Context → Judge → Synthesis (standard+) → Persistence → Store → Report. Two-phase execution (TD-043) lets heuristic detectors inform LLM targeting — high-churn files get priority analysis. Dedup runs *before* context gathering and judging to avoid wasting effort on suppressed or duplicate findings.
 
 ## Component responsibilities
 

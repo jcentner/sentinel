@@ -6,7 +6,7 @@ import logging
 import sqlite3
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sentinel.core.context import gather_context
 from sentinel.core.dedup import assign_fingerprints, deduplicate
@@ -14,7 +14,14 @@ from sentinel.core.judge import judge_findings
 from sentinel.core.provider import ModelProvider
 from sentinel.core.report import generate_report
 from sentinel.detectors.base import Detector, get_all_detectors
-from sentinel.models import CapabilityTier, DetectorContext, Finding, RunSummary, ScopeType
+from sentinel.models import (
+    CapabilityTier,
+    DetectorContext,
+    DetectorTier,
+    Finding,
+    RunSummary,
+    ScopeType,
+)
 from sentinel.store.findings import insert_finding
 from sentinel.store.persistence import update_persistence
 from sentinel.store.runs import complete_run, create_run, get_last_completed_run
@@ -30,6 +37,26 @@ _TIER_ORDER = {
     CapabilityTier.STANDARD: 2,
     CapabilityTier.ADVANCED: 3,
 }
+
+
+def _build_risk_signals(findings: list[Finding]) -> dict[str, dict[str, Any]]:
+    """Extract per-file risk signals from heuristic detector findings (TD-043).
+
+    Returns a dict mapping file paths to signal dicts with keys like
+    ``is_hotspot``, ``churn_commits``, ``churn_fix_ratio``, ``author_count``.
+    """
+    signals: dict[str, dict[str, Any]] = {}
+    for f in findings:
+        if f.file_path is None:
+            continue
+        if f.detector == "git-hotspots" and isinstance(f.context, dict):
+            signals[f.file_path] = {
+                "is_hotspot": True,
+                "churn_commits": f.context.get("churn_commits", 0),
+                "churn_fix_ratio": f.context.get("churn_fix_ratio", 0.0),
+                "author_count": f.context.get("author_count", 0),
+            }
+    return signals
 
 
 def git_head_sha(repo_root: str) -> str | None:
@@ -176,43 +203,72 @@ def run_scan(
             "Unknown model_capability %r — falling back to 'basic'", raw_cap,
         )
         model_cap = CapabilityTier.BASIC
-    for detector in detectors:
-        try:
-            det_cap = detector.capability_tier
-            # Use per-detector capability if configured
-            effective_cap_str = detector_capabilities.get(detector.name, "")
-            if effective_cap_str:
-                try:
-                    effective_cap = CapabilityTier(effective_cap_str)
-                except ValueError:
-                    effective_cap = model_cap
-            else:
+
+    # TD-043: Two-phase execution — heuristic/deterministic detectors first,
+    # then LLM-assisted detectors with risk signals from phase 1.
+    phase1 = [d for d in detectors if d.tier != DetectorTier.LLM_ASSISTED]
+    phase2 = [d for d in detectors if d.tier == DetectorTier.LLM_ASSISTED]
+
+    def _run_detector(detector: Detector, det_ctx: DetectorContext) -> list[Finding]:
+        det_cap = detector.capability_tier
+        effective_cap_str = detector_capabilities.get(detector.name, "")
+        if effective_cap_str:
+            try:
+                effective_cap = CapabilityTier(effective_cap_str)
+            except ValueError:
                 effective_cap = model_cap
+        else:
+            effective_cap = model_cap
 
-            if _TIER_ORDER.get(det_cap, 0) > _TIER_ORDER.get(effective_cap, 0):
-                logger.warning(
-                    "Detector %s requires %s capability but model is %s — "
-                    "results may be degraded",
-                    detector.name, det_cap.value, effective_cap.value,
-                )
+        if _TIER_ORDER.get(det_cap, 0) > _TIER_ORDER.get(effective_cap, 0):
+            logger.warning(
+                "Detector %s requires %s capability but model is %s — "
+                "results may be degraded",
+                detector.name, det_cap.value, effective_cap.value,
+            )
 
-            # Build per-detector context with provider overrides (TD-018 fix:
-            # create a copy instead of mutating shared ctx.config in-place)
-            det_provider = detector_providers.get(detector.name)
-            if det_provider is not None:
-                det_ctx = ctx.with_config(
-                    provider=det_provider,
-                    skip_llm=False,
-                    **({"model_capability": effective_cap_str} if effective_cap_str else {}),
-                )
-            else:
-                det_ctx = ctx
+        det_provider = detector_providers.get(detector.name)
+        if det_provider is not None:
+            inner_ctx = det_ctx.with_config(
+                provider=det_provider,
+                skip_llm=False,
+                **({"model_capability": effective_cap_str} if effective_cap_str else {}),
+            )
+        else:
+            inner_ctx = det_ctx
 
-            logger.info("Running detector: %s", detector.name)
-            findings = detector.detect(det_ctx)
-            n = len(findings)
-            logger.info("  %s produced %d %s", detector.name, n, "finding" if n == 1 else "findings")
-            all_findings.extend(findings)
+        logger.info("Running detector: %s", detector.name)
+        findings = detector.detect(inner_ctx)
+        n = len(findings)
+        logger.info("  %s produced %d %s", detector.name, n, "finding" if n == 1 else "findings")
+        return findings
+
+    # Phase 1: Heuristic + deterministic detectors
+    for detector in phase1:
+        try:
+            all_findings.extend(_run_detector(detector, ctx))
+        except Exception:
+            logger.exception("Detector %s failed — skipping", detector.name)
+
+    # Build risk signals from phase 1 findings for LLM detectors (TD-043)
+    risk_signals = _build_risk_signals(all_findings)
+    if risk_signals:
+        ctx = DetectorContext(
+            repo_root=ctx.repo_root,
+            scope=ctx.scope,
+            changed_files=ctx.changed_files,
+            target_paths=ctx.target_paths,
+            config=ctx.config,
+            conn=ctx.conn,
+            run_id=ctx.run_id,
+            risk_signals=risk_signals,
+        )
+        logger.info("Risk signals built for %d files from phase 1", len(risk_signals))
+
+    # Phase 2: LLM-assisted detectors (with risk signals available)
+    for detector in phase2:
+        try:
+            all_findings.extend(_run_detector(detector, ctx))
         except Exception:
             logger.exception("Detector %s failed — skipping", detector.name)
 

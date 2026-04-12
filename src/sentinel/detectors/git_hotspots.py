@@ -371,4 +371,11 @@ def _build_finding(
             )
         ],
         file_path=file_path,
+        context={
+            "churn_commits": commit_count,
+            "churn_fix_ratio": round(categories["fix"] / max(commit_count, 1), 2),
+            "churn_categories": categories,
+            "author_count": len(authors),
+            "is_doc_file": is_doc_file,
+        },
     )

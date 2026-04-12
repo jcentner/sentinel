@@ -1,7 +1,7 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 5.2
-> **Updated**: 2026-04-12
+> **Version**: 5.3
+> **Updated**: 2026-04-13
 > **Supersedes**: v4.9 ([archived](archive/VISION-LOCK-v4.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-14 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact). Two LLM-assisted detectors (semantic-drift, test-coherence) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, eval dashboard). GitHub issue creation. Multi-repo scanning. 1052 tests. Published on PyPI as `repo-sentinel`.
+14 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact). Two LLM-assisted detectors (semantic-drift, test-coherence) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1134 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -87,7 +87,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 Priority-ordered next investments. Each connects to a validated gap.
 
 ### Web UI as first-class interaction surface
-Settings page is editable and saves to `sentinel.toml` (ADR-015). Nav renamed Compatibility → Detectors. Route split complete. Remaining: Detectors page with inline model/toggle config, `doctor` health check page, `index` command page.
+Settings page editable (ADR-015). Detectors page with inline model/toggle config, doctor health check page, LLM call log viewer. Remaining: `index` command page.
 
 ### Phase 10: Advanced detectors
 New detectors requiring stronger models (benchmark data will guide minimum model recommendations):
@@ -96,8 +96,8 @@ New detectors requiring stronger models (benchmark data will guide minimum model
 - Intent comparison (advanced) — multi-artifact triangulation
 - Architecture drift (advanced) — import graph vs documented architecture
 
-### Cross-detector intelligence
-Let git-hotspots inform LLM detector targeting. High-churn, fix-heavy files are the best candidates for deep analysis.
+### Cross-detector intelligence — shipped
+Two-phase execution (TD-043): heuristic detectors run first, `risk_signals` extracted from git-hotspots, LLM detectors sort files by risk. test-coherence prioritizes tests for high-churn implementation files.
 
 ## Out of Scope (permanent)
 
@@ -117,6 +117,14 @@ Let git-hotspots inform LLM detector targeting. High-churn, fix-heavy files are 
 | Most detectors duplicate dev tooling | Medium | Focus investment on cross-artifact analysis |
 
 ## Changelog
+
+### v5.3 (2026-04-13)
+Cross-detector intelligence shipped (TD-043). LLM call log viewer.
+- Two-phase execution: heuristic detectors → risk signals → LLM detectors
+- git-hotspots findings feed `risk_signals` to LLM detectors via `DetectorContext`
+- test-coherence prioritizes high-churn implementation files
+- `/llm-log` web page with filters, pagination, expandable prompt/response drill-down
+- Cross-detector intelligence moved from "Where We're Going" to shipped
 
 ### v5.2 (2026-04-12)
 Benchmark-driven model quality (ADR-016, supersedes ADR-011 tier system).

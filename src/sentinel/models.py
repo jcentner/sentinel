@@ -158,6 +158,9 @@ class DetectorContext:
     # to persist prompt/response/verdict data for analysis.
     conn: Any = None
     run_id: int | None = None
+    # Risk signals from heuristic detectors (populated by runner between
+    # phases). Maps file path → signal dict. See TD-043.
+    risk_signals: dict[str, dict[str, Any]] | None = None
 
     def with_config(self, **overrides: Any) -> DetectorContext:
         """Return a shallow copy with config dict entries overridden.
@@ -174,6 +177,7 @@ class DetectorContext:
             config=new_config,
             conn=self.conn,
             run_id=self.run_id,
+            risk_signals=self.risk_signals,
         )
 
 

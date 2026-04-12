@@ -50,6 +50,10 @@ _MIN_FUNC_LINES = 3
 # Max function pairs to analyze per test file (limit LLM calls)
 _MAX_PAIRS_PER_FILE = 5
 
+# TD-043: Risk-based sorting thresholds for LLM targeting
+_FIX_HEAVY_BONUS = 10.0  # Add to risk score when fix ratio exceeds threshold
+_FIX_RATIO_THRESHOLD = 0.3  # Files with >30% fix commits get priority
+
 # Test file patterns
 _TEST_FILE_RE = re.compile(r"^test_\w+\.py$|^\w+_test\.py$")
 
@@ -103,6 +107,21 @@ class TestCoherenceDetector(Detector):
         if not test_files:
             logger.debug("No test files found")
             return []
+
+        # TD-043: Sort test files by risk — prioritize tests for high-churn
+        # implementation files so LLM budget focuses on the riskiest code.
+        if context.risk_signals:
+            def _impl_risk(tf: Path) -> float:
+                impl = find_implementation_file(tf, repo_root)
+                if impl is None:
+                    return 0.0
+                rel = str(impl.relative_to(repo_root))
+                sig = context.risk_signals.get(rel)  # type: ignore[union-attr]
+                if sig is None:
+                    return 0.0
+                return sig.get("churn_commits", 0) + (_FIX_HEAVY_BONUS if sig.get("churn_fix_ratio", 0) > _FIX_RATIO_THRESHOLD else 0.0)
+            test_files.sort(key=_impl_risk, reverse=True)
+            logger.debug("test-coherence: sorted %d test files by risk signals", len(test_files))
 
         findings: list[Finding] = []
         raw_cap = context.config.get("model_capability", "basic")

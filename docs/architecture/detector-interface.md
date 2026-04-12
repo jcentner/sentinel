@@ -73,16 +73,17 @@ Where `DetectorContext` provides:
 
 ```
 DetectorContext:
-  repo_root:    string            # Absolute path to repo root
-  scope:        "full" | "incremental" | "targeted"
-  changed_files: string[] | null  # For incremental runs
-  target_paths:  string[] | null  # For targeted runs
-  config:       object            # Detector-specific configuration
-  conn:         Connection | null # Optional SQLite connection for LLM interaction logging
-  run_id:       int | null        # Current run ID for LLM log entries
+  repo_root:      string            # Absolute path to repo root
+  scope:          "full" | "incremental" | "targeted"
+  changed_files:  string[] | null   # For incremental runs
+  target_paths:   string[] | null   # For targeted runs
+  config:         object            # Detector-specific configuration
+  conn:           Connection | null  # Optional SQLite connection for LLM interaction logging
+  run_id:         int | null         # Current run ID for LLM log entries
+  risk_signals:   dict | null        # Per-file risk signals from heuristic detectors (TD-043)
 ```
 
-> **Note**: The original spec included `previous_run: RunSummary | null` in DetectorContext for delta/trend detection. This is not yet implemented. Git-hotspots works without it by querying git log directly.
+> **Note**: `risk_signals` is populated by the runner between execution phases. Heuristic/deterministic detectors run first (phase 1); their findings are used to build a `file_path → {is_hotspot, churn_commits, churn_fix_ratio, author_count}` mapping. LLM-assisted detectors (phase 2) can use this to prioritize high-risk files.
 
 ## Planned detectors (MVP)
 

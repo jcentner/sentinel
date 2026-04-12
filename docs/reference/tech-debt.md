@@ -16,14 +16,6 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Detectors run sequentially. No parallelism.
 **Proposed resolution**: Migrate to async in Phase 2 when concurrent detector execution matters. Spec updated to reflect sync for now.
 
-### TD-043: Cross-detector data flow for LLM targeting
-**Status**: Active
-**Severity**: Medium
-**Introduced**: Session 29 (multi-repo validation analysis)
-**Description**: git-hotspots identifies high-churn, fix-heavy files but this information isn't available to LLM-assisted detectors (semantic-drift, test-coherence). Each detector runs independently with no shared context. High-churn files are the best candidates for deep LLM analysis, but there's no mechanism to prioritize them.
-**Impact**: LLM detectors treat all files equally instead of focusing on the highest-risk files first. Wastes LLM budget on stable files while potentially missing issues in frequently-broken ones.
-**Proposed resolution**: Add a pre-scan phase that runs cheap heuristic detectors first and builds a "risk profile" per file. LLM detectors can then consume this profile to prioritize which files to analyze deeply. Could be as simple as a `context.risk_signals` dict populated by git-hotspots and complexity before LLM detectors run.
-
 ### TD-047: GitHub config not editable from web UI
 **Status**: Active (deliberate — see ADR-015)
 **Severity**: Low

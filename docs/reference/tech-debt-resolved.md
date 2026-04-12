@@ -4,6 +4,12 @@ Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.
 
 ## Resolved
 
+### TD-043: Cross-detector data flow for LLM targeting
+**Status**: Resolved (Session 39)
+**Severity**: Medium
+**Introduced**: Session 29 (multi-repo validation analysis)
+**Resolution**: Two-phase execution: heuristic detectors run first, `_build_risk_signals()` extracts structured signals from git-hotspots into `DetectorContext.risk_signals`, then LLM detectors run with risk data. test-coherence sorts test files by implementation risk. 7 new tests.
+
 ### TD-055: README length (~400 lines) — delegate detail to wiki/docs
 **Status**: Resolved (Session 38)
 **Severity**: Low

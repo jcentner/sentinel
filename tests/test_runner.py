@@ -480,3 +480,192 @@ class TestPerDetectorProvider:
 
         assert det_a.captured_provider is global_provider
         assert det_b.captured_provider is global_provider
+
+
+# ── TD-043: Two-phase execution and risk signals ────────────────────
+
+
+class _LLMDetector(_MockDetector):
+    """Mock LLM-assisted detector that records the context it receives."""
+
+    captured_risk_signals: dict | None = None
+
+    @property
+    def name(self) -> str:
+        return "mock-llm"
+
+    @property
+    def tier(self) -> DetectorTier:
+        return DetectorTier.LLM_ASSISTED
+
+    def detect(self, context: DetectorContext) -> list[Finding]:
+        self.captured_risk_signals = context.risk_signals
+        return self._findings
+
+
+class _HeuristicDetector(_MockDetector):
+    """Mock heuristic detector that produces hotspot-like findings."""
+
+    @property
+    def name(self) -> str:
+        return "mock-heuristic"
+
+    @property
+    def tier(self) -> DetectorTier:
+        return DetectorTier.HEURISTIC
+
+
+class TestTwoPhaseExecution:
+    """Tests for TD-043: two-phase detector execution with risk signals."""
+
+    def test_heuristic_runs_before_llm(self, db_conn, repo):
+        """Heuristic detectors run in phase 1, LLM detectors in phase 2."""
+        execution_order: list[str] = []
+
+        class _OrderTracker(_MockDetector):
+            def detect(self, ctx):
+                execution_order.append(self.name)
+                return []
+
+        class _HeuristicTracker(_OrderTracker):
+            @property
+            def name(self):
+                return "heuristic-first"
+            @property
+            def tier(self):
+                return DetectorTier.HEURISTIC
+
+        class _LLMTracker(_OrderTracker):
+            @property
+            def name(self):
+                return "llm-second"
+            @property
+            def tier(self):
+                return DetectorTier.LLM_ASSISTED
+
+        # Put LLM detector first in the list — should still run second
+        _run, _findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[_LLMTracker(), _HeuristicTracker()],
+            skip_judge=True,
+        )
+        assert execution_order == ["heuristic-first", "llm-second"]
+
+    def test_risk_signals_from_hotspot_findings(self, db_conn, repo):
+        """Risk signals are built from git-hotspots findings with context."""
+        hotspot_finding = Finding(
+            detector="git-hotspots",
+            category="git-health",
+            severity=Severity.MEDIUM,
+            confidence=0.8,
+            title="High-churn: src/main.py",
+            description="High churn",
+            evidence=[],
+            file_path="src/main.py",
+            context={
+                "churn_commits": 25,
+                "churn_fix_ratio": 0.6,
+                "author_count": 3,
+            },
+        )
+
+        heuristic = _HeuristicDetector([hotspot_finding])
+        llm = _LLMDetector([])
+
+        _run, _findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[heuristic, llm],
+            skip_judge=True,
+        )
+
+        assert llm.captured_risk_signals is not None
+        assert "src/main.py" in llm.captured_risk_signals
+        sig = llm.captured_risk_signals["src/main.py"]
+        assert sig["is_hotspot"] is True
+        assert sig["churn_commits"] == 25
+        assert sig["churn_fix_ratio"] == 0.6
+
+    def test_no_risk_signals_when_no_hotspots(self, db_conn, repo):
+        """LLM detectors get None risk_signals when no hotspots found."""
+        heuristic = _MockDetector([])  # No findings
+        llm = _LLMDetector([])
+
+        _run, _findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[heuristic, llm],
+            skip_judge=True,
+        )
+
+        # No hotspot findings → empty signals → risk_signals stays None
+        assert llm.captured_risk_signals is None
+
+
+class TestBuildRiskSignals:
+    """Tests for _build_risk_signals helper."""
+
+    def test_extracts_hotspot_signals(self):
+        from sentinel.core.runner import _build_risk_signals
+
+        findings = [
+            Finding(
+                detector="git-hotspots",
+                category="git-health",
+                severity=Severity.LOW,
+                confidence=0.5,
+                title="hotspot",
+                description="",
+                evidence=[],
+                file_path="lib/core.py",
+                context={
+                    "churn_commits": 40,
+                    "churn_fix_ratio": 0.3,
+                    "author_count": 2,
+                },
+            ),
+        ]
+        signals = _build_risk_signals(findings)
+        assert "lib/core.py" in signals
+        assert signals["lib/core.py"]["is_hotspot"] is True
+        assert signals["lib/core.py"]["churn_commits"] == 40
+
+    def test_ignores_non_hotspot_findings(self):
+        from sentinel.core.runner import _build_risk_signals
+
+        findings = [
+            Finding(
+                detector="lint-runner",
+                category="code-quality",
+                severity=Severity.LOW,
+                confidence=0.9,
+                title="lint issue",
+                description="",
+                evidence=[],
+                file_path="lib/core.py",
+            ),
+        ]
+        signals = _build_risk_signals(findings)
+        assert signals == {}
+
+    def test_ignores_findings_without_context(self):
+        from sentinel.core.runner import _build_risk_signals
+
+        findings = [
+            Finding(
+                detector="git-hotspots",
+                category="git-health",
+                severity=Severity.LOW,
+                confidence=0.5,
+                title="hotspot",
+                description="",
+                evidence=[],
+                file_path="lib/core.py",
+                context=None,
+            ),
+        ]
+        signals = _build_risk_signals(findings)
+        assert signals == {}
+
+    def test_empty_findings(self):
+        from sentinel.core.runner import _build_risk_signals
+
+        assert _build_risk_signals([]) == {}
