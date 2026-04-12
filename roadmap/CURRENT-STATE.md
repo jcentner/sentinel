@@ -26,25 +26,32 @@ Phase 10: Advanced detectors — ship new detectors for CI/CD config drift and i
 - Per-file (20) and per-scan (100) LLM call limits
 - 24 tests, reviewer findings fixed (risk signal keys, VISION-LOCK version)
 
+#### Architecture drift detector (Session 40)
+- New `architecture-drift` deterministic detector (config-drift category)
+- Rules in `[sentinel.architecture]` section of sentinel.toml
+- Layer ordering, shared module exemptions, forbidden imports
+- AST import graph with relative import resolution
+- 43 tests, reviewer findings fixed (relative imports, evidence type, doc labels)
+
 #### Docs updated
-- VISION-LOCK v5.4: 16 detectors, Phase 10 cicd-drift + inline-comment-drift shipped
-- detector-interface.md: new rows, stale Phase 2+ entry removed, date updated
+- VISION-LOCK v5.5: 17 detectors, Phase 10 3/4 shipped, changelog pruned
+- detector-interface.md: 3 new rows, stale entries removed, date updated
 - overview.md: detector list updated, date updated
-- compatibility-matrix.md: 13 deterministic + inline-comment-drift section
-- README.md: 16 detectors
+- compatibility-matrix.md: 14 deterministic + inline-comment-drift section
+- README.md: 17 detectors, test count updated
 
 ### Repository State
-- **Tests**: 1192 passing, 3 skipped
-- **VISION-LOCK**: v5.4
+- **Tests**: 1235 passing, 3 skipped
+- **VISION-LOCK**: v5.5
 - **Tech debt items**: 10 active
 - **Open questions**: 2 partially resolved (OQ-009, OQ-019), 2 open (OQ-006, OQ-016)
 - **ADRs**: 16
-- **Detectors**: 16 (was 14)
-- **Commits this session**: 4
+- **Detectors**: 17 (was 14)
+- **Commits this session**: 6
 
 ### What Remains / Next Priority
-1. **Benchmark DB integration** — make `sentinel benchmark` write to `llm_log` for full drill-down
-2. **Phase 10 remaining** — intent comparison, architecture drift
+1. **Phase 10 remaining** — intent comparison (multi-artifact triangulation)
+2. **Benchmark DB integration** — make `sentinel benchmark` write to `llm_log` for full drill-down
 3. **OQ-016 (low)** — message list protocol evolution
 
 ---
