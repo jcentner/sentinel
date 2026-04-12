@@ -113,6 +113,72 @@ def seeded_app(seeded_db: tuple[sqlite3.Connection, int, int]) -> tuple[CSRFTest
 # ── Route tests ──────────────────────────────────────────────────────
 
 
+class TestCSRFMiddleware:
+    """CSRF middleware edge cases — security paths."""
+
+    def test_post_without_csrf_cookie_rejects(self, db_conn: sqlite3.Connection) -> None:
+        """POST without CSRF cookie returns 403."""
+        application = create_app(db_conn)
+        client = TestClient(application, cookies={})
+        resp = client.post("/settings", data={"provider": "ollama"})
+        assert resp.status_code == 403
+
+    def test_post_with_wrong_token_rejects(self, db_conn: sqlite3.Connection) -> None:
+        """POST with mismatched token returns 403."""
+        application = create_app(db_conn)
+        client = TestClient(application)
+        # Get a valid cookie from a GET
+        client.get("/settings")
+        # POST with wrong header token
+        resp = client.post(
+            "/settings",
+            data={"provider": "ollama"},
+            headers={"X-CSRF-Token": "wrong.token"},
+        )
+        assert resp.status_code == 403
+
+    def test_post_with_form_csrf_token(self, db_conn: sqlite3.Connection, tmp_path: Path) -> None:
+        """POST with CSRF token in form data (not header) is accepted."""
+        application = create_app(db_conn, repo_path=str(tmp_path))
+        client = TestClient(application)
+        # Get a CSRF cookie
+        client.get("/settings")
+        csrf_token = client.cookies.get("sentinel_csrf", "")
+        assert csrf_token
+        # Submit via form field, no X-CSRF-Token header
+        resp = client.post(
+            "/settings",
+            data={"provider": "ollama", "model": "qwen3.5:4b", "csrf_token": csrf_token},
+        )
+        # Should succeed (redirect)
+        assert resp.status_code == 200  # starlette test client follows redirects
+
+
+class TestSharedHelpers:
+    def test_open_db_with_db_path(self, tmp_path: Path) -> None:
+        """_open_db opens and closes a connection when db_path is set."""
+        from sentinel.web.shared import _get_conn, _open_db
+
+        db_path = str(tmp_path / "test.db")
+        # Initialize the DB first
+        init_conn = get_connection(db_path)
+        init_conn.close()
+
+        app = create_app(None, repo_path=str(tmp_path))
+        app.state.db_path = db_path
+
+        # _get_conn with db_path returns a fresh connection
+        conn = _get_conn(app)
+        assert isinstance(conn, sqlite3.Connection)
+        conn.close()
+
+        # _open_db as context manager
+        with _open_db(app) as conn2:
+            assert isinstance(conn2, sqlite3.Connection)
+            conn2.execute("SELECT 1").fetchone()
+        # Connection closed after context exit
+
+
 class TestIndexRoute:
     def test_empty_state(self, app: TestClient) -> None:
         resp = app.get("/", follow_redirects=False)
@@ -934,6 +1000,63 @@ class TestCompatibilityPage:
         assert resp.status_code == 400
         assert "No repo configured" in resp.text
 
+    def test_detectors_shows_measured_speed(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        """Detectors page shows measured tok/s from LLM log data."""
+        conn, run_id, _ = seeded_db
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+        # Insert LLM log entries with timing for qwen3.5:4b
+        insert_llm_log(conn, run_id, LLMLogEntry(
+            purpose="judge", model="qwen3.5:4b", prompt="p1",
+            tokens_generated=100, generation_ms=2000,
+        ))
+        insert_llm_log(conn, run_id, LLMLogEntry(
+            purpose="judge", model="qwen3.5:4b", prompt="p2",
+            tokens_generated=100, generation_ms=2000,
+        ))
+
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/detectors")
+        assert resp.status_code == 200
+        assert "Your Measured Speed" in resp.text
+        assert "50.0 tok/s" in resp.text
+        assert "2 calls" in resp.text
+
+    def test_detectors_no_speed_shows_placeholder(self, app: TestClient) -> None:
+        """Without LLM log data, shows 'After first scan' placeholder."""
+        resp = app.get("/detectors")
+        assert resp.status_code == 200
+        assert "After first scan" in resp.text
+
+    def test_detectors_save_invalid_override_provider(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        from sentinel.core.compatibility import DETECTOR_INFO
+        form_data = {f"det_enabled_{n}": "on" for n in DETECTOR_INFO}
+        form_data["override_provider_lint-runner"] = "invalid_provider"
+        resp = client.post("/detectors", data=form_data)
+        assert resp.status_code == 400
+        assert "Invalid provider" in resp.text
+
+    def test_detectors_save_invalid_override_capability(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        from sentinel.core.compatibility import DETECTOR_INFO
+        form_data = {f"det_enabled_{n}": "on" for n in DETECTOR_INFO}
+        form_data["override_capability_lint-runner"] = "super"
+        resp = client.post("/detectors", data=form_data)
+        assert resp.status_code == 400
+        assert "Invalid capability" in resp.text
+
 
 class TestSettingsPage:
     def test_settings_no_repo(self, app: TestClient) -> None:
@@ -1107,6 +1230,84 @@ class TestSettingsPage:
         # Check the final page has the success message
         resp = client.get("/settings?saved=1")
         assert "Settings saved" in resp.text
+
+    def test_settings_save_invalid_integer(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.post("/settings", data={
+            "provider": "ollama", "model": "qwen3.5:4b",
+            "num_ctx": "not-a-number",
+            "embed_chunk_size": "50", "embed_chunk_overlap": "10",
+            "min_confidence": "0.0", "model_capability": "basic",
+            "ollama_url": "", "api_base": "", "api_key_env": "",
+            "enabled_detectors": "", "disabled_detectors": "",
+            "detectors_dir": "", "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        assert resp.status_code == 400
+        assert "Invalid integer" in resp.text
+
+    def test_settings_save_invalid_float(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.post("/settings", data={
+            "provider": "ollama", "model": "qwen3.5:4b",
+            "num_ctx": "2048", "embed_chunk_size": "50",
+            "embed_chunk_overlap": "10",
+            "min_confidence": "abc",
+            "model_capability": "basic",
+            "ollama_url": "", "api_base": "", "api_key_env": "",
+            "enabled_detectors": "", "disabled_detectors": "",
+            "detectors_dir": "", "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        assert resp.status_code == 400
+        assert "Invalid number" in resp.text
+
+    def test_settings_save_both_detectors_error(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.post("/settings", data={
+            "provider": "ollama", "model": "qwen3.5:4b",
+            "num_ctx": "2048", "embed_chunk_size": "50",
+            "embed_chunk_overlap": "10", "min_confidence": "0.0",
+            "model_capability": "basic",
+            "ollama_url": "", "api_base": "", "api_key_env": "",
+            "enabled_detectors": "lint-runner",
+            "disabled_detectors": "todo-scanner",
+            "detectors_dir": "", "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        assert resp.status_code == 400
+        assert "Cannot set both" in resp.text
+
+    def test_settings_save_invalid_provider(
+        self, seeded_db: tuple[sqlite3.Connection, int, int], tmp_path: Path
+    ) -> None:
+        conn, _, _ = seeded_db
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.post("/settings", data={
+            "provider": "badprovider", "model": "qwen3.5:4b",
+            "num_ctx": "2048", "embed_chunk_size": "50",
+            "embed_chunk_overlap": "10", "min_confidence": "0.0",
+            "model_capability": "basic",
+            "ollama_url": "", "api_base": "", "api_key_env": "",
+            "enabled_detectors": "", "disabled_detectors": "",
+            "detectors_dir": "", "db_path": ".sentinel/sentinel.db",
+            "output_dir": ".sentinel",
+        })
+        assert resp.status_code == 400
+        assert "Invalid provider" in resp.text
 
 
 class TestEvalPage:
