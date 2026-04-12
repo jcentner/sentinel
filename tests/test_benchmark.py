@@ -425,3 +425,154 @@ class TestCompareBenchmarks:
         report = compare_benchmarks([a])
         assert "solo-model" in report
         assert "todo-scanner" in report
+
+
+# ── ADR-016: Benchmark-driven prompt strategy tests ───────────────
+
+
+class TestModelNameToClass:
+    """Tests for model_name_to_class()."""
+
+    def test_known_4b_model(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("qwen3.5:4b") == "4b-local"
+
+    def test_known_9b_model(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("qwen3.5:9b-q4_K_M") == "9b-local"
+
+    def test_known_cloud_nano(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("gpt-5.4-nano") == "cloud-nano"
+
+    def test_known_cloud_small(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("gpt-5.4-mini") == "cloud-small"
+
+    def test_known_cloud_frontier(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("claude-sonnet-4.6") == "cloud-frontier"
+
+    def test_bare_gpt54_maps_to_frontier(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("gpt-5.4") == "cloud-frontier"
+
+    def test_sonnet4_non_versioned(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("claude-sonnet-4") == "cloud-frontier"
+
+    def test_case_insensitive(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("GPT-5.4-NANO") == "cloud-nano"
+
+    def test_unknown_model_returns_none(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("llama3.3:70b") is None
+
+    def test_empty_string(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("") is None
+
+    def test_nano_not_matched_by_gpt54(self) -> None:
+        """gpt-5.4-nano should match cloud-nano, not cloud-frontier (gpt-5.4)."""
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("gpt-5.4-nano") == "cloud-nano"
+
+    def test_haiku_variant(self) -> None:
+        from sentinel.core.compatibility import model_name_to_class
+        assert model_name_to_class("claude-haiku-4.5") == "cloud-small"
+
+
+class TestGetReferenceQuality:
+    """Tests for get_reference_quality()."""
+
+    def test_known_good_combo(self) -> None:
+        from sentinel.core.compatibility import QualityRating, get_reference_quality
+        q = get_reference_quality("qwen3.5:4b", "semantic-drift")
+        assert q == QualityRating.GOOD
+
+    def test_known_poor_combo(self) -> None:
+        from sentinel.core.compatibility import QualityRating, get_reference_quality
+        q = get_reference_quality("qwen3.5:4b", "test-coherence")
+        assert q == QualityRating.POOR
+
+    def test_unknown_model(self) -> None:
+        from sentinel.core.compatibility import get_reference_quality
+        assert get_reference_quality("llama3.3:70b", "semantic-drift") is None
+
+    def test_deterministic_detector_returns_none(self) -> None:
+        """Deterministic detectors have NA rating which should return None."""
+        from sentinel.core.compatibility import get_reference_quality
+        assert get_reference_quality("qwen3.5:4b", "lint-runner") is None
+
+
+class TestGetEnhancedQuality:
+    """Tests for get_enhanced_quality() — checks standard-tier (enhanced mode) ratings."""
+
+    def test_untested_enhanced_returns_none(self) -> None:
+        """All current enhanced-mode entries are UNTESTED → None."""
+        from sentinel.core.compatibility import get_enhanced_quality
+        assert get_enhanced_quality("gpt-5.4-nano", "semantic-drift") is None
+
+    def test_unknown_model_returns_none(self) -> None:
+        from sentinel.core.compatibility import get_enhanced_quality
+        assert get_enhanced_quality("llama3.3:70b", "semantic-drift") is None
+
+    def test_4b_enhanced_untested(self) -> None:
+        """4B has no standard-tier entry → None."""
+        from sentinel.core.compatibility import get_enhanced_quality
+        assert get_enhanced_quality("qwen3.5:4b", "semantic-drift") is None
+
+    def test_deterministic_detector(self) -> None:
+        """Deterministic detectors have no standard-tier entry."""
+        from sentinel.core.compatibility import get_enhanced_quality
+        assert get_enhanced_quality("gpt-5.4-nano", "lint-runner") is None
+
+
+class TestShouldUseEnhancedPrompt:
+    """Tests for should_use_enhanced_prompt() — ADR-016 core logic."""
+
+    def test_known_good_model_uses_binary_when_enhanced_untested(self) -> None:
+        """semantic-drift + 4B: basic quality=GOOD but enhanced=UNTESTED → binary."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        # 4B has GOOD quality at basic tier, but enhanced mode is untested
+        assert should_use_enhanced_prompt("qwen3.5:4b", "semantic-drift", "basic") is False
+
+    def test_known_poor_model_uses_binary(self) -> None:
+        """test-coherence + 4B = POOR at basic, UNTESTED enhanced → binary."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        assert should_use_enhanced_prompt("qwen3.5:4b", "test-coherence", "basic") is False
+
+    def test_unknown_model_falls_back_to_tier(self) -> None:
+        """Unknown model + basic tier → binary (default safe)."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        assert should_use_enhanced_prompt("llama3.3:70b", "semantic-drift", "basic") is False
+
+    def test_unknown_model_standard_override(self) -> None:
+        """Unknown model + standard tier → enhanced (explicit override)."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        assert should_use_enhanced_prompt("llama3.3:70b", "semantic-drift", "standard") is True
+
+    def test_unknown_model_advanced_override(self) -> None:
+        """Unknown model + advanced tier → enhanced (explicit override)."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        assert should_use_enhanced_prompt("llama3.3:70b", "test-coherence", "advanced") is True
+
+    def test_known_model_untested_enhanced_falls_back_to_tier(self) -> None:
+        """cloud-nano + semantic-drift: enhanced=UNTESTED → fall back to tier (basic → False)."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        # cloud-nano has excellent basic quality but enhanced is UNTESTED
+        assert should_use_enhanced_prompt("gpt-5.4-nano", "semantic-drift", "basic") is False
+        # With explicit standard tier override → True
+        assert should_use_enhanced_prompt("gpt-5.4-nano", "semantic-drift", "standard") is True
+
+    def test_fair_quality_uses_binary(self) -> None:
+        """test-coherence + 9B: enhanced untested → falls back to tier."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        assert should_use_enhanced_prompt("qwen3.5:9b-q4_K_M", "test-coherence", "basic") is False
+
+    def test_empty_model_string(self) -> None:
+        """Empty model string falls back to tier."""
+        from sentinel.core.compatibility import should_use_enhanced_prompt
+        assert should_use_enhanced_prompt("", "semantic-drift", "basic") is False
+        assert should_use_enhanced_prompt("", "semantic-drift", "standard") is True

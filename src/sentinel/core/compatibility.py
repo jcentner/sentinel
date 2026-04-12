@@ -338,3 +338,100 @@ def build_summary_table() -> list[dict[str, object]]:
     rows.append(judge_row)
 
     return rows
+
+
+# ── Benchmark-driven prompt strategy (ADR-016) ──────────────────
+
+
+# Known model name → model class ID mapping.
+# Substring matching: if a model name contains the key, it maps to that class.
+_MODEL_NAME_TO_CLASS: dict[str, str] = {
+    "qwen3.5:4b": "4b-local",
+    "qwen3.5:9b": "9b-local",
+    "gpt-5.4-nano": "cloud-nano",
+    "gpt-5.4-mini": "cloud-small",
+    "claude-haiku-4.5": "cloud-small",
+    "haiku-4.5": "cloud-small",
+    "gpt-5.4": "cloud-frontier",
+    "claude-sonnet-4": "cloud-frontier",
+    "claude-sonnet-4.6": "cloud-frontier",
+}
+
+
+def model_name_to_class(model: str) -> str | None:
+    """Map a model name to a known model class ID.
+
+    Uses substring matching against known model names.
+    Returns None if the model is not in the reference data.
+    """
+    model_lower = model.lower()
+    # Check longest keys first to avoid "gpt-5.4" matching before "gpt-5.4-nano"
+    for key in sorted(_MODEL_NAME_TO_CLASS, key=len, reverse=True):
+        if key in model_lower:
+            return _MODEL_NAME_TO_CLASS[key]
+    return None
+
+
+def get_reference_quality(
+    model: str, detector: str,
+) -> QualityRating | None:
+    """Look up the reference benchmark quality for a model+detector pair.
+
+    Returns the QualityRating if the model is in the reference data and
+    a rating exists for this detector, or None if unknown.
+    """
+    model_class = model_name_to_class(model)
+    if model_class is None:
+        return None
+
+    # Look up using the detector's declared capability tier
+    det_info = DETECTOR_INFO.get(detector)
+    cap = det_info["capability"] if det_info else "none"
+    entry = get_entry(detector, model_class, cap)
+    if entry and entry.rating not in (QualityRating.NA, QualityRating.UNTESTED):
+        return entry.rating
+    return None
+
+
+def get_enhanced_quality(
+    model: str, detector: str,
+) -> QualityRating | None:
+    """Look up the reference quality for the *enhanced* prompt mode.
+
+    Enhanced mode is benchmarked at the ``standard`` capability tier.
+    Returns the QualityRating if an entry exists and has been tested,
+    or None if the enhanced mode quality is unknown for this combo.
+    """
+    model_class = model_name_to_class(model)
+    if model_class is None:
+        return None
+
+    entry = get_entry(detector, model_class, "standard")
+    if entry and entry.rating not in (QualityRating.NA, QualityRating.UNTESTED):
+        return entry.rating
+    return None
+
+
+def should_use_enhanced_prompt(
+    model: str,
+    detector: str,
+    model_capability: str = "basic",
+) -> bool:
+    """Decide whether to use enhanced (structured) prompts for this model+detector.
+
+    Decision priority (ADR-016):
+    1. Benchmark data: if enhanced-mode quality is GOOD or better → True
+    2. Explicit override: if model_capability is "standard" or "advanced" → True
+    3. Default: False (binary prompt — safe for any model)
+
+    Note: The basic-tier quality rating (how well the model does with binary
+    prompts) is NOT used here. We specifically check the standard-tier
+    entry, which measures enhanced-mode performance.
+    """
+    # 1. Check reference benchmark data for enhanced mode
+    quality = get_enhanced_quality(model, detector)
+    if quality is not None:
+        return quality in (QualityRating.EXCELLENT, QualityRating.GOOD)
+
+    # 2. Fall back to explicit model_capability config hint
+    return model_capability in ("standard", "advanced")

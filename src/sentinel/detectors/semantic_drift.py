@@ -22,6 +22,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from sentinel.core.compatibility import should_use_enhanced_prompt
 from sentinel.core.provider import ModelProvider
 from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
@@ -130,11 +131,10 @@ class SemanticDriftDetector(Detector):
 
         findings: list[Finding] = []
         raw_cap = context.config.get("model_capability", "basic")
-        try:
-            model_cap = CapabilityTier(raw_cap)
-        except ValueError:
-            model_cap = CapabilityTier.BASIC
-        use_enhanced = model_cap in (CapabilityTier.STANDARD, CapabilityTier.ADVANCED)
+        model_name = getattr(provider, "model", "")
+        use_enhanced = should_use_enhanced_prompt(
+            model_name, "semantic-drift", raw_cap,
+        )
 
         for md_file in md_files:
             try:
