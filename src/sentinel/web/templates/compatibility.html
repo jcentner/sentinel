@@ -12,8 +12,9 @@
 
 <div class="card mb-2">
   <h2 class="mb-1">LLM-Assisted Detectors</h2>
-  <p class="text-muted mb-1">These detectors use the model directly — model quality determines finding accuracy.
-    The <strong>capability tier</strong> in parentheses is what you set in config to use that model class.</p>
+  <p class="text-muted mb-1">Quality ratings from empirical benchmarks — which models work well with which detectors.
+    Models without benchmark data use conservative (binary) prompts by default.
+    Run <code>sentinel benchmark --model &lt;name&gt;</code> to test your own model.</p>
   <div class="table-wrap">
     <table class="table">
       <thead>
@@ -21,9 +22,8 @@
           <th>Detector</th>
           {% for mc in model_classes %}
           <th style="text-align:center;">
-            {{ mc.name }}<br>
-            <span class="badge badge-sm" style="font-size:0.65rem;">{{ mc.tier }}</span><br>
-            <small class="text-muted">{{ mc.example }}</small>
+            <code style="font-size:0.78rem;">{{ mc.example.split(',')[0].strip() }}</code><br>
+            <small class="text-muted">{{ "Local" if mc.vram != "n/a" else "Cloud" }} · {{ mc.vram if mc.vram != "n/a" else "API" }}</small>
           </th>
           {% endfor %}
         </tr>
@@ -70,9 +70,8 @@
           <th>Role</th>
           {% for mc in model_classes %}
           <th style="text-align:center;">
-            {{ mc.name }}<br>
-            <span class="badge badge-sm" style="font-size:0.65rem;">{{ mc.tier }}</span><br>
-            <small class="text-muted">{{ mc.example }}</small>
+            <code style="font-size:0.78rem;">{{ mc.example.split(',')[0].strip() }}</code><br>
+            <small class="text-muted">{{ "Local" if mc.vram != "n/a" else "Cloud" }} · {{ mc.vram if mc.vram != "n/a" else "API" }}</small>
           </th>
           {% endfor %}
         </tr>
@@ -248,31 +247,72 @@ skip_llm = true
 {% endif %}
 
 <div class="card">
-  <h2 class="mb-1">Model Classes</h2>
+  <h2 class="mb-1">Recommendations by Situation</h2>
   <p class="text-muted mb-1" style="font-size:0.85rem;">
-    Set the <strong>capability tier</strong> in <a href="/settings">Settings</a> to match your model.
-    Per-detector overrides above let you mix tiers — e.g., local basic for most detectors, cloud standard for test-coherence.
+    Practical advice based on our benchmarks. For untested models, run <code>sentinel benchmark --model &lt;name&gt;</code> to verify quality.
+    The <code>model_capability</code> setting is a hint for prompt strategy — when benchmark data exists, it takes precedence (<a href="https://github.com/jakcentner/sentinel/blob/main/docs/architecture/decisions/016-benchmark-driven-model-quality.md">ADR-016</a>).
   </p>
   <div class="table-wrap">
     <table class="table">
       <thead>
         <tr>
-          <th>Class</th>
-          <th>Capability Tier</th>
-          <th>Example</th>
-          <th>VRAM</th>
-          <th>Speed</th>
+          <th>Your Situation</th>
+          <th>Recommended Setup</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>8 GB VRAM, privacy-required</strong></td>
+          <td><code>qwen3.5:4b</code> — works well for everything except test-coherence. Skip test-coherence or accept noise.</td>
+        </tr>
+        <tr>
+          <td><strong>12–16 GB VRAM</strong></td>
+          <td>Larger local model (14B class). Run <code>sentinel benchmark</code> to verify quality — likely better than 4B/9B.</td>
+        </tr>
+        <tr>
+          <td><strong>24+ GB VRAM</strong></td>
+          <td>30B–70B local model. Should perform well — benchmark to confirm and unlock enhanced prompts.</td>
+        </tr>
+        <tr>
+          <td><strong>Cloud OK, budget-sensitive</strong></td>
+          <td><code>gpt-5.4-nano</code> for LLM detectors, local <code>qwen3.5:4b</code> for deterministic. Best cost/quality ratio tested.</td>
+        </tr>
+        <tr>
+          <td><strong>Cloud OK, quality-first</strong></td>
+          <td><code>gpt-5.4-mini</code> or <code>Claude Haiku 4.5</code> for all LLM detectors.</td>
+        </tr>
+        <tr>
+          <td><strong>CPU-only (no GPU)</strong></td>
+          <td><code>qwen3.5:4b</code> on CPU — slow but functional. Consider cloud API for LLM detectors.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="mb-1">Benchmarked Models</h2>
+  <p class="text-muted mb-1" style="font-size:0.85rem;">
+    Reference data from our testing. For all other models, quality is unknown until measured.
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Type</th>
+          <th>VRAM / Cost</th>
+          <th>Reference Speed</th>
           <th>Your Measured Speed</th>
-          <th>Best For</th>
+          <th>Notes</th>
         </tr>
       </thead>
       <tbody>
         {% for mc in model_classes %}
         <tr>
-          <td><strong>{{ mc.name }}</strong></td>
-          <td><code>{{ mc.tier }}</code></td>
           <td><code>{{ mc.example }}</code></td>
-          <td>{{ mc.vram }}</td>
+          <td>{{ "Local" if mc.vram != "n/a" else "Cloud" }}</td>
+          <td>{{ mc.vram if mc.vram != "n/a" else "API pricing" }}</td>
           <td>{{ mc.speed }}</td>
           <td>
             {% if model_class_speed is defined and mc.id in model_class_speed %}
@@ -282,7 +322,7 @@ skip_llm = true
             <span class="text-faint" style="font-size:0.82rem;">After first scan</span>
             {% endif %}
           </td>
-          <td>{{ mc.get('notes', '') }}</td>
+          <td class="text-muted">{{ mc.get('notes', '') }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -294,8 +334,6 @@ skip_llm = true
     {% else %}
     Run a scan to populate "Your Measured Speed" with actual performance on your hardware.
     {% endif %}
-    Reference values vary by hardware.
-    See <a href="https://github.com/jakcentner/sentinel/blob/main/docs/reference/model-benchmarks.md">model-benchmarks.md</a> for raw benchmark data.
   </p>
 </div>
 {% endblock %}
