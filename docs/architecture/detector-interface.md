@@ -105,6 +105,7 @@ DetectorContext:
 | `dead-code` | Heuristic | code-quality | ✅ Implemented | AST-based reachability analysis for exported symbols never imported elsewhere |
 | `cicd-drift` | Deterministic | config-drift | ✅ Implemented | Detects stale path references in GitHub Actions and Dockerfiles |
 | `inline-comment-drift` | LLM-assisted | docs-drift | ✅ Implemented | Detects docstrings that no longer accurately describe their code |
+| `architecture-drift` | Deterministic | config-drift | ✅ Implemented | Detects imports violating declared architecture layers |
 
 ### docs-drift implementation notes
 

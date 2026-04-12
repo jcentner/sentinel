@@ -1,6 +1,6 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 5.4
+> **Version**: 5.5
 > **Updated**: 2026-04-13
 > **Supersedes**: v4.9 ([archived](archive/VISION-LOCK-v4.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-16 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD). Three LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1134 tests. Published on PyPI as `repo-sentinel`.
+17 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Three LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1134 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -94,7 +94,7 @@ New detectors requiring stronger models (benchmark data will guide minimum model
 - ~~CI/CD config drift (basic)~~ — **shipped** (deterministic: stale paths in GitHub Actions, Dockerfiles)
 - ~~Inline comment drift (advanced)~~ — **shipped** (LLM-assisted: docstring accuracy vs adjacent code, Python)
 - Intent comparison (advanced) — multi-artifact triangulation
-- Architecture drift (advanced) — import graph vs documented architecture
+- ~~Architecture drift~~ — **shipped** (deterministic: import graph vs `[sentinel.architecture]` layer rules)
 
 ### Cross-detector intelligence — shipped
 Two-phase execution (TD-043): heuristic detectors run first, `risk_signals` extracted from git-hotspots, LLM detectors sort files by risk. test-coherence prioritizes tests for high-churn implementation files.
@@ -118,34 +118,16 @@ Two-phase execution (TD-043): heuristic detectors run first, `risk_signals` extr
 
 ## Changelog
 
+### v5.5 (2026-04-13)
+Architecture drift detector + Phase 10 at 3/4 shipped.
+- `architecture-drift`: deterministic detector checking import graph against `[sentinel.architecture]` layer rules
+- Layer ordering, shared modules, forbidden imports
+- 17 detectors total
+
 ### v5.4 (2026-04-13)
 Phase 10 detectors: cicd-drift + inline-comment-drift.
 - `cicd-drift`: deterministic detector for stale paths in GitHub Actions workflows and Dockerfiles
 - `inline-comment-drift`: LLM-assisted detector comparing Python docstrings against code
 - 16 detectors total (was 14)
 
-### v5.3 (2026-04-13)
-Cross-detector intelligence shipped (TD-043). LLM call log viewer.
-- Two-phase execution: heuristic detectors → risk signals → LLM detectors
-- git-hotspots findings feed `risk_signals` to LLM detectors via `DetectorContext`
-- test-coherence prioritizes high-churn implementation files
-- `/llm-log` web page with filters, pagination, expandable prompt/response drill-down
-- Cross-detector intelligence moved from "Where We're Going" to shipped
-
-### v5.2 (2026-04-12)
-Benchmark-driven model quality (ADR-016, supersedes ADR-011 tier system).
-- Model quality ratings are empirical per-model×detector, not tier-based taxonomy
-- Prompt strategy (binary vs enhanced) driven by benchmark data, not config label
-- Reference benchmarks shipped; user benchmarks accumulated via `sentinel benchmark`
-- `CapabilityTier` config preserved for backward compat as explicit override
-- Benchmark drill-down planned for power users (inspect prompts, context, outputs)
-
-### v5.1 (2026-04-11)
-Strategic document reset — pruned from 432 to <200 lines per document health rules.
-- Archived v4.9 to `archive/VISION-LOCK-v4.md`
-- Compressed "What Exists Today" to product-level summary (was per-detector/per-command inventory)
-- Removed detailed per-phase shipping history (lives in archived versions and git history)
-- Removed detector value assessment table (moved to `docs/reference/compatibility-matrix.md`)
-- Removed evaluation criteria table (captured in ADR-008)
-- Added "Web UI as first-class configuration surface" as top priority in Where We're Going
-- Trimmed changelog to 2 most recent entries; older entries in archived versions
+Older changelog entries available in archived versions and git history.
