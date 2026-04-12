@@ -4,6 +4,18 @@ Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.
 
 ## Resolved
 
+### TD-055: README length (~400 lines) — delegate detail to wiki/docs
+**Status**: Resolved (Session 38)
+**Severity**: Low
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Pruned from 404 to 112 lines. Moved CLI reference, web UI feature list, scheduling, custom detectors, config details, and AI agent integration to wiki. Kept: problem statement, what-it-does (compact), quick start, key commands table, minimal config, docs links, dev setup.
+
+### TD-053: Roadmap phases/ directory is stale and inconsistent
+**Status**: Resolved (Session 38)
+**Severity**: Low
+**Introduced**: Session 34 (user feedback)
+**Resolution**: Archived `roadmap/phases/` to `roadmap/archive/phases/`. Updated `roadmap/README.md` to note all phases complete, future work uses slice-based model in CURRENT-STATE.md.
+
 ### TD-046: Settings page is read-only — no sentinel.toml creation or editing
 **Status**: Resolved (Session 35 — ADR-015)
 **Severity**: Medium

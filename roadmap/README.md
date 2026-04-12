@@ -2,32 +2,25 @@
 
 ## Overview
 
-Local Repo Sentinel development follows a phased approach. Each phase has a planning doc, implementation plan, review, and completion checklist — see the [Prompt Guide](../.github/prompts/PROMPT-GUIDE.md) for the development workflow.
+Local Repo Sentinel development followed a phased approach through Phases 0–9, all of which are now complete. Future work uses a slice-based model tracked in [CURRENT-STATE.md](CURRENT-STATE.md).
 
-## Phases
+## Completed Phases
 
-| Phase | Title | Status | Description |
-|-------|-------|--------|-------------|
-| 0 | Project Foundation | **Complete** | Vision, architecture docs, ADRs, dev workflow, prompt system |
-| 1 | MVP Core | **Complete** | Core pipeline: 3 detectors, LLM judge, SQLite state, morning report, CLI |
-| 2 | Docs-Drift Detector | **Complete** | First-class docs-drift detection (ADR-005) |
-| 3 | Refinement | **Complete** | False-positive tuning, report UX, persistence scoring |
-| 4 | Extended Detectors | **Complete** | Git-hotspots, complexity, eslint-runner, go-linter, rust-clippy |
-| 5 | GitHub Integration | **Complete** | Issue creation from approved findings |
-| 6 | Semantic Detectors | **Complete** | Cross-artifact LLM detectors: semantic docs-drift, test-code coherence |
-| 6b | High-Value Deterministic | **Complete** | Unused deps, dead code, stale env detectors |
-| 7 | Provider Abstraction | **Complete** | Pluggable model provider protocol (ADR-010): Ollama, OpenAI-compat, Azure |
-| 8 | Capability-Tiered Detectors | **Complete** | CapabilityTier infrastructure, enhanced test-coherence and semantic-drift |
-| 9 | Configurability, Plugins & Synthesis | **Complete** | Detector selection, entry-points plugins, finding cluster synthesis, setup flow |
+| Phase | Title | Description |
+|-------|-------|-------------|
+| 0 | Project Foundation | Vision, architecture docs, ADRs, dev workflow |
+| 1 | MVP Core | Core pipeline: 3 detectors, LLM judge, SQLite state, morning report, CLI |
+| 2 | Docs-Drift Detector | First-class docs-drift detection (ADR-005) |
+| 3 | Refinement | False-positive tuning, report UX, persistence scoring |
+| 4 | Extended Detectors | Git-hotspots, complexity, eslint-runner, go-linter, rust-clippy |
+| 5 | GitHub Integration | Issue creation from approved findings |
+| 6 | Semantic Detectors | Cross-artifact LLM detectors: semantic docs-drift, test-code coherence |
+| 6b | High-Value Deterministic | Unused deps, dead code, stale env detectors |
+| 7 | Provider Abstraction | Pluggable model provider protocol (ADR-010) |
+| 8 | Capability-Tiered Detectors | CapabilityTier infrastructure, enhanced modes |
+| 9 | Configurability & Plugins | Detector selection, entry-points plugins, synthesis, setup flow |
 
-## Phase details
-
-Phase planning docs live in `roadmap/phases/` and are created via the `/phase-plan` prompt.
-
-### Phase 0: Project Foundation
-- Project vision and strategy docs
-- Architecture overview and detector interface design
-- ADR system with 6 initial decisions
+Phase planning docs archived to `roadmap/archive/phases/`.
 - Development workflow (prompts, agents, instructions)
 - Open questions, tech debt, and glossary systems
 - Competitive analysis and critical review

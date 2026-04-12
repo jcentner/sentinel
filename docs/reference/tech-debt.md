@@ -32,22 +32,6 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Minor setup friction.
 **Proposed resolution**: Won't implement token editing (security). May add owner/repo to sentinel.toml in future if demand emerges.
 
-### TD-053: Roadmap phases/ directory is stale and inconsistent
-**Status**: Active
-**Severity**: Low
-**Introduced**: Session 34 (user feedback)
-**Description**: `roadmap/phases/` has 5 of ~10 phases with plan files (phases 3, 4, 5, 6b, 8 have no files). All phases are complete. The `phases/README.md` is entirely stale — lists only Phase 0 as complete and says "Upcoming: Phase plans will be added as development progresses." The phase model served its purpose during development but is now dead weight.
-**Impact**: Confusing for anyone navigating the roadmap. Creates maintenance overhead. Ironic docs-drift in a docs-drift detection tool.
-**Proposed resolution**: Archive phases/ to `roadmap/archive/phases/` or delete. Update roadmap/README.md to note all phases are complete and future work uses a slice-based model tracked in CURRENT-STATE.md.
-
-### TD-055: README length (~400 lines) — delegate detail to wiki/docs
-**Status**: Active
-**Severity**: Low
-**Introduced**: Session 34 (user feedback)
-**Description**: README is ~400 lines covering installation, full CLI reference, web UI feature list, scheduling, configuration, architecture overview, and development setup. Most of this is better placed in wiki pages or docs/.
-**Impact**: Long READMEs are less scannable. First impressions matter.
-**Proposed resolution**: Keep README to ~150 lines: problem statement, quick start (install + first scan + serve), link to wiki for full docs. Move detailed CLI reference, web UI docs, configuration, scheduling, and architecture to wiki pages.
-
 ### TD-045: Ground truth too small for statistical confidence
 **Status**: Active
 **Severity**: Low
