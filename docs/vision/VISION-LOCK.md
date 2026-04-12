@@ -86,8 +86,8 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 Priority-ordered next investments. Each connects to a validated gap.
 
-### Web UI as first-class interaction surface
-Settings page editable (ADR-015). Detectors page with inline model/toggle config, doctor health check page, LLM call log viewer. Remaining: `index` command page.
+### Web UI as first-class interaction surface — complete
+Settings page editable (ADR-015). Detectors page with inline model/toggle config, doctor health check page, LLM call log viewer, embedding index status page. All planned web pages shipped.
 
 ### Phase 10: Advanced detectors
 New detectors requiring stronger models (benchmark data will guide minimum model recommendations):
