@@ -1545,3 +1545,211 @@ class TestAnnotations:
         detail = client.get(f"/findings/{finding_id}")
         assert "<script>alert" not in detail.text
         assert "&lt;script&gt;" in detail.text
+
+
+# ── LLM Log page tests ────────────────────────────────────────────────
+
+
+class TestLLMLogPage:
+    """Tests for the /llm-log route."""
+
+    def test_llm_log_page_empty(self, app: CSRFTestClient) -> None:
+        """Empty database shows 'no calls' message."""
+        resp = app.get("/llm-log")
+        assert resp.status_code == 200
+        assert "LLM Call Log" in resp.text
+        assert "No LLM calls recorded" in resp.text
+
+    def test_llm_log_page_with_entries(
+        self, db_conn: sqlite3.Connection,
+    ) -> None:
+        """Page shows LLM log entries from scan runs."""
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+        from sentinel.store.runs import create_run
+
+        run = create_run(db_conn, "/tmp/test")
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge",
+            model="qwen3.5:4b",
+            prompt="Is this a real issue?",
+            response='{"verdict": "confirmed"}',
+            detector="todo-scanner",
+            finding_fingerprint="fp-123",
+            finding_title="TODO in main.py",
+            tokens_generated=25,
+            generation_ms=450.0,
+            verdict="confirmed",
+        ))
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="doc-code-comparison",
+            model="gpt-5.4-nano",
+            prompt="Compare these docs vs code",
+            response='{"verdict": "drift_detected"}',
+            detector="semantic-drift",
+            verdict="drift_detected",
+        ))
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/llm-log")
+        assert resp.status_code == 200
+        assert "2 calls" in resp.text
+        assert "todo-scanner" in resp.text
+        assert "semantic-drift" in resp.text
+        assert "qwen3.5:4b" in resp.text
+        assert "confirmed" in resp.text
+
+    def test_llm_log_filter_by_detector(
+        self, db_conn: sqlite3.Connection,
+    ) -> None:
+        """Filtering by detector shows only matching entries."""
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+        from sentinel.store.runs import create_run
+
+        run = create_run(db_conn, "/tmp/test")
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p1",
+            detector="todo-scanner", verdict="confirmed",
+        ))
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p2",
+            detector="lint-runner", verdict="likely_false_positive",
+        ))
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/llm-log?detector=todo-scanner")
+        assert resp.status_code == 200
+        assert "1 call" in resp.text
+        assert "todo-scanner" in resp.text
+
+    def test_llm_log_filter_by_model(
+        self, db_conn: sqlite3.Connection,
+    ) -> None:
+        """Filtering by model works."""
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+        from sentinel.store.runs import create_run
+
+        run = create_run(db_conn, "/tmp/test")
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge", model="qwen3.5:4b", prompt="p1",
+            detector="d1", verdict="confirmed",
+        ))
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge", model="gpt-5.4-nano", prompt="p2",
+            detector="d2", verdict="error",
+        ))
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/llm-log?model=qwen3.5%3A4b")
+        assert resp.status_code == 200
+        assert "1 call" in resp.text
+
+    def test_llm_log_prompt_response_visible(
+        self, db_conn: sqlite3.Connection,
+    ) -> None:
+        """Prompt and response text appear in the page for drill-down."""
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+        from sentinel.store.runs import create_run
+
+        run = create_run(db_conn, "/tmp/test")
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge",
+            model="test-model",
+            prompt="Analyze this finding carefully",
+            response="The finding is confirmed",
+            detector="test-det",
+            verdict="confirmed",
+        ))
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/llm-log")
+        assert resp.status_code == 200
+        assert "Analyze this finding carefully" in resp.text
+        assert "The finding is confirmed" in resp.text
+
+    def test_llm_log_xss_escaped(
+        self, db_conn: sqlite3.Connection,
+    ) -> None:
+        """Prompt/response content is HTML-escaped."""
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+        from sentinel.store.runs import create_run
+
+        run = create_run(db_conn, "/tmp/test")
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge",
+            model="test",
+            prompt='<script>alert("xss")</script>',
+            response='<img onerror="alert(1)">',
+            detector="test",
+            verdict="confirmed",
+        ))
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/llm-log")
+        assert resp.status_code == 200
+        assert "<script>alert" not in resp.text
+        assert "&lt;script&gt;" in resp.text
+
+    def test_llm_log_nav_link(self, app: CSRFTestClient) -> None:
+        """Nav bar includes LLM Log link."""
+        resp = app.get("/llm-log")
+        assert resp.status_code == 200
+        assert 'href="/llm-log"' in resp.text
+        assert "LLM Log" in resp.text
+
+    def test_llm_log_filter_by_run_id(
+        self, db_conn: sqlite3.Connection,
+    ) -> None:
+        """Filtering by run_id shows only entries from that run."""
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+        from sentinel.store.runs import create_run
+
+        run1 = create_run(db_conn, "/tmp/test1")
+        run2 = create_run(db_conn, "/tmp/test2")
+        insert_llm_log(db_conn, run1.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p1",
+            detector="d1", verdict="confirmed",
+        ))
+        insert_llm_log(db_conn, run2.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p2",
+            detector="d2", verdict="error",
+        ))
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get(f"/llm-log?run_id={run1.id}")
+        assert resp.status_code == 200
+        assert "1 call" in resp.text
+
+    def test_llm_log_filter_by_verdict(
+        self, db_conn: sqlite3.Connection,
+    ) -> None:
+        """Filtering by verdict shows only matching entries."""
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+        from sentinel.store.runs import create_run
+
+        run = create_run(db_conn, "/tmp/test")
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p1",
+            detector="d1", verdict="confirmed",
+        ))
+        insert_llm_log(db_conn, run.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p2",
+            detector="d2", verdict="error",
+        ))
+
+        application = create_app(db_conn)
+        client = CSRFTestClient(TestClient(application))
+        resp = client.get("/llm-log?verdict=error")
+        assert resp.status_code == 200
+        assert "1 call" in resp.text
+
+    def test_llm_log_invalid_page_param(self, app: CSRFTestClient) -> None:
+        """Non-integer page parameter defaults to page 1 (no crash)."""
+        resp = app.get("/llm-log?page=abc")
+        assert resp.status_code == 200
+        assert "LLM Call Log" in resp.text

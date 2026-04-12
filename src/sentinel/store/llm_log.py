@@ -141,3 +141,69 @@ def get_model_speed_stats(conn: sqlite3.Connection) -> dict[str, dict[str, Any]]
             "avg_tok_s": round(avg_tok_s, 1),
         }
     return result
+
+
+def get_llm_log_entries(
+    conn: sqlite3.Connection,
+    *,
+    detector: str = "",
+    model: str = "",
+    verdict: str = "",
+    run_id: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """Query llm_log with optional filters and pagination.
+
+    Returns (entries, total_count).
+    """
+    conditions: list[str] = []
+    params: list[Any] = []
+    if detector:
+        conditions.append("detector = ?")
+        params.append(detector)
+    if model:
+        conditions.append("model = ?")
+        params.append(model)
+    if verdict:
+        conditions.append("verdict = ?")
+        params.append(verdict)
+    if run_id is not None:
+        conditions.append("run_id = ?")
+        params.append(run_id)
+
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM llm_log{where}", params,
+    ).fetchone()[0]
+
+    rows = conn.execute(
+        f"SELECT * FROM llm_log{where} ORDER BY id DESC LIMIT ? OFFSET ?",
+        [*params, limit, offset],
+    ).fetchall()
+
+    return [dict(r) for r in rows], total
+
+
+def get_llm_log_filters(conn: sqlite3.Connection) -> dict[str, list[str]]:
+    """Return distinct values for filter dropdowns."""
+    detectors = [
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT detector FROM llm_log WHERE detector IS NOT NULL ORDER BY detector"
+        ).fetchall()
+    ]
+    models = [
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT model FROM llm_log WHERE model IS NOT NULL ORDER BY model"
+        ).fetchall()
+    ]
+    verdicts = [
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT verdict FROM llm_log WHERE verdict IS NOT NULL ORDER BY verdict"
+        ).fetchall()
+    ]
+    return {"detectors": detectors, "models": models, "verdicts": verdicts}

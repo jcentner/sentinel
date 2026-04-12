@@ -27,6 +27,7 @@ from sentinel.web.routes.findings import (
     finding_detail,
 )
 from sentinel.web.routes.github import github_create_issues, github_page
+from sentinel.web.routes.llm_log import llm_log_page
 from sentinel.web.routes.runs import run_compare, run_detail, runs_list
 from sentinel.web.routes.scan import scan_page
 from sentinel.web.routes.settings import settings_page
@@ -89,6 +90,7 @@ def create_app(
         Route("/doctor", endpoint=doctor_page),
         Route("/github", endpoint=github_page),
         Route("/github/create-issues", endpoint=github_create_issues, methods=["POST"]),
+        Route("/llm-log", endpoint=llm_log_page),
         Mount("/static", app=StaticFiles(directory=str(_STATIC_DIR)), name="static"),
     ]
 

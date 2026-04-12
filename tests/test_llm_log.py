@@ -8,6 +8,8 @@ from sentinel.models import ScopeType
 from sentinel.store.db import get_connection
 from sentinel.store.llm_log import (
     LLMLogEntry,
+    get_llm_log_entries,
+    get_llm_log_filters,
     get_llm_log_for_run,
     get_llm_log_stats,
     get_model_speed_stats,
@@ -224,3 +226,118 @@ class TestModelSpeedStats:
         assert result["m1"]["calls"] == 1
         assert result["m1"]["total_tokens"] == 50
         assert result["m1"]["avg_tok_s"] == 50.0
+
+
+class TestGetLLMLogEntries:
+    """Tests for the paginated, filtered query function."""
+
+    def test_returns_all_when_no_filters(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        for i in range(3):
+            insert_llm_log(conn, None, LLMLogEntry(
+                purpose="judge", model="m1", prompt=f"p{i}",
+                detector="d1", verdict="confirmed",
+            ))
+        entries, total = get_llm_log_entries(conn)
+        assert total == 3
+        assert len(entries) == 3
+
+    def test_filter_by_detector(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p1",
+            detector="todo-scanner", verdict="confirmed",
+        ))
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p2",
+            detector="lint-runner", verdict="error",
+        ))
+        entries, total = get_llm_log_entries(conn, detector="todo-scanner")
+        assert total == 1
+        assert entries[0]["detector"] == "todo-scanner"
+
+    def test_filter_by_verdict(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p1",
+            detector="d1", verdict="confirmed",
+        ))
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p2",
+            detector="d2", verdict="error",
+        ))
+        entries, total = get_llm_log_entries(conn, verdict="error")
+        assert total == 1
+        assert entries[0]["verdict"] == "error"
+
+    def test_filter_by_model(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="qwen3.5:4b", prompt="p1",
+            detector="d1", verdict="confirmed",
+        ))
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="gpt-5.4-nano", prompt="p2",
+            detector="d1", verdict="confirmed",
+        ))
+        entries, total = get_llm_log_entries(conn, model="qwen3.5:4b")
+        assert total == 1
+        assert entries[0]["model"] == "qwen3.5:4b"
+
+    def test_filter_by_run_id(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        run1 = create_run(conn, str(tmp_path / "repo1"))
+        run2 = create_run(conn, str(tmp_path / "repo2"))
+        insert_llm_log(conn, run1.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p1",
+            detector="d1", verdict="confirmed",
+        ))
+        insert_llm_log(conn, run2.id, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p2",
+            detector="d1", verdict="error",
+        ))
+        entries, total = get_llm_log_entries(conn, run_id=run1.id)
+        assert total == 1
+        assert entries[0]["run_id"] == run1.id
+
+    def test_pagination(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        for i in range(5):
+            insert_llm_log(conn, None, LLMLogEntry(
+                purpose="judge", model="m1", prompt=f"p{i}",
+                detector="d1", verdict="confirmed",
+            ))
+        entries, total = get_llm_log_entries(conn, limit=2, offset=0)
+        assert total == 5
+        assert len(entries) == 2
+
+        entries2, total2 = get_llm_log_entries(conn, limit=2, offset=2)
+        assert total2 == 5
+        assert len(entries2) == 2
+        assert entries[0]["id"] != entries2[0]["id"]
+
+
+class TestGetLLMLogFilters:
+    """Tests for the filter dropdown helper."""
+
+    def test_returns_distinct_values(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m1", prompt="p1",
+            detector="d1", verdict="confirmed",
+        ))
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m2", prompt="p2",
+            detector="d2", verdict="error",
+        ))
+        filters = get_llm_log_filters(conn)
+        assert sorted(filters["detectors"]) == ["d1", "d2"]
+        assert sorted(filters["models"]) == ["m1", "m2"]
+        assert sorted(filters["verdicts"]) == ["confirmed", "error"]
+
+    def test_empty_database(self, tmp_path):
+        conn = _make_conn(tmp_path)
+        filters = get_llm_log_filters(conn)
+        assert filters["detectors"] == []
+        assert filters["models"] == []
+        assert filters["verdicts"] == []

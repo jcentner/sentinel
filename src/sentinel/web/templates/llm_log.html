@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Sentinel — LLM Call Log{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>LLM Call Log</h1>
+  <p class="subtitle">{{ total }} call{{ 's' if total != 1 else '' }} recorded &middot; prompts, responses, verdicts, and timing</p>
+</div>
+
+<div class="card mb-2">
+  <form method="get" action="/llm-log" class="filter-bar">
+    <label>Detector
+      <select name="detector">
+        <option value="">All</option>
+        {% for d in filters.detectors %}
+        <option value="{{ d }}" {{ 'selected' if filter_detector == d else '' }}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Model
+      <select name="model">
+        <option value="">All</option>
+        {% for m in filters.models %}
+        <option value="{{ m }}" {{ 'selected' if filter_model == m else '' }}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Verdict
+      <select name="verdict">
+        <option value="">All</option>
+        {% for v in filters.verdicts %}
+        <option value="{{ v }}" {{ 'selected' if filter_verdict == v else '' }}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Run ID
+      <input type="text" name="run_id" value="{{ filter_run_id }}" placeholder="e.g. 5" style="width: 5rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 0.85rem;">
+    </label>
+    <button type="submit" class="btn btn-sm">Filter</button>
+    {% if filter_detector or filter_model or filter_verdict or filter_run_id %}
+    <a href="/llm-log" class="btn btn-sm">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if entries %}
+{% for entry in entries %}
+<div class="card mb-2">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <strong>{{ entry.detector or 'unknown' }}</strong>
+      <span class="text-muted">&middot;</span>
+      <code class="text-mono" style="font-size: 0.82rem;">{{ entry.model }}</code>
+      <span class="text-muted">&middot;</span>
+      {% if entry.verdict == 'confirmed' or entry.verdict == 'drift_detected' %}
+      <span class="badge badge-confirmed">{{ entry.verdict }}</span>
+      {% elif entry.verdict == 'likely_false_positive' or entry.verdict == 'accurate' %}
+      <span class="badge badge-suppressed">{{ entry.verdict }}</span>
+      {% elif entry.verdict == 'error' or entry.verdict == 'no_parse' %}
+      <span class="badge badge-critical">{{ entry.verdict }}</span>
+      {% else %}
+      <span class="badge badge-scope">{{ entry.verdict or 'none' }}</span>
+      {% endif %}
+    </div>
+    <div class="text-muted" style="font-size: 0.82rem; text-align: right;">
+      {% if entry.run_id %}<a href="/runs/{{ entry.run_id }}">Run #{{ entry.run_id }}</a> &middot; {% endif %}
+      {{ entry.timestamp[:19] if entry.timestamp else '' }}
+      {% if entry.generation_ms %} &middot; {{ '%.0f' | format(entry.generation_ms) }}ms{% endif %}
+      {% if entry.tokens_generated %} &middot; {{ entry.tokens_generated }} tok{% endif %}
+    </div>
+  </div>
+
+  {% if entry.finding_title %}
+  <div style="margin-top: 0.5rem;">
+    <small class="text-muted" style="text-transform: uppercase; letter-spacing: 0.04em;">Finding</small>
+    <span style="margin-left: 0.25rem;">{{ entry.finding_title }}</span>
+    {% if entry.finding_fingerprint %}
+    <code class="text-mono text-muted" style="font-size: 0.75rem; margin-left: 0.5rem;">{{ entry.finding_fingerprint[:16] }}…</code>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <details style="margin-top: 0.75rem;">
+    <summary style="cursor: pointer; color: var(--amber); font-size: 0.85rem; user-select: none;">Show prompt ({{ entry.prompt | length if entry.prompt else 0 }} chars)</summary>
+    <div class="evidence-block" style="margin-top: 0.5rem; max-height: 24rem; overflow-y: auto;">{{ entry.prompt or '' }}</div>
+  </details>
+
+  {% if entry.response %}
+  <details style="margin-top: 0.5rem;">
+    <summary style="cursor: pointer; color: var(--amber); font-size: 0.85rem; user-select: none;">Show response ({{ entry.response | length }} chars)</summary>
+    <div class="evidence-block" style="margin-top: 0.5rem; max-height: 16rem; overflow-y: auto;">{{ entry.response }}</div>
+  </details>
+  {% endif %}
+
+  {% if entry.summary %}
+  <div style="margin-top: 0.5rem;">
+    <small class="text-muted" style="text-transform: uppercase; letter-spacing: 0.04em;">Summary</small>
+    <p style="margin: 0.25rem 0 0;">{{ entry.summary }}</p>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% if total_pages > 1 %}
+<div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem;">
+  {% if page > 1 %}
+  <a href="/llm-log?page={{ page - 1 }}{% if filter_detector %}&detector={{ filter_detector }}{% endif %}{% if filter_model %}&model={{ filter_model }}{% endif %}{% if filter_verdict %}&verdict={{ filter_verdict }}{% endif %}{% if filter_run_id %}&run_id={{ filter_run_id }}{% endif %}" class="btn btn-sm">&larr; Prev</a>
+  {% endif %}
+  <span class="text-muted" style="line-height: 2rem;">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <a href="/llm-log?page={{ page + 1 }}{% if filter_detector %}&detector={{ filter_detector }}{% endif %}{% if filter_model %}&model={{ filter_model }}{% endif %}{% if filter_verdict %}&verdict={{ filter_verdict }}{% endif %}{% if filter_run_id %}&run_id={{ filter_run_id }}{% endif %}" class="btn btn-sm">Next &rarr;</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="card mb-2">
+  <p class="text-muted" style="text-align: center; padding: 2rem 0;">
+    No LLM calls recorded yet. Run <code>sentinel scan &lt;repo&gt;</code> to generate LLM log data.
+  </p>
+</div>
+{% endif %}
+{% endblock %}
