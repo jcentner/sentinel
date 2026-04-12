@@ -52,6 +52,7 @@ Evidence:
 | `security` | Potential security issues surfaced by detectors | Semgrep, custom rules |
 | `performance` | Performance anti-patterns (e.g., SQL without CTEs, N+1 patterns) | SQLFluff + LLM, custom |
 | `config-drift` | Configuration inconsistencies across environments or files | Config comparator |
+| `cross-artifact` | Contradictions across code, docstrings, tests, and documentation | Intent-comparison detector |
 | `git-health` | Hotspots, high churn, long-lived branches, merge conflict patterns | Git history analyzer |
 
 ## Detector contract
@@ -106,6 +107,7 @@ DetectorContext:
 | `cicd-drift` | Deterministic | config-drift | ✅ Implemented | Detects stale path references in GitHub Actions and Dockerfiles |
 | `inline-comment-drift` | LLM-assisted | docs-drift | ✅ Implemented | Detects docstrings that no longer accurately describe their code |
 | `architecture-drift` | Deterministic | config-drift | ✅ Implemented | Detects imports violating declared architecture layers |
+| `intent-comparison` | LLM-assisted | cross-artifact | ✅ Implemented | Multi-artifact triangulation: finds contradictions between code, docstrings, tests, and docs |
 
 ### docs-drift implementation notes
 

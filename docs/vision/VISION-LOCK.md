@@ -1,6 +1,6 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 5.5
+> **Version**: 5.6
 > **Updated**: 2026-04-13
 > **Supersedes**: v4.9 ([archived](archive/VISION-LOCK-v4.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-17 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Three LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1134 tests. Published on PyPI as `repo-sentinel`.
+18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1134 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -89,11 +89,11 @@ Priority-ordered next investments. Each connects to a validated gap.
 ### Web UI as first-class interaction surface — complete
 Settings page editable (ADR-015). Detectors page with inline model/toggle config, doctor health check page, LLM call log viewer, embedding index status page. All planned web pages shipped.
 
-### Phase 10: Advanced detectors
+### Phase 10: Advanced detectors — complete
 New detectors requiring stronger models (benchmark data will guide minimum model recommendations):
 - ~~CI/CD config drift (basic)~~ — **shipped** (deterministic: stale paths in GitHub Actions, Dockerfiles)
 - ~~Inline comment drift (advanced)~~ — **shipped** (LLM-assisted: docstring accuracy vs adjacent code, Python)
-- Intent comparison (advanced) — multi-artifact triangulation
+- ~~Intent comparison (advanced)~~ — **shipped** (LLM-assisted: multi-artifact triangulation, Python)
 - ~~Architecture drift~~ — **shipped** (deterministic: import graph vs `[sentinel.architecture]` layer rules)
 
 ### Cross-detector intelligence — shipped
@@ -118,16 +118,16 @@ Two-phase execution (TD-043): heuristic detectors run first, `risk_signals` extr
 
 ## Changelog
 
+### v5.6 (2026-04-13)
+Phase 10 complete — intent-comparison detector shipped.
+- `intent-comparison`: LLM-assisted multi-artifact triangulation (code + docstring + tests + docs)
+- First ADVANCED-tier detector; requires frontier-class model
+- 18 detectors total, all Phase 10 items shipped
+
 ### v5.5 (2026-04-13)
 Architecture drift detector + Phase 10 at 3/4 shipped.
 - `architecture-drift`: deterministic detector checking import graph against `[sentinel.architecture]` layer rules
 - Layer ordering, shared modules, forbidden imports
 - 17 detectors total
-
-### v5.4 (2026-04-13)
-Phase 10 detectors: cicd-drift + inline-comment-drift.
-- `cicd-drift`: deterministic detector for stale paths in GitHub Actions workflows and Dockerfiles
-- `inline-comment-drift`: LLM-assisted detector comparing Python docstrings against code
-- 16 detectors total (was 14)
 
 Older changelog entries available in archived versions and git history.

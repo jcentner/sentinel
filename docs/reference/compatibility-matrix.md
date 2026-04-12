@@ -25,6 +25,7 @@ These detectors **use the model directly** to analyze code. Model quality direct
 |----------|----------|----------|------------|-------------|----------------|
 | **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | ❓ Untested | ❓ Untested |
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | ❓ Untested | ❓ Untested |
+| **intent-comparison** | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested |
 | **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
@@ -55,6 +56,10 @@ The 4B model cannot reliably distinguish between:
 ### inline-comment-drift (new — no benchmark data yet)
 
 Uses the same binary prompt pattern as semantic-drift. Expected to work well at 4B for clear factual inaccuracies (wrong parameter names, wrong return values). May need cloud-nano for subtle semantic drift in complex docstrings. Python-only in v1.
+
+### intent-comparison (new — ADVANCED tier, no benchmark data yet)
+
+Multi-artifact triangulation: gathers code, docstring, tests, and doc sections for each function, then asks the LLM for contradictions between any pair. Requires `CapabilityTier.ADVANCED` — use frontier-class models (GPT-5.4-nano or better). Multi-artifact prompts are significantly larger than pairwise, and reliable cross-reference reasoning needs stronger models. Python-only in v1.
 
 Configure per-detector model in `sentinel.toml`:
 

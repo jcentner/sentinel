@@ -8,7 +8,7 @@ Sentinel runs on your local machine, scans a codebase with deterministic detecto
 
 ## What it does
 
-- **17 detectors** — lint (Python/JS/TS/Go/Rust), docs-drift, semantic docs-drift, test-code coherence, inline comment drift, dependency audit, complexity, dead code, git hotspots, TODO scanner, stale env config, unused deps, CI/CD config drift, architecture drift
+- **18 detectors** — lint (Python/JS/TS/Go/Rust), docs-drift, semantic docs-drift, test-code coherence, inline comment drift, intent comparison, dependency audit, complexity, dead code, git hotspots, TODO scanner, stale env config, unused deps, CI/CD config drift, architecture drift
 - **Cross-artifact LLM analysis** — compares docs vs code, tests vs implementation via pluggable model providers (Ollama local, Azure, OpenAI-compatible)
 - **Deduplication + persistence** — fingerprints findings across runs, tracks recurrence, suppresses false positives
 - **Morning report** — severity-grouped markdown, scannable in under 2 minutes
@@ -100,7 +100,7 @@ See the [wiki](https://github.com/jcentner/sentinel/wiki) for full configuration
 
 ```bash
 pip install -e ".[dev]"
-pytest                         # 1235 tests
+pytest                         # 1284 tests
 ruff check src/ tests/         # lint
 mypy src/sentinel/             # type check
 ```
