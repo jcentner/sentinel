@@ -4,6 +4,12 @@ Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.
 
 ## Resolved
 
+### TD-058: Benchmark precision conflates deterministic and LLM detectors
+**Status**: Resolved (Session 45)
+**Severity**: Medium
+**Introduced**: Session 45 (benchmark audit)
+**Resolution**: Added `[benchmark.eval.deterministic]` and `[benchmark.eval.llm_assisted]` sections to benchmark TOML output with separate precision/recall. `compare_benchmarks()` now shows Det./LLM precision split. Per-detector precision shown in comparison table. Sample-repo benchmarks re-run with updated ground truth (37 TPs incl. 3 ICD).
+
 ### TD-045: Ground truth too small for statistical confidence
 **Status**: Resolved (Session 45)
 **Severity**: Low

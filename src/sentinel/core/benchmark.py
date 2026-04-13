@@ -16,7 +16,7 @@ from typing import Any
 
 from sentinel.core.eval import evaluate, load_ground_truth
 from sentinel.detectors.base import Detector, get_all_detectors
-from sentinel.models import DetectorContext, Finding, ScopeType
+from sentinel.models import DetectorContext, DetectorTier, Finding, ScopeType
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +71,11 @@ class BenchmarkResult:
         ]
 
         if self.eval_result:
+            # Top-level eval summary
             lines.append("[benchmark.eval]")
             for key, value in self.eval_result.items():
+                if key in ("per_detector", "judge"):
+                    continue  # Serialized separately below
                 if isinstance(value, float):
                     lines.append(f"{key} = {value:.4f}")
                 elif isinstance(value, list):
@@ -82,6 +85,64 @@ class BenchmarkResult:
                 else:
                     lines.append(f"{key} = {value}")
             lines.append("")
+
+            # Category-split eval (deterministic+heuristic vs LLM-assisted)
+            per_det = self.eval_result.get("per_detector", {})
+            if per_det:
+                llm_names = _llm_detector_names(self.detectors)
+                det_findings = det_tp = det_expected = 0
+                llm_findings = llm_tp = llm_expected = 0
+                for det_name, stats in per_det.items():
+                    if det_name in llm_names:
+                        llm_findings += stats["total_findings"]
+                        llm_tp += stats["true_positives"]
+                        llm_expected += stats["expected"]
+                    else:
+                        det_findings += stats["total_findings"]
+                        det_tp += stats["true_positives"]
+                        det_expected += stats["expected"]
+
+                lines.append("[benchmark.eval.deterministic]")
+                lines.append(f"findings = {det_findings}")
+                lines.append(f"true_positives = {det_tp}")
+                lines.append(f"expected = {det_expected}")
+                lines.append(
+                    f"precision = {det_tp / det_findings:.4f}"
+                    if det_findings else "precision = 0.0000"
+                )
+                lines.append(
+                    f"recall = {det_tp / det_expected:.4f}"
+                    if det_expected else "recall = 0.0000"
+                )
+                lines.append("")
+
+                lines.append("[benchmark.eval.llm_assisted]")
+                lines.append(f"findings = {llm_findings}")
+                lines.append(f"true_positives = {llm_tp}")
+                lines.append(f"expected = {llm_expected}")
+                lines.append(
+                    f"precision = {llm_tp / llm_findings:.4f}"
+                    if llm_findings else "precision = 0.0000"
+                )
+                lines.append(
+                    f"recall = {llm_tp / llm_expected:.4f}"
+                    if llm_expected else "recall = 0.0000"
+                )
+                lines.append("")
+
+                # Per-detector eval breakdown
+                for det_name in sorted(per_det):
+                    stats = per_det[det_name]
+                    lines.append(
+                        f"[benchmark.eval.per_detector."
+                        f'"{_toml_escape(det_name)}"]'
+                    )
+                    lines.append(f"findings = {stats['total_findings']}")
+                    lines.append(f"true_positives = {stats['true_positives']}")
+                    lines.append(f"expected = {stats['expected']}")
+                    lines.append(f"precision = {stats['precision']:.4f}")
+                    lines.append(f"recall = {stats['recall']:.4f}")
+                    lines.append("")
 
         for det in sorted(self.detectors, key=lambda d: -d.finding_count):
             lines.append("[[benchmark.detectors]]")
@@ -94,6 +155,18 @@ class BenchmarkResult:
             lines.append("")
 
         return "\n".join(lines)
+
+
+def _llm_detector_names(detectors: list[DetectorBenchmark]) -> set[str]:
+    """Return names of LLM-assisted detectors from benchmark results."""
+    return {d.name for d in detectors if d.tier == DetectorTier.LLM_ASSISTED.value}
+
+
+def _fmt_pct(value: float | int | None) -> str:
+    """Format a float as a percentage string, or '—' if missing."""
+    if isinstance(value, (int, float)):
+        return f"{value:.2%}"
+    return "—"
 
 
 def run_benchmark(
@@ -295,6 +368,31 @@ def compare_benchmarks(paths: list[str | Path]) -> str:
             for r in results
         ) + " |")
 
+        # Category-split precision if available
+        has_split = any(
+            "deterministic" in r.get("benchmark", {}).get("eval", {})
+            for r in results
+        )
+        if has_split:
+            lines.append("| *Det. precision* | " + " | ".join(
+                _fmt_pct(r["benchmark"].get("eval", {}).get(
+                    "deterministic", {},
+                ).get("precision"))
+                for r in results
+            ) + " |")
+            lines.append("| *LLM precision* | " + " | ".join(
+                _fmt_pct(r["benchmark"].get("eval", {}).get(
+                    "llm_assisted", {},
+                ).get("precision"))
+                for r in results
+            ) + " |")
+            lines.append("| *LLM findings* | " + " | ".join(
+                str(r["benchmark"].get("eval", {}).get(
+                    "llm_assisted", {},
+                ).get("findings", "—"))
+                for r in results
+            ) + " |")
+
     lines.extend(["", "## Per-Detector Breakdown", ""])
 
     # Collect all detector names
@@ -318,7 +416,13 @@ def compare_benchmarks(paths: list[str | Path]) -> str:
             if det_data:
                 count = det_data["finding_count"]
                 ms = det_data["duration_ms"]
-                row += f"{count} ({ms:.0f}ms) | "
+                # Include per-detector precision if available
+                pd = r["benchmark"].get("eval", {}).get("per_detector", {}).get(det_name)
+                if pd and count > 0:
+                    prec = pd.get("precision", 0)
+                    row += f"{count} ({ms:.0f}ms, {prec:.0%}P) | "
+                else:
+                    row += f"{count} ({ms:.0f}ms) | "
             else:
                 row += "— | "
         lines.append(row)

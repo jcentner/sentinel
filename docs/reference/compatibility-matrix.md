@@ -25,8 +25,8 @@ These detectors **use the model directly** to analyze code. Model quality direct
 |----------|----------|----------|------------|-------------|----------------|
 | **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) |
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) |
-| **inline-comment-drift** | ❓ Untested | ❓ Untested | 🔵 Good (~15% FP est) | 🔵 Good (~15% FP est) | 🔵 Good (~15% FP est) |
-| **intent-comparison** | ❓ Untested | ❓ Untested | ❓ Untested | 🔴 Poor (>90% FP est) | ❓ Untested |
+| **inline-comment-drift** | ❓ Untested | ❓ Untested | � Fair (~40% FP) | 🟢 Excellent (<10% FP) | ❓ Untested |
+| **intent-comparison** | ❓ Untested | ❓ Untested | 🔴 Poor (>90% FP est) | 🔴 Poor (>90% FP est) | ❓ Untested |
 | **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
@@ -35,9 +35,11 @@ These detectors **use the model directly** to analyze code. Model quality direct
 
 ### Deterministic Detectors (no model needed for detection)
 
-These 14 deterministic detectors work identically regardless of model. The model is only used by the **judge** to filter findings after detection.
+These 13 deterministic detectors work identically regardless of model. The model is only used by the **judge** to filter findings after detection.
 
-lint-runner · eslint-runner · todo-scanner · docs-drift · unused-deps · stale-env · cicd-drift · architecture-drift · dep-audit · go-linter · rust-clippy · complexity · dead-code · git-hotspots
+lint-runner · eslint-runner · todo-scanner · unused-deps · stale-env · cicd-drift · architecture-drift · dep-audit · go-linter · rust-clippy · complexity · dead-code · git-hotspots
+
+**Note**: docs-drift is hybrid — its link/path/dep checks are deterministic, but it optionally uses the LLM for doc-code semantic comparison when a provider is available. It is classified as LLM-assisted in the codebase.
 
 **Model recommendation for deterministic detectors**: Any model works. The 4B local model is sufficient as judge for these. Skip the model entirely (`--skip-judge`) for fastest results.
 
@@ -56,20 +58,25 @@ The 4B model cannot reliably distinguish between:
 
 **Recommendation**: Use `gpt-5.4-nano` or equivalent for test-coherence. If privacy requires local-only, either accept the noise or skip this detector with 4B.
 
-### inline-comment-drift — slow but effective
+### inline-comment-drift — model quality matters here
 
-Finds real docstring-code drift. Results on sample-repo: nano=5, mini=2, gpt-5.4=4 findings. Nano is most aggressive; variation is within noise on a 3-file fixture. On pip-tools: 6 findings with mini. FP rate estimated at ~15% from human review of ≤5 findings (no automated ground truth). **Very slow**: ~336s on pip-tools due to serial per-function LLM calls. Local models not yet benchmarked.
+Finds real docstring-code drift. With updated ground truth (3 seeded TPs in sample-repo):
+- **nano**: 5 findings (3 TP, 2 FP = 60% precision) — most aggressive
+- **mini**: 2 findings (2 TP, 0 FP = 100% precision) — most selective
+- On pip-tools: nano 16, mini 8 findings (no LLM ground truth yet)
+
+**Mini is recommended** for this detector — it finds the real issues without the noise. **Very slow**: ~303s on pip-tools due to serial per-function LLM calls.
 
 ### intent-comparison — broken, needs redesign
 
-0 findings on sample-repo (small repo lacks multi-artifact symbols). 35 findings on pip-tools with gpt-5.4-mini — **all likely false positives**. The detector has fundamental design issues:
+0 findings on sample-repo (small repo lacks multi-artifact symbols). On pip-tools: nano 20 findings, mini 31 findings — **all likely false positives** (no ground truth, but manual review shows hallucinated contradictions). The detector has fundamental design issues:
 
 - Runs even with `model_capability=basic` despite declaring `advanced` requirement (warning-only gate)
-- No post-LLM filtering — every hallucinated contradiction becomes a finding
+- No post-LLM filtering — every LLM-reported contradiction becomes a finding
 - Prompt lacks concrete false-positive examples
 - 50-call budget with no quality check
 
-**Do not rely on this detector** until it is redesigned. Consider disabling it in `sentinel.toml`.
+**Do not rely on this detector** until it is redesigned (TD-057). Consider disabling it in `sentinel.toml`.
 
 Configure per-detector model in `sentinel.toml`:
 
@@ -132,12 +139,12 @@ Models like Claude Haiku 4.5, larger local models (14B, 30B, 70B), and other pro
 
 **Important**: `sentinel benchmark` measures **raw detector output** against ground truth — it does NOT run the judge or synthesis pipeline. Precision/recall numbers reflect detector quality, not end-to-end scan quality. Judge quality ratings (4B, 9B, nano) were measured separately from `sentinel scan` verdict distributions.
 
-Headline precision (e.g., "85% precision") is dominated by deterministic detectors, which produce identical results regardless of model. Model quality only affects the 4–5 LLM-assisted detectors. On the 3-file sample-repo fixture, 27 of 36–40 findings (varies by model) come from deterministic detectors — variation between models is small and not statistically significant.
+Headline precision (e.g., "92% precision") is diluted by deterministic/heuristic detectors, which produce identical results regardless of model. Model quality only affects the 5 LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison, and parts of docs-drift). On the 3-file sample-repo fixture, 27 of 36–40 findings (varies by model) come from deterministic/heuristic detectors. Use the per-category LLM precision to compare models.
 
 Benchmark repos:
 
-- **Sample-repo fixture**: 30 seeded findings, ground truth annotated (benchmarked on 5 models). 3 source files — too small for meaningful model differentiation on LLM detectors.
-- **pip-tools**: Real-world Python project, 38 annotated findings (benchmarked on 2 models). Larger corpus, better signal for LLM detectors.
+- **Sample-repo fixture**: 37 seeded findings including 3 ICD TPs, ground truth annotated (benchmarked on 2 cloud models with per-category eval). 3 source files — small but meaningful for LLM detector comparison.
+- **pip-tools**: Real-world Python project, 38 annotated findings (deterministic only — LLM detector ground truth needed). Benchmarked on 2 cloud models.
 - **Sentinel self-scan**: Python project, 226 deterministic findings, 61 annotated
 
 Each run records findings, FP rates, and timing. See [model-benchmarks.md](model-benchmarks.md) for raw benchmark data.

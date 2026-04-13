@@ -142,67 +142,72 @@ Key differences:
 
 ## Phase 13 Benchmarks: Full Detector Suite (2026-04-13)
 
-First benchmarks running all 18 detectors including inline-comment-drift and intent-comparison.
+Benchmarks running all 18 detectors with per-category precision (deterministic vs LLM-assisted).
 
 ### Test Setup
 
-- **Repos**: `tests/fixtures/sample-repo/` (seeded fixture, 30 TPs), `pip-tools` (real-world, 38 annotated TPs)
-- **Models**: gpt-5.4-nano (Azure), gpt-5.4-mini (Azure), gpt-5.4 (Azure)
+- **Repos**: `tests/fixtures/sample-repo/` (seeded fixture, 37 TPs incl. 3 ICD), `pip-tools` (real-world, 38 annotated TPs, no LLM GT)
+- **Models**: gpt-5.4-nano (Azure), gpt-5.4-mini (Azure)
 - **Mode**: `sentinel benchmark` — raw detector output only, **no judge or synthesis**
-- **Ground truth**: sample-repo fixture ground truth + pip-tools `[[findings]]` format
+- **Ground truth**: sample-repo includes ICD ground truth (3 seeded TPs); pip-tools covers deterministic only
 
-**Important**: Precision/recall measures raw detector output vs ground truth. The judge is NOT run during benchmarks. Headline precision is dominated by the ~27 deterministic findings that are identical regardless of model — model quality only affects the 4–5 LLM-assisted detectors.
+**Important**: Precision/recall measures raw detector output vs ground truth. The judge is NOT run during benchmarks. Use the per-category split to compare model quality — headline precision is diluted by deterministic findings.
 
 ### Sample Repo Results (All 18 Detectors)
 
-| Metric | gpt-5.4-nano | gpt-5.4-mini | gpt-5.4 |
-|--------|-------------|-------------|---------|
-| Total findings | 40 | 36 | 38 |
-| Precision | 85% | 92% | 87% |
-| Recall | 100% | 97% | 97% |
-| Duration | ~98s | ~75s | ~97s |
+| Metric | gpt-5.4-nano | gpt-5.4-mini |
+|--------|-------------|-------------|
+| Total findings | 40 | 36 |
+| **Headline precision** | 92% | 97% |
+| **Headline recall** | 100% | 95% |
+| Deterministic precision | 96.3% | 96.3% |
+| **LLM precision** | **84.6%** | **100%** |
+| LLM findings | 13 | 9 |
+| Duration | ~60s | ~60s |
 
-LLM detector findings on sample-repo:
+**The LLM precision split is the real signal.** Both models have identical deterministic precision (96.3%). Mini produces fewer LLM findings but all are correct. Nano finds more but includes 2 ICD false positives.
 
-| Detector | gpt-5.4-nano | gpt-5.4-mini | gpt-5.4 | Duration (nano) |
-|----------|-------------|-------------|---------|-----------------|
-| inline-comment-drift | 5 | 2 | 4 | 42s |
-| intent-comparison | 0 | 0 | 0 | 5s |
-| semantic-drift | 1 | 1 | 1 | 12s |
-| test-coherence | 2 | 1 | 1 | 16s |
-| docs-drift | 5 | 5 | 5 | 11s |
+Per-detector LLM findings on sample-repo:
 
-Nano is the most aggressive (5 ICD, 2 TC). Mini is most selective (2 ICD, 1 TC). All three produce identical results on the ~27 deterministic findings. Variation in LLM detectors is within noise for a 3-file fixture — differences are not statistically meaningful.
+| Detector | gpt-5.4-nano | gpt-5.4-mini | Notes |
+|----------|-------------|-------------|-------|
+| inline-comment-drift | 5 (60%P, 3/3 TP) | 2 (100%P, 2/3 TP) | Nano: 2 FP; Mini: misses `test_old_handler` |
+| intent-comparison | 0 | 0 | Too few multi-artifact symbols in sample-repo |
+| semantic-drift | 1 (100%P) | 1 (100%P) | Identical finding |
+| test-coherence | 2 (100%P, 2/2 TP) | 1 (100%P, 1/2 TP) | Nano: finds both; Mini: misses `test_main_runs` |
+| docs-drift | 5 (100%P) | 5 (100%P) | Identical findings |
 
-### Pip-tools Results (gpt-5.4-mini)
+### Pip-tools Results (nano vs mini)
 
-| Metric | Value |
-|--------|-------|
-| Total findings | 94 |
-| Precision | 6.4% |
-| Recall | 46% |
-| Duration | ~582s (~10 min) |
+| Metric | gpt-5.4-nano | gpt-5.4-mini |
+|--------|-------------|-------------|
+| Total findings | 92 | 91 |
+| Headline precision | 6.5% | 6.6% |
+| Deterministic precision | 14.0% | 14.0% |
+| LLM precision | 0% | 0% |
+| LLM findings | 49 | 48 |
+| Duration | ~525s | ~530s |
 
-Low precision/recall is due to ground truth covering only deterministic detectors. LLM detectors produced 49 findings with no ground truth annotations.
+LLM precision is 0% because **pip-tools has no LLM detector ground truth**. These scores are not meaningful for model comparison — they only confirm the ground truth gap.
 
-LLM detector findings on pip-tools:
+Per-detector LLM findings on pip-tools:
 
-| Detector | Findings | Duration |
-|----------|----------|----------|
-| intent-comparison | 35 | 75s |
-| inline-comment-drift | 6 | 336s |
-| semantic-drift | 4 | 22s |
-| test-coherence | 4 | 127s |
-| docs-drift (LLM) | 2 | 16s |
+| Detector | gpt-5.4-nano | gpt-5.4-mini |
+|----------|-------------|-------------|
+| intent-comparison | 20 | 31 |
+| inline-comment-drift | 16 | 8 |
+| test-coherence | 6 | 3 |
+| semantic-drift | 5 | 4 |
+| docs-drift | 2 (shared) | 2 (shared) |
 
-**Key finding**: intent-comparison is extremely noisy on pip-tools (35 findings) vs sample-repo (0). inline-comment-drift is very slow (~336s) due to serial per-function LLM calls.
+**Key finding**: Intent-comparison is noisy on both models (20–31 likely FP). Nano is consistently more aggressive (more ICD, TC, SD findings). Mini produces fewer LLM findings overall.
 
 ### Ground Truth Status
 
-| Repo | Annotated Findings | Models Benchmarked |
-|------|-------------------|-------------------|
-| sample-repo | 30 (seeded) | 4B, 9B, nano, mini, gpt-5.4 |
-| pip-tools | 38 (deterministic only) | nano(old), mini |
-| sentinel | 57 (annotated) + 120 (assumed TP) | nano(prior, 2 detectors) |
+| Repo | Annotated Findings | LLM GT | Models Benchmarked |
+|------|-------------------|---------|--------------------|
+| sample-repo | 37 (incl. 3 ICD, 2 TC, 1 SD) | ✅ Yes | nano, mini |
+| pip-tools | 38 (deterministic only) | ❌ No | nano, mini |
+| sentinel | 57 (annotated) + 120 (assumed TP) | ❌ No | not re-benchmarked |
 
-Sentinel self-scan ground truth was created this session but benchmark timed out (226 findings × 10s judge = ~38 min). Deferred to targeted run.
+**Priority**: Add LLM detector ground truth to pip-tools (manual review of ~48 LLM findings). This would convert the 0% LLM precision into real per-detector ratings on a meaningful codebase.

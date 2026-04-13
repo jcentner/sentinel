@@ -10,6 +10,8 @@ import pytest
 from sentinel.core.benchmark import (
     BenchmarkResult,
     DetectorBenchmark,
+    _fmt_pct,
+    _llm_detector_names,
     compare_benchmarks,
     load_benchmark,
     run_benchmark,
@@ -576,3 +578,122 @@ class TestShouldUseEnhancedPrompt:
         from sentinel.core.compatibility import should_use_enhanced_prompt
         assert should_use_enhanced_prompt("", "semantic-drift", "basic") is False
         assert should_use_enhanced_prompt("", "semantic-drift", "standard") is True
+
+
+# ---------------------------------------------------------------------------
+# Tests for per-category precision split
+# ---------------------------------------------------------------------------
+
+
+class TestCategorySplit:
+    """Tests for _llm_detector_names, _fmt_pct, and category-split TOML output."""
+
+    def test_llm_detector_names_mixed_tiers(self) -> None:
+        """_llm_detector_names returns only LLM-assisted detector names."""
+        dets = [
+            DetectorBenchmark("lint-runner", 3, 50, ["code"], "deterministic"),
+            DetectorBenchmark("complexity", 2, 10, ["code"], "heuristic"),
+            DetectorBenchmark("semantic-drift", 1, 500, ["docs"], "llm-assisted"),
+            DetectorBenchmark("test-coherence", 2, 800, ["test"], "llm-assisted"),
+        ]
+        result = _llm_detector_names(dets)
+        assert result == {"semantic-drift", "test-coherence"}
+
+    def test_llm_detector_names_all_deterministic(self) -> None:
+        """Empty set when no LLM detectors."""
+        dets = [
+            DetectorBenchmark("lint-runner", 3, 50, ["code"], "deterministic"),
+            DetectorBenchmark("complexity", 2, 10, ["code"], "heuristic"),
+        ]
+        assert _llm_detector_names(dets) == set()
+
+    def test_fmt_pct_float(self) -> None:
+        assert _fmt_pct(0.85) == "85.00%"
+
+    def test_fmt_pct_int(self) -> None:
+        assert _fmt_pct(1) == "100.00%"
+
+    def test_fmt_pct_none(self) -> None:
+        assert _fmt_pct(None) == "—"
+
+    def test_toml_category_split_roundtrip(self) -> None:
+        """TOML output includes deterministic/llm sections that roundtrip."""
+        import tomllib
+
+        result = BenchmarkResult(
+            repo_path="/tmp/test",
+            timestamp="2026-04-13T00:00:00Z",
+            model="test",
+            provider="test",
+            model_capability="basic",
+            total_findings=6,
+            total_duration_ms=1000,
+            detector_count=3,
+            detectors=[
+                DetectorBenchmark("lint-runner", 3, 50, ["code"], "deterministic"),
+                DetectorBenchmark("semantic-drift", 2, 500, ["docs"], "llm-assisted"),
+                DetectorBenchmark("todo-scanner", 1, 10, ["todo"], "deterministic"),
+            ],
+            eval_result={
+                "total_findings": 6,
+                "true_positives": 5,
+                "false_positives_found": 0,
+                "missing": [],
+                "unexpected_fps": [],
+                "precision": 0.8333,
+                "recall": 1.0,
+                "per_detector": {
+                    "lint-runner": {
+                        "total_findings": 3, "true_positives": 3,
+                        "expected": 3, "precision": 1.0, "recall": 1.0,
+                    },
+                    "semantic-drift": {
+                        "total_findings": 2, "true_positives": 1,
+                        "expected": 1, "precision": 0.5, "recall": 1.0,
+                    },
+                    "todo-scanner": {
+                        "total_findings": 1, "true_positives": 1,
+                        "expected": 1, "precision": 1.0, "recall": 1.0,
+                    },
+                },
+            },
+        )
+
+        toml_str = result.to_toml_str()
+        parsed = tomllib.loads(toml_str)
+
+        det = parsed["benchmark"]["eval"]["deterministic"]
+        assert det["findings"] == 4  # lint-runner(3) + todo-scanner(1)
+        assert det["true_positives"] == 4
+        assert det["precision"] == 1.0
+
+        llm = parsed["benchmark"]["eval"]["llm_assisted"]
+        assert llm["findings"] == 2
+        assert llm["true_positives"] == 1
+        assert llm["precision"] == 0.5
+
+        # Per-detector sections
+        pd = parsed["benchmark"]["eval"]["per_detector"]
+        assert "lint-runner" in pd
+        assert "semantic-drift" in pd
+        assert pd["semantic-drift"]["precision"] == 0.5
+
+    def test_toml_no_eval_skips_split(self) -> None:
+        """No eval_result means no deterministic/llm sections."""
+        result = BenchmarkResult(
+            repo_path="/tmp/test",
+            timestamp="2026-04-13T00:00:00Z",
+            model="test",
+            provider="test",
+            model_capability="basic",
+            total_findings=1,
+            total_duration_ms=100,
+            detector_count=1,
+            detectors=[
+                DetectorBenchmark("lint-runner", 1, 50, ["code"], "deterministic"),
+            ],
+            eval_result=None,
+        )
+        toml_str = result.to_toml_str()
+        assert "[benchmark.eval.deterministic]" not in toml_str
+        assert "[benchmark.eval.llm_assisted]" not in toml_str

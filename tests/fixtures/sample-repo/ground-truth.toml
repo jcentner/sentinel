@@ -192,6 +192,33 @@ detector = "test-coherence"
 file_path = "tests/test_main.py"
 title = "test_main_returns_data"
 
+# inline-comment-drift: seeded stale docstrings in fixture files
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "tests/test_main.py"
+title = "test_keyboard_interrupt_handling"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "tests/test_processing.py"
+title = "test_process_validates_xml_format"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "tests/test_main.py"
+title = "test_old_handler"
+
+# inline-comment-drift FPs: nano flags these but they're borderline/wrong
+[[false_positives]]
+detector = "inline-comment-drift"
+file_path = "tests/test_main.py"
+title = "test_main_returns_data"
+
+[[false_positives]]
+detector = "inline-comment-drift"
+file_path = "src/myapp/processing.py"
+title = "long_report_generator"
+
 # ── Known false positive patterns (should NOT appear) ────────────
 
 # Code block content should not be flagged

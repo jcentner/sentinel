@@ -95,8 +95,9 @@ DETECTOR_INFO = {
         "language": "Any",
     },
     "docs-drift": {
-        "tier": "deterministic", "capability": "none",
-        "description": "Detects broken links, stale paths, and dependency drift in docs",
+        "tier": "llm-assisted", "capability": "none",
+        "description": "Detects broken links, stale paths, and dependency drift in docs. "
+                       "Optionally uses LLM for doc-code semantic comparison.",
         "language": "Any",
     },
     "complexity": {
@@ -283,17 +284,18 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "2026-04-13"),
     _e("inline-comment-drift", "9b-local", "basic", QualityRating.UNTESTED, "?",
        "Not yet benchmarked with local models."),
-    _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.GOOD, "~15% (est)",
-       "5 findings on sample-repo (most aggressive of cloud models). "
-       "Very slow (~42s on 3-file fixture). Based on human review of ≤5 findings.",
+    _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.FAIR, "~40%",
+       "5 findings on sample-repo (3 TP, 2 FP = 60% precision). "
+       "16 findings on pip-tools (no LLM ground truth). "
+       "Most aggressive cloud model for ICD. Very slow (~30s on 3-file fixture).",
        "2026-04-13"),
-    _e("inline-comment-drift", "cloud-small", "basic", QualityRating.GOOD, "~15% (est)",
-       "2 findings on sample-repo (most selective), 6 on pip-tools. "
-       "Very slow (~336s on pip-tools due to serial per-function LLM calls).",
+    _e("inline-comment-drift", "cloud-small", "basic", QualityRating.EXCELLENT, "<10%",
+       "2 findings on sample-repo (2 TP, 0 FP = 100% precision). "
+       "8 findings on pip-tools. Most selective cloud model. "
+       "Very slow (~303s on pip-tools due to serial per-function LLM calls).",
        "2026-04-13"),
-    _e("inline-comment-drift", "cloud-frontier", "basic", QualityRating.GOOD, "~15% (est)",
-       "4 findings on sample-repo. Between nano and mini. "
-       "Based on tiny sample — differences not statistically meaningful.",
+    _e("inline-comment-drift", "cloud-frontier", "basic", QualityRating.UNTESTED, "?",
+       "Not re-benchmarked with updated ground truth.",
        "2026-04-13"),
 
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
@@ -308,17 +310,16 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "2026-04-13"),
     _e("intent-comparison", "9b-local", "advanced", QualityRating.UNTESTED, "?",
        "Not expected to work at 9B."),
-    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.UNTESTED, "?",
-       "0 findings on sample-repo (too few 3-artifact symbols). "
-       "Not yet tested on a repo with sufficient multi-artifact coverage.",
+    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.POOR, ">90% (est)",
+       "0 findings on sample-repo, 20 on pip-tools (all likely FP, no ground truth). "
+       "Detector has design issues (see TD-057).",
        "2026-04-13"),
     _e("intent-comparison", "cloud-small", "advanced", QualityRating.POOR, ">90% (est)",
-       "0 findings on sample-repo, 35 findings on pip-tools (all likely FP). "
-       "Detector lacks post-LLM filtering and runs at basic prompt despite needing "
-       "advanced. Prompt has no FP examples. Needs redesign.",
+       "0 findings on sample-repo, 31 on pip-tools (all likely FP, no ground truth). "
+       "Noisier than nano. Detector needs redesign (TD-057).",
        "2026-04-13"),
     _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
-       "0 findings on sample-repo. Not yet tested on larger repo.",
+       "Not yet benchmarked on a repo with sufficient coverage.",
        "2026-04-13"),
 ]
 

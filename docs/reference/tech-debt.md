@@ -85,10 +85,8 @@ Results: 0 findings on sample-repo (too few 3-artifact symbols), 35 findings on 
 **Proposed resolution**: Redesign needed — add hard capability gate (skip if model < advanced), add post-LLM filtering (reject low-confidence or vague contradictions), add concrete FP examples to prompt, test on multiple repos before re-rating. Consider disabling by default until redesign is complete.
 
 ### TD-058: Benchmark precision conflates deterministic and LLM detectors
-**Status**: Active
+**Status**: Resolved (Session 45)
 **Severity**: Medium
 **Introduced**: Session 45 (benchmark audit)
-**Description**: `sentinel benchmark` reports a single headline precision/recall that combines all 18 detectors. On sample-repo, 27 of 36–40 findings (varies by model) come from deterministic detectors that are identical regardless of model. This makes the headline numbers misleading for model comparison — "92% precision (mini)" vs "85% precision (nano)" is mostly about 2-3 extra LLM-detector findings, not meaningful quality difference.
-**Impact**: Published compatibility matrix entries may overstate or understate model quality. Users comparing models can't tell what's signal vs noise.
-**Proposed resolution**: Add per-category precision (deterministic vs LLM-assisted) to benchmark output. Report LLM-detector precision separately so model comparisons are meaningful. The `benchmark.toml` files already capture per-detector counts — the aggregation logic needs refinement.
+**Resolution**: Added `[benchmark.eval.deterministic]` and `[benchmark.eval.llm_assisted]` sections to benchmark TOML output with separate precision/recall. `compare_benchmarks()` now shows Det./LLM precision split. Per-detector precision shown in comparison table. Sample-repo benchmarks re-run with updated ground truth (37 TPs incl. 3 ICD).
 

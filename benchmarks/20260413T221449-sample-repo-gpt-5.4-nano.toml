@@ -1,93 +1,176 @@
 # Sentinel Benchmark Results
-# Generated: 2026-04-13T21:36:08Z
+# Generated: 2026-04-13T22:14:49Z
 
 [benchmark]
 repo_path = "/home/jacobcentner/sentinel/tests/fixtures/sample-repo"
-timestamp = "2026-04-13T21:36:08Z"
+timestamp = "2026-04-13T22:14:49Z"
 model = "gpt-5.4-nano"
 provider = "azure"
 model_capability = "basic"
 total_findings = 40
-total_duration_ms = 97718.9
+total_duration_ms = 60472.7
 detector_count = 18
 
 [benchmark.eval]
 total_findings = 40
-true_positives = 34
-false_positives_found = 0
+true_positives = 37
+false_positives_found = 2
 missing_count = 0
-unexpected_fps_count = 0
-precision = 0.8500
+unexpected_fps_count = 2
+precision = 0.9250
 recall = 1.0000
-per_detector = {'complexity': {'detector': 'complexity', 'total_findings': 2, 'true_positives': 2, 'expected': 2, 'precision': 1.0, 'recall': 1.0}, 'dead-code': {'detector': 'dead-code', 'total_findings': 6, 'true_positives': 6, 'expected': 6, 'precision': 1.0, 'recall': 1.0}, 'docs-drift': {'detector': 'docs-drift', 'total_findings': 5, 'true_positives': 5, 'expected': 5, 'precision': 1.0, 'recall': 1.0}, 'inline-comment-drift': {'detector': 'inline-comment-drift', 'total_findings': 5, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'lint-runner': {'detector': 'lint-runner', 'total_findings': 3, 'true_positives': 2, 'expected': 2, 'precision': 0.6666666666666666, 'recall': 1.0}, 'semantic-drift': {'detector': 'semantic-drift', 'total_findings': 1, 'true_positives': 1, 'expected': 1, 'precision': 1.0, 'recall': 1.0}, 'stale-env': {'detector': 'stale-env', 'total_findings': 5, 'true_positives': 5, 'expected': 5, 'precision': 1.0, 'recall': 1.0}, 'test-coherence': {'detector': 'test-coherence', 'total_findings': 2, 'true_positives': 2, 'expected': 2, 'precision': 1.0, 'recall': 1.0}, 'todo-scanner': {'detector': 'todo-scanner', 'total_findings': 8, 'true_positives': 8, 'expected': 8, 'precision': 1.0, 'recall': 1.0}, 'unused-deps': {'detector': 'unused-deps', 'total_findings': 3, 'true_positives': 3, 'expected': 3, 'precision': 1.0, 'recall': 1.0}}
+
+[benchmark.eval.deterministic]
+findings = 27
+true_positives = 26
+expected = 26
+precision = 0.9630
+recall = 1.0000
+
+[benchmark.eval.llm_assisted]
+findings = 13
+true_positives = 11
+expected = 11
+precision = 0.8462
+recall = 1.0000
+
+[benchmark.eval.per_detector."complexity"]
+findings = 2
+true_positives = 2
+expected = 2
+precision = 1.0000
+recall = 1.0000
+
+[benchmark.eval.per_detector."dead-code"]
+findings = 6
+true_positives = 6
+expected = 6
+precision = 1.0000
+recall = 1.0000
+
+[benchmark.eval.per_detector."docs-drift"]
+findings = 5
+true_positives = 5
+expected = 5
+precision = 1.0000
+recall = 1.0000
+
+[benchmark.eval.per_detector."inline-comment-drift"]
+findings = 5
+true_positives = 3
+expected = 3
+precision = 0.6000
+recall = 1.0000
+
+[benchmark.eval.per_detector."lint-runner"]
+findings = 3
+true_positives = 2
+expected = 2
+precision = 0.6667
+recall = 1.0000
+
+[benchmark.eval.per_detector."semantic-drift"]
+findings = 1
+true_positives = 1
+expected = 1
+precision = 1.0000
+recall = 1.0000
+
+[benchmark.eval.per_detector."stale-env"]
+findings = 5
+true_positives = 5
+expected = 5
+precision = 1.0000
+recall = 1.0000
+
+[benchmark.eval.per_detector."test-coherence"]
+findings = 2
+true_positives = 2
+expected = 2
+precision = 1.0000
+recall = 1.0000
+
+[benchmark.eval.per_detector."todo-scanner"]
+findings = 8
+true_positives = 8
+expected = 8
+precision = 1.0000
+recall = 1.0000
+
+[benchmark.eval.per_detector."unused-deps"]
+findings = 3
+true_positives = 3
+expected = 3
+precision = 1.0000
+recall = 1.0000
 
 [[benchmark.detectors]]
 name = "todo-scanner"
 finding_count = 8
-duration_ms = 240.7
+duration_ms = 106.6
 tier = "deterministic"
 categories = ["todo-fixme"]
 
 [[benchmark.detectors]]
 name = "dead-code"
 finding_count = 6
-duration_ms = 6.0
+duration_ms = 3.0
 tier = "heuristic"
 categories = ["code-quality"]
 
 [[benchmark.detectors]]
 name = "docs-drift"
 finding_count = 5
-duration_ms = 11357.3
+duration_ms = 7404.3
 tier = "llm-assisted"
 categories = ["docs-drift"]
 
 [[benchmark.detectors]]
 name = "inline-comment-drift"
 finding_count = 5
-duration_ms = 42403.4
+duration_ms = 28632.4
 tier = "llm-assisted"
 categories = ["docs-drift"]
 
 [[benchmark.detectors]]
 name = "stale-env"
 finding_count = 5
-duration_ms = 2.1
+duration_ms = 1.6
 tier = "deterministic"
 categories = ["config-drift"]
 
 [[benchmark.detectors]]
 name = "lint-runner"
 finding_count = 3
-duration_ms = 102.6
+duration_ms = 63.8
 tier = "deterministic"
 categories = ["code-quality"]
 
 [[benchmark.detectors]]
 name = "unused-deps"
 finding_count = 3
-duration_ms = 4.7
+duration_ms = 2.5
 tier = "deterministic"
 categories = ["dependency"]
 
 [[benchmark.detectors]]
 name = "complexity"
 finding_count = 2
-duration_ms = 7.1
+duration_ms = 4.1
 tier = "heuristic"
 categories = ["code-quality"]
 
 [[benchmark.detectors]]
 name = "test-coherence"
 finding_count = 2
-duration_ms = 16372.1
+duration_ms = 8840.2
 tier = "llm-assisted"
 categories = ["test-coherence"]
 
 [[benchmark.detectors]]
 name = "semantic-drift"
 finding_count = 1
-duration_ms = 11617.9
+duration_ms = 6718.4
 tier = "llm-assisted"
 categories = ["docs-drift"]
 
@@ -101,21 +184,21 @@ categories = ["config-drift"]
 [[benchmark.detectors]]
 name = "cicd-drift"
 finding_count = 0
-duration_ms = 1.0
+duration_ms = 0.4
 tier = "deterministic"
 categories = ["config-drift"]
 
 [[benchmark.detectors]]
 name = "dep-audit"
 finding_count = 0
-duration_ms = 10443.9
+duration_ms = 5148.0
 tier = "deterministic"
 categories = ["dependency"]
 
 [[benchmark.detectors]]
 name = "eslint-runner"
 finding_count = 0
-duration_ms = 1.0
+duration_ms = 1.1
 tier = "deterministic"
 categories = ["code-quality"]
 
@@ -129,20 +212,20 @@ categories = ["git-health"]
 [[benchmark.detectors]]
 name = "go-linter"
 finding_count = 0
-duration_ms = 0.7
+duration_ms = 1.0
 tier = "deterministic"
 categories = ["code-quality"]
 
 [[benchmark.detectors]]
 name = "intent-comparison"
 finding_count = 0
-duration_ms = 5153.0
+duration_ms = 3542.2
 tier = "llm-assisted"
 categories = ["cross-artifact"]
 
 [[benchmark.detectors]]
 name = "rust-clippy"
 finding_count = 0
-duration_ms = 2.3
+duration_ms = 1.4
 tier = "deterministic"
 categories = ["code-quality"]
