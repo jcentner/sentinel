@@ -54,9 +54,9 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016) and multi-language support via tree-sitter (Python, JavaScript, TypeScript with regex fallback). Two-phase execution: heuristic detectors run first (parallel via thread pool), building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Async LLM pipeline: concurrent judge (8) and synthesis (4) via ADR-017, giving 4.5x speedup on cloud providers. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1376 tests. Published on PyPI as `repo-sentinel`.
+18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016) and multi-language support via tree-sitter (Python, JavaScript, TypeScript with regex fallback). Two-phase execution: heuristic detectors run first (parallel via thread pool), building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Async LLM pipeline: concurrent judge (8) and synthesis (4) via ADR-017, giving 4.5x speedup on cloud providers. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (14 commands incl. `llm-log`, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1387 tests. Published on PyPI as `repo-sentinel`.
 
-88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
+88% confirmation rate on real-world scan (92/104 findings confirmed). 3 repos with annotated ground truth (sample-repo, pip-tools, sentinel). All 18 detectors benchmarked on ≥2 models. See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
 ## Success Criteria
 
@@ -100,10 +100,11 @@ Priority-ordered next investments. Each connects to a validated gap.
 **Success**: `sentinel scan` on a JS/TS repo produces LLM-assisted findings with same quality as Python repos.
 **Result**: Common extractors module (`sentinel.core.extractors`) with Python AST, tree-sitter (JS/TS), and regex fallback backends. All 4 detectors refactored to use shared extractors. Dynamic code fence labels. 33 JS/TS-specific tests. Tree-sitter stack skill. `multilang` optional dependency group.
 
-### Phase 13: Benchmark & ground truth expansion
+### Phase 13: Benchmark & ground truth expansion ✓
 **Gap**: TD-045 — ground truth is 1 repo with 50 findings. Most model×detector combos are untested. New detectors (inline-comment-drift, intent-comparison) have zero benchmark data.
 **What**: Ground truth for 2-3 more repos. Benchmark all detectors on multiple models. `sentinel llm-log` CLI command. Benchmark results in LLM log for web drill-down (OQ-019).
 **Success**: ≥3 repos with annotated ground truth. All detectors benchmarked on ≥2 models.
+**Result**: 3 ground truth repos: sample-repo (30 seeded TPs, 5 models), pip-tools (38 annotated, 2 models), sentinel (57 annotated + 120 assumed TP). Compatibility matrix expanded: 10 new rated entries including ICD and IC first benchmarks. `sentinel llm-log` CLI command with filtering, stats, JSON. Eval system enhanced to support `[[findings]]` format. Judge quality rated for gpt-5.4-mini (EXCELLENT ~8% FP) and gpt-5.4 (GOOD ~13% FP). Key finding: intent-comparison very noisy on real repos (35 findings on pip-tools); inline-comment-drift very slow (336s serial). TD-045 resolved.
 
 ### Phase 14: CLI/Web parity & polish
 **Gap**: 5 CLI features not in web, 4 web features not in CLI. Low-severity tech debt accumulation.
