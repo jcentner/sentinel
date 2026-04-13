@@ -1,40 +1,58 @@
 # Current State — Sentinel
 
-> Last updated: Session 41 — Phase 10 complete: intent-comparison detector
+> Last updated: Session 42 — Web UI UX audit and fixes
 
 **Phase Status**: Blocked: Vision Expansion — awaiting human approval
 
 ## Latest Session Summary
 
 ### Current Objective
-Phase 10: Complete advanced detectors — ship intent-comparison (multi-artifact triangulation).
+Web UI UX walkthrough: audit all pages as a user, identify friction/bugs, fix them.
 
 ### What Was Accomplished
 
-#### Intent comparison detector (Session 41)
-- New `intent-comparison` LLM-assisted detector (cross-artifact category)
-- First ADVANCED-tier detector — requires frontier-class models
-- Multi-artifact triangulation: gathers code, docstring, tests, doc sections per function
-- Only triggers when 3+ artifacts available (pairwise detectors cover 2-artifact cases)
-- AST symbol extraction, test lookup (exact + prefix match), doc lookup (backtick refs)
-- Binary LLM prompt with basic/enhanced mode (ADR-016)
-- Risk-based file sorting via churn signals (TD-043)
-- Per-file (10) and per-scan (50) LLM call limits
-- 55 tests, reviewer findings fixed (_build_evidence elif→independent if, artifact name leniency)
+#### UX audit and 14 fixes (Session 42)
+Full interactive walkthrough of every web UI page discovered 14 issues across 4 priority levels. All fixed, tested (1290 tests + 178 web/model/store), and browser-verified.
 
-#### Phase 10 now complete
-All 4 Phase 10 detectors shipped:
-- cicd-drift (deterministic, Session 40)
-- inline-comment-drift (LLM-assisted, Session 40)
-- architecture-drift (deterministic, Session 40)
-- intent-comparison (LLM-assisted, Session 41)
+**P0 — Critical (CSRF)**:
+- 7 of 10 POST forms were missing `csrf_token` hidden inputs → all forms now work
+- CSRF error response styled with navigation instead of bare text
 
-#### Docs updated
-- VISION-LOCK v5.6: 18 detectors, Phase 10 marked complete
-- detector-interface.md: new row for intent-comparison, cross-artifact category added
-- overview.md: Tier 3 description updated, detector list updated
-- compatibility-matrix.md: intent-comparison row (untested, ADVANCED tier)
-- README.md: 18 detectors, test count 1290
+**P1 — High**:
+- Stat cards showed filtered counts as totals → now show unfiltered totals regardless of active filter
+- Finding detail back link used `javascript:history.back()` → now uses `/runs/{run_id}`
+- Added `run_id` field to `Finding` dataclass, populated from DB in `_row_to_finding()`
+
+**P2 — Medium**:
+- Nav link renamed "Issues" → "GitHub" to match page content
+- Home redirect changed from `/runs/{latest_id}` to `/runs` (listing page)
+- Detectors page: added anchor-based TOC for 7 sections
+- Filter selects auto-submit on change via `onchange`
+
+**P3 — Low**:
+- Repo badge tooltip: "Active repository: {path}"
+- Timestamps: Jinja2 `|ts` filter for consistent `%Y-%m-%d %H:%M` formatting
+- Cluster label "." replaced with "(repo root)"
+- Light theme: improved contrast (warm off-white, visible borders)
+- Scan page: htmx loading indicator
+- CSS: `.htmx-indicator` and `.htmx-request` rules
+
+#### Files modified (15)
+- `src/sentinel/models.py` — `Finding.run_id` field
+- `src/sentinel/store/findings.py` — `_row_to_finding()` populates `run_id`
+- `src/sentinel/web/app.py` — home redirect to `/runs`
+- `src/sentinel/web/csrf.py` — styled error page
+- `src/sentinel/web/routes/runs.py` — unfiltered `total_counts`
+- `src/sentinel/web/shared.py` — `_format_ts()` Jinja2 filter
+- `src/sentinel/web/static/style.css` — light theme, htmx indicators
+- `src/sentinel/web/templates/base.html` — nav rename, tooltip
+- `src/sentinel/web/templates/compatibility.html` — TOC + anchor IDs
+- `src/sentinel/web/templates/eval.html` — CSRF token
+- `src/sentinel/web/templates/finding_detail.html` — CSRF tokens, back link
+- `src/sentinel/web/templates/llm_log.html` — auto-submit, timestamp filter
+- `src/sentinel/web/templates/run_detail.html` — CSRF, stat cards, cluster label, auto-submit
+- `src/sentinel/web/templates/scan.html` — CSRF, htmx loading
+- `tests/test_web.py` — updated redirect assertion
 
 ### Repository State
 - **Tests**: 1290 passing, 3 skipped
@@ -42,8 +60,8 @@ All 4 Phase 10 detectors shipped:
 - **Tech debt items**: 10 active
 - **Open questions**: 2 partially resolved (OQ-009, OQ-019), 2 open (OQ-006, OQ-016)
 - **ADRs**: 16
-- **Detectors**: 18 (was 17)
-- **Commits this session**: 2
+- **Detectors**: 18
+- **Commits this session**: 1
 
 ### What Remains / Next Priority
 1. **Vision Expansion** — all vision goals complete, proposal below
