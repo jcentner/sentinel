@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from sentinel.core.provider import LLMResponse
@@ -64,6 +65,59 @@ class OllamaProvider:
             timeout=_DEFAULT_TIMEOUT,
         )
         resp.raise_for_status()
+
+        data = resp.json()
+        text = data.get("response", "")
+        token_count = data.get("eval_count")
+        eval_duration_ns = data.get("eval_duration", 0)
+        duration_ms = eval_duration_ns / 1e6 if eval_duration_ns else None
+
+        return LLMResponse(
+            text=text,
+            token_count=token_count,
+            duration_ms=duration_ms,
+        )
+
+    async def agenerate(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 512,
+        num_ctx: int = 2048,
+        json_output: bool = False,
+    ) -> LLMResponse:
+        """Async generate via Ollama /api/generate (ADR-017).
+
+        Ollama handles one request at a time, so concurrent async calls
+        will queue at the server. Still useful for not blocking the event
+        loop while waiting.
+        """
+        import httpx
+
+        payload: dict[str, object] = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "think": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+                "num_ctx": num_ctx,
+            },
+        }
+        if system:
+            payload["system"] = system
+        if json_output:
+            payload["format"] = "json"
+
+        async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
+            resp = await client.post(
+                f"{self.ollama_url}/api/generate",
+                json=payload,
+            )
+            resp.raise_for_status()
 
         data = resp.json()
         text = data.get("response", "")

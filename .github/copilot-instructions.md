@@ -28,6 +28,7 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - ADR-013: Per-detector model providers
 - ADR-014: Replay-based eval for judge and synthesis paths
 - ADR-016: Benchmark-driven model quality (supersedes ADR-011 tier system)
+- ADR-017: Async model provider with backward-compatible concurrency
 
 ## Documentation
 

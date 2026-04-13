@@ -49,7 +49,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Accepted as-is — these detectors are cheap to maintain and useful for repos without CI linting. New development investment should focus on cross-artifact semantic detectors (Phase 5) that provide analysis nothing else does. No need to remove existing detectors.
 
 ### TD-016: Serial LLM judge bottleneck
-**Status**: Active
+**Status**: In progress (ADR-017 Slice 1 complete — async provider methods added, judge/synthesis async pending Slice 2)
 **Severity**: Medium
 **Introduced**: Phase 1 (supersedes aspect of TD-002)
 **Description**: The judge calls `provider.generate()` sequentially for each finding at ~4s/call. 50 findings = 3.3 min, 100 = 7 min. Combined with synthesis (~40s for 10 clusters), total LLM wall time is 7+ min for moderate repos.

@@ -13,6 +13,7 @@ Authentication:
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import logging
@@ -211,6 +212,103 @@ class AzureProvider:
                     time.sleep(wait)
                     continue
                 raise
+
+        elapsed_ms = (time.monotonic() - t0) * 1000
+
+        data = resp.json()
+        choices = data.get("choices", [])
+        text = choices[0]["message"]["content"] if choices else ""
+        usage = data.get("usage", {})
+        token_count = usage.get("completion_tokens")
+
+        return LLMResponse(
+            text=text,
+            token_count=token_count,
+            duration_ms=elapsed_ms,
+        )
+
+    async def agenerate(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 512,
+        num_ctx: int = 2048,
+        json_output: bool = False,
+    ) -> LLMResponse:
+        """Async generate via Azure AI Foundry OpenAI v1 API (ADR-017)."""
+        import httpx
+
+        messages: list[dict[str, str]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        payload: dict[str, object] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_completion_tokens": max_tokens,
+        }
+        if json_output:
+            payload["response_format"] = {"type": "json_object"}
+
+        # Acquire headers (token refresh) off the event loop to avoid blocking
+        headers = await asyncio.to_thread(self._headers)
+
+        t0 = time.monotonic()
+        _used_legacy_max_tokens = False
+        async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
+            for attempt in range(_MAX_RETRIES + 1):
+                try:
+                    resp = await client.post(
+                        self._completions_url(),
+                        json=payload,
+                        headers=headers,
+                    )
+                    # Fall back to max_tokens if the API rejects max_completion_tokens
+                    if (resp.status_code == 400
+                            and not _used_legacy_max_tokens
+                            and "max_completion_tokens" in resp.text):
+                        payload.pop("max_completion_tokens", None)
+                        payload["max_tokens"] = max_tokens
+                        _used_legacy_max_tokens = True
+                        continue
+                    if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_RETRIES:
+                        wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                        retry_after = resp.headers.get("retry-after")
+                        if retry_after:
+                            with contextlib.suppress(ValueError):
+                                wait = max(wait, float(retry_after))
+                        logger.warning(
+                            "Azure async request returned %d, retrying in %.1fs (attempt %d/%d)",
+                            resp.status_code, wait, attempt + 1, _MAX_RETRIES,
+                        )
+                        await asyncio.sleep(wait)
+                        continue
+                    resp.raise_for_status()
+                    break
+                except httpx.TimeoutException:
+                    if attempt < _MAX_RETRIES:
+                        wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                        logger.warning(
+                            "Azure async request timed out, retrying in %.1fs (attempt %d/%d)",
+                            wait, attempt + 1, _MAX_RETRIES,
+                        )
+                        await asyncio.sleep(wait)
+                        continue
+                    raise
+                except httpx.ConnectError:
+                    if attempt < _MAX_RETRIES:
+                        wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                        logger.warning(
+                            "Azure async connection failed, retrying in %.1fs (attempt %d/%d)",
+                            wait, attempt + 1, _MAX_RETRIES,
+                        )
+                        await asyncio.sleep(wait)
+                        continue
+                    raise
 
         elapsed_ms = (time.monotonic() - t0) * 1000
 

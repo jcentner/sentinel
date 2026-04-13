@@ -1,10 +1,12 @@
 """Model provider protocol — abstracts all LLM interaction.
 
 See ADR-010 for the design rationale.
+See ADR-017 for the async extension design.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
@@ -87,6 +89,56 @@ class ModelProvider(Protocol):
     def check_health(self) -> bool:
         """Check if the provider is reachable and operational."""
         ...
+
+
+# ---------------------------------------------------------------------------
+# Async helpers (ADR-017)
+# ---------------------------------------------------------------------------
+
+async def agenerate(
+    provider: ModelProvider,
+    prompt: str,
+    *,
+    system: str | None = None,
+    temperature: float = 0.1,
+    max_tokens: int = 512,
+    num_ctx: int = 2048,
+    json_output: bool = False,
+) -> LLMResponse:
+    """Async generate — uses native ``agenerate`` if available, else thread pool.
+
+    Providers that implement an ``agenerate()`` coroutine method get called
+    directly.  All others are wrapped in ``asyncio.to_thread()`` so the
+    event loop isn't blocked.
+    """
+    if hasattr(provider, "agenerate") and asyncio.iscoroutinefunction(provider.agenerate):  # type: ignore[union-attr]
+        return await provider.agenerate(  # type: ignore[union-attr]
+            prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            num_ctx=num_ctx,
+            json_output=json_output,
+        )
+    return await asyncio.to_thread(
+        provider.generate,
+        prompt,
+        system=system,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        num_ctx=num_ctx,
+        json_output=json_output,
+    )
+
+
+async def aembed(
+    provider: ModelProvider,
+    texts: list[str],
+) -> list[list[float]] | None:
+    """Async embed — uses native ``aembed`` if available, else thread pool."""
+    if hasattr(provider, "aembed") and asyncio.iscoroutinefunction(provider.aembed):  # type: ignore[union-attr]
+        return await provider.aembed(texts)  # type: ignore[union-attr]
+    return await asyncio.to_thread(provider.embed, texts)
 
 
 def create_provider(config: SentinelConfig) -> ModelProvider:

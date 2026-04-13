@@ -66,6 +66,26 @@ class MockProvider:
         self.health_calls += 1
         return self._health
 
+    async def agenerate(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 512,
+        num_ctx: int = 2048,
+        json_output: bool = False,
+    ) -> LLMResponse:
+        """Async generate — same as sync, no I/O in mock."""
+        return self.generate(
+            prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            num_ctx=num_ctx,
+            json_output=json_output,
+        )
+
 
 def make_mock_provider(**kwargs) -> MockProvider:
     """Create a MockProvider with the given configuration."""

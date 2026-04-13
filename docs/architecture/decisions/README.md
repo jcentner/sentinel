@@ -45,11 +45,12 @@ What other options were evaluated and why were they rejected?
 | [013](013-per-detector-model-providers.md) | Per-detector model providers | Accepted | 2026-04-09 |
 | [014](014-replay-based-eval.md) | Replay-based eval for judge and synthesis paths | Accepted | 2026-04-10 |
 | [016](016-benchmark-driven-model-quality.md) | Benchmark-driven model quality (supersedes ADR-011) | Accepted | 2026-04-12 |
+| [017](017-async-model-provider.md) | Async model provider with backward-compatible concurrency | Accepted | 2026-04-13 |
 
 ## Creating a new ADR
 
 1. Copy the template above
-2. Number sequentially (next: 015)
+2. Number sequentially (next: 018)
 3. Create `NNN-short-kebab-title.md`
 4. Add to the index table above
 5. Record the decision in the commit that implements it where possible

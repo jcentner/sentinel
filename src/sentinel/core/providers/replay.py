@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from sentinel.core.provider import LLMResponse, ModelProvider
+from sentinel.core.provider import LLMResponse, ModelProvider, agenerate
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,26 @@ class ReplayProvider:
             duration_ms=0.0,
         )
 
+    async def agenerate(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 512,
+        num_ctx: int = 2048,
+        json_output: bool = False,
+    ) -> LLMResponse:
+        """Async generate — replay is instant, no I/O."""
+        return self.generate(
+            prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            num_ctx=num_ctx,
+            json_output=json_output,
+        )
+
     def embed(self, texts: list[str]) -> list[list[float]] | None:
         return None
 
@@ -134,6 +154,35 @@ class RecordingProvider:
         json_output: bool = False,
     ) -> LLMResponse:
         resp = self._provider.generate(
+            prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            num_ctx=num_ctx,
+            json_output=json_output,
+        )
+        self.recordings.append({
+            "prompt_hash": _prompt_hash(prompt),
+            "prompt_preview": prompt[:300],
+            "response": resp.text,
+            "token_count": resp.token_count,
+            "duration_ms": resp.duration_ms,
+        })
+        return resp
+
+    async def agenerate(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 512,
+        num_ctx: int = 2048,
+        json_output: bool = False,
+    ) -> LLMResponse:
+        """Async generate — delegates to wrapped provider's async path."""
+        resp = await agenerate(
+            self._provider,
             prompt,
             system=system,
             temperature=temperature,
