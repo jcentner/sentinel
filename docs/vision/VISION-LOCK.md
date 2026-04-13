@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first, building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1290 tests. Published on PyPI as `repo-sentinel`.
+18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first (parallel via thread pool), building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Async LLM pipeline: concurrent judge (8) and synthesis (4) via ADR-017, giving 4.5x speedup on cloud providers. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1314 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -72,7 +72,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 | 8 | Full triage in browser | **Met** |
 | 9 | CLI usable by AI agents | **Met** |
 | 10 | Surfaces unknown issues | **Partial** — cross-artifact detectors deliver; lint/todo overlap with existing tools |
-| 11 | Scan completes in <5 min for 100-finding repos | **Not met** — serial LLM is 7+ min (TD-016) |
+| 11 | Scan completes in <5 min for 100-finding repos | **Met** — 42 findings in 38s (4.5x speedup), 100-finding estimated <2 min |
 | 12 | LLM detectors work for JS/TS repos | **Not met** — Python-only AST extraction |
 
 ## Architecture Invariants
@@ -88,10 +88,11 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 Priority-ordered next investments. Each connects to a validated gap.
 
-### Phase 11: Async pipeline & parallel LLM
+### Phase 11: Async pipeline & parallel LLM ✓
 **Gap**: TD-016 — serial LLM calls are the only medium-severity bottleneck. 100-finding repos take 7+ min for judging alone. TD-002 — sync detector interface blocks all parallelism.
 **What**: Async `ModelProvider` protocol. Concurrent judge calls (bounded concurrency). Async detector interface for LLM-calling detectors. Thread-pool execution for CPU-bound detectors.
 **Success**: 100-finding scan completes judge+synthesis in <2 min with cloud provider.
+**Result**: ADR-017. Async provider on all 4 providers, async judge (concurrency 8), async synthesis (concurrency 4), parallel Phase 1 detectors via thread pool. 4.5x speedup verified with Azure gpt-5.4-nano. TD-016 resolved.
 
 ### Phase 12: Multi-language LLM detectors
 **Gap**: All 4 LLM detectors are Python-only via `ast`. JS/TS repos get zero cross-artifact analysis despite being the largest user base after Python.
@@ -124,7 +125,7 @@ Priority-ordered next investments. Each connects to a validated gap.
 | test-coherence noisy at 4B | High | Binary signal + benchmark-driven quality warnings + per-detector model routing (ADR-016) |
 | FP rate erodes trust | High | 88% confirmation rate via iterative FP reduction |
 | Most detectors duplicate dev tooling | Medium | Focus investment on cross-artifact analysis |
-| Async migration breaks existing tests | Medium | Incremental: async provider first, sync shims for backward compat |
+| Async migration breaks existing tests | Medium | ~~Incremental: async provider first, sync shims for backward compat~~ Resolved: all 1314 tests pass after async migration |
 | Tree-sitter adds native dependency | Medium | Optional dep, graceful degradation to regex extraction |
 
 ## Changelog

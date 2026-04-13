@@ -9,12 +9,12 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 ## Active
 
 ### TD-002: Sync detector interface
-**Status**: Active
+**Status**: Partially resolved (ADR-017, Session 43)
 **Severity**: Low
 **Introduced**: Phase 1
 **Description**: Detectors use synchronous `detect()` rather than `async detect()` as originally spec'd. All current detectors call subprocesses synchronously.
-**Impact**: Detectors run sequentially. No parallelism.
-**Proposed resolution**: Migrate to async in Phase 2 when concurrent detector execution matters. Spec updated to reflect sync for now.
+**Impact**: Phase 1 (heuristic) detectors now run in parallel via thread pool. Phase 2 (LLM-assisted) detectors still run sequentially — each makes multiple internal LLM calls that are now individually faster via async providers.
+**Proposed resolution**: Adding an optional `async_detect()` to the Detector protocol for LLM detectors to use `agenerate()` internally. Lower priority since the judge/synthesis async (ADR-017) addressed the main bottleneck.
 
 ### TD-047: GitHub config not editable from web UI
 **Status**: Active (deliberate — see ADR-015)
@@ -47,14 +47,6 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Description**: Lint-runner, eslint-runner, go-linter, rust-clippy, and todo-scanner largely duplicate what standard dev toolchains (CI linting, editor linting) already provide. They add value only for repos that don't already run these tools.
 **Impact**: Sentinel's findings are mostly things developers already know about, limiting the product's perceived value. Success criterion #10 ("surface issues the dev didn't already know about") is only partially met because of this.
 **Proposed resolution**: Accepted as-is — these detectors are cheap to maintain and useful for repos without CI linting. New development investment should focus on cross-artifact semantic detectors (Phase 5) that provide analysis nothing else does. No need to remove existing detectors.
-
-### TD-016: Serial LLM judge bottleneck
-**Status**: In progress (ADR-017 Slice 1 complete — async provider methods added, judge/synthesis async pending Slice 2)
-**Severity**: Medium
-**Introduced**: Phase 1 (supersedes aspect of TD-002)
-**Description**: The judge calls `provider.generate()` sequentially for each finding at ~4s/call. 50 findings = 3.3 min, 100 = 7 min. Combined with synthesis (~40s for 10 clusters), total LLM wall time is 7+ min for moderate repos.
-**Impact**: Morning report latency scales linearly with finding count. Tolerable for small repos but a bottleneck for repos with 50+ findings.
-**Proposed resolution**: Near-term: batch 3-5 findings per judge prompt to cut per-call overhead. Medium-term: async/concurrent judge calls (related to TD-002). Long-term: skip judge for high-confidence deterministic findings (confidence ≥ 0.95).
 
 ### TD-024: `--json-output` error envelope inconsistency
 **Status**: Active

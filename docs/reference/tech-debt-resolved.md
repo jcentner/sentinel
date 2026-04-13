@@ -4,6 +4,12 @@ Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.
 
 ## Resolved
 
+### TD-016: Serial LLM judge bottleneck
+**Status**: Resolved (ADR-017, Session 43)
+**Severity**: Medium → Resolved
+**Introduced**: Phase 1
+**Resolution**: ADR-017 introduced async judge (`ajudge_findings()`) with bounded concurrency (`asyncio.Semaphore(8)`), async synthesis (`asynthesize_clusters()`) with concurrency 4, and parallel Phase 1 detector execution via thread pool. Verified: 42 findings judged in 38s (was ~168s serial) — 4.5x speedup.
+
 ### TD-043: Cross-detector data flow for LLM targeting
 **Status**: Resolved (Session 39)
 **Severity**: Medium

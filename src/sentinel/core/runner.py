@@ -244,12 +244,27 @@ def run_scan(
         logger.info("  %s produced %d %s", detector.name, n, "finding" if n == 1 else "findings")
         return findings
 
-    # Phase 1: Heuristic + deterministic detectors
-    for detector in phase1:
-        try:
-            all_findings.extend(_run_detector(detector, ctx))
-        except Exception:
-            logger.exception("Detector %s failed — skipping", detector.name)
+    # Phase 1: Heuristic + deterministic detectors (parallel via thread pool, ADR-017)
+    if len(phase1) > 1:
+        async def _run_phase1():
+            tasks = []
+            for det in phase1:
+                tasks.append(asyncio.to_thread(_run_detector, det, ctx))
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            findings: list[Finding] = []
+            for det, result in zip(phase1, results):
+                if isinstance(result, Exception):
+                    logger.exception("Detector %s failed — skipping", det.name, exc_info=result)
+                else:
+                    findings.extend(result)
+            return findings
+        all_findings.extend(asyncio.run(_run_phase1()))
+    else:
+        for detector in phase1:
+            try:
+                all_findings.extend(_run_detector(detector, ctx))
+            except Exception:
+                logger.exception("Detector %s failed — skipping", detector.name)
 
     # Build risk signals from phase 1 findings for LLM detectors (TD-043)
     risk_signals = _build_risk_signals(all_findings)

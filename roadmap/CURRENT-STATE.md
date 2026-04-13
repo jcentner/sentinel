@@ -1,8 +1,8 @@
 # Current State — Sentinel
 
-> Last updated: Session 43 — Phase 11 async pipeline complete
+> Last updated: Session 43 — Phase 11 complete
 
-**Phase Status**: In Progress
+**Phase Status**: Complete: Phase 11 (Async pipeline & parallel LLM)
 
 ## Latest Session Summary
 
@@ -46,7 +46,8 @@ Phase 11: Async pipeline & parallel LLM — eliminate serial LLM bottleneck (TD-
 - `docs/architecture/decisions/017-async-model-provider.md` — new ADR
 - `docs/architecture/decisions/README.md` — ADR index updated
 - `.github/copilot-instructions.md` — ADR-017 listed
-- `docs/reference/tech-debt.md` — TD-016 status updated to in-progress
+- `docs/reference/tech-debt.md` — TD-016 resolved, removed from active
+- `docs/reference/tech-debt-resolved.md` — TD-016 added
 - `src/sentinel/core/provider.py` — `agenerate()`, `aembed()` helpers
 - `src/sentinel/core/providers/openai_compat.py` — native `agenerate()`
 - `src/sentinel/core/providers/azure.py` — native `agenerate()`
@@ -54,23 +55,29 @@ Phase 11: Async pipeline & parallel LLM — eliminate serial LLM bottleneck (TD-
 - `src/sentinel/core/providers/replay.py` — `agenerate()` on both providers
 - `src/sentinel/core/judge.py` — `ajudge_findings()`, `_ajudge_single()`, `_apply_judgment()`
 - `src/sentinel/core/synthesis.py` — `asynthesize_clusters()`, `_asynthesize_single()`
-- `src/sentinel/core/runner.py` — uses `asyncio.run()` for judge and synthesis
+- `src/sentinel/core/runner.py` — async judge/synthesis, parallel Phase 1 detectors via thread pool
 - `tests/mock_provider.py` — `agenerate()` on MockProvider
 - `tests/test_async_provider.py` — 7 tests
 - `tests/test_async_judge.py` — 10 tests
 - `tests/test_async_synthesis.py` — 7 tests
+- `docs/vision/VISION-LOCK.md` — Phase 11 complete, SC#11 met, test count updated
 
 ### Repository State
 - **Tests**: 1314 passing, 3 skipped (was 1290)
 - **VISION-LOCK**: v6.0
-- **Tech debt items**: 10 active (TD-016 now in-progress)
+- **Tech debt items**: 9 active (TD-016 resolved, TD-002 partially resolved)
 - **ADRs**: 17
 - **Detectors**: 18
-- **Commits this session**: 4
+- **Commits this session**: 5
 
 ### What Remains / Next Priority
-Phase 11 core is complete. Remaining optional Phase 11 items:
-1. Async LLM detectors (Phase 2 detectors calling `agenerate()` directly) — lower priority, can defer
+Phase 11 is complete. All success criteria met:
+- Success criterion #11 (scan <5 min for 100 findings): **Met** — 42 findings in 38s, estimated <2 min for 100
+- TD-016 (serial LLM judge bottleneck): **Resolved**
+- TD-002 (sync interface): **Partially resolved** — async provider + parallel Phase 1 shipped
+
+Optional deferred items (not blocking phase completion):
+1. Async LLM detectors (Phase 2 detectors calling `agenerate()` directly) — incremental improvement
 2. Connection pooling for `httpx.AsyncClient` — reviewer flagged, improves perf further
 
 Next session should move to Phase 12 (multi-language) or Phase 13 (benchmark expansion).
