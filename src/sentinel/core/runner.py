@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from sentinel.core.context import gather_context
 from sentinel.core.dedup import assign_fingerprints, deduplicate
-from sentinel.core.judge import judge_findings
+from sentinel.core.judge import ajudge_findings, judge_findings
 from sentinel.core.provider import ModelProvider
 from sentinel.core.report import generate_report
 from sentinel.detectors.base import Detector, get_all_detectors
@@ -301,12 +301,13 @@ def run_scan(
         conn=conn if embed_model else None,
     )
 
-    # 7. LLM Judge (optional)
+    # 7. LLM Judge (optional — async with bounded concurrency, ADR-017)
     if not skip_judge and provider is not None:
-        deduped = judge_findings(
+        import asyncio
+        deduped = asyncio.run(ajudge_findings(
             deduped, provider=provider,
             conn=conn, run_id=run.id, num_ctx=num_ctx,
-        )
+        ))
     else:
         logger.info("LLM judge skipped (--skip-judge or no provider)")
 

@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
 import time
 from typing import Any
 
-from sentinel.core.provider import ModelProvider
+from sentinel.core.provider import LLMResponse, ModelProvider, agenerate
 from sentinel.models import Finding, Severity
 
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = 60.0
+
+# Default max concurrency for async judge calls (ADR-017)
+_DEFAULT_MAX_CONCURRENT = 8
 
 
 def judge_findings(
@@ -76,6 +80,87 @@ def judge_findings(
     return judged
 
 
+async def ajudge_findings(
+    findings: list[Finding],
+    *,
+    provider: ModelProvider,
+    conn: sqlite3.Connection | None = None,
+    run_id: int | None = None,
+    num_ctx: int = 2048,
+    max_concurrent: int = _DEFAULT_MAX_CONCURRENT,
+) -> list[Finding]:
+    """Async version of judge_findings with bounded concurrency (ADR-017).
+
+    Evaluates up to *max_concurrent* findings in parallel, preserving the
+    original finding order in the returned list.  Falls back gracefully
+    when the provider is unavailable.
+
+    SQLite logging is serialized: each coroutine writes its own log entry
+    after the LLM call completes.  These writes are <1ms each, so briefly
+    blocking the event loop is acceptable.
+    """
+    if not findings:
+        return findings
+
+    if not provider.check_health():
+        logger.warning("Model provider not available — passing through raw findings")
+        return findings
+
+    logger.info(
+        "Judging %d findings with %r (max_concurrent=%d)",
+        len(findings), provider, max_concurrent,
+    )
+    semaphore = asyncio.Semaphore(max_concurrent)
+    total = len(findings)
+
+    # Shared counters — accessed from coroutines but only one runs
+    # on the event loop at a time (no data race in asyncio single-threaded model)
+    stats = {"confirmed": 0, "rejected": 0, "errored": 0}
+    t_start = time.monotonic()
+
+    async def _process(idx: int, f: Finding) -> Finding:
+        prompt = _build_prompt(f)
+        async with semaphore:
+            try:
+                t0 = time.monotonic()
+                result = await _ajudge_single(
+                    f, provider, prompt=prompt,
+                    conn=conn, run_id=run_id, num_ctx=num_ctx,
+                )
+                elapsed = time.monotonic() - t0
+                verdict = (
+                    result.context.get("judge_verdict", "unknown")
+                    if result.context else "no_parse"
+                )
+                if verdict == "confirmed":
+                    stats["confirmed"] += 1
+                elif verdict == "likely_false_positive":
+                    stats["rejected"] += 1
+                logger.info(
+                    "  [%d/%d] %s → %s (%.1fs)",
+                    idx, total, f.title[:60], verdict, elapsed,
+                )
+                return result
+            except Exception:
+                stats["errored"] += 1
+                logger.warning("Judge failed for finding: %s — using raw", f.title)
+                _log_llm_entry(
+                    conn, run_id, str(provider), f,
+                    purpose="judge", prompt=prompt, verdict="error",
+                )
+                return f
+
+    tasks = [_process(i, f) for i, f in enumerate(findings, 1)]
+    judged = await asyncio.gather(*tasks)
+
+    total_time = time.monotonic() - t_start
+    logger.info(
+        "Judge complete: %d confirmed, %d likely_fp, %d errors (%.1fs total, async)",
+        stats["confirmed"], stats["rejected"], stats["errored"], total_time,
+    )
+    return list(judged)
+
+
 def _judge_single(
     finding: Finding,
     provider: ModelProvider,
@@ -96,6 +181,43 @@ def _judge_single(
         json_output=True,
     )
 
+    return _apply_judgment(finding, llm_resp, provider, prompt, conn, run_id)
+
+
+async def _ajudge_single(
+    finding: Finding,
+    provider: ModelProvider,
+    *,
+    prompt: str,
+    conn: sqlite3.Connection | None = None,
+    run_id: int | None = None,
+    num_ctx: int = 2048,
+) -> Finding:
+    """Async version of _judge_single — uses agenerate() (ADR-017)."""
+    logger.debug("Judge prompt for '%s':\n%s", finding.title[:60], prompt)
+
+    llm_resp = await agenerate(
+        provider,
+        prompt,
+        temperature=0.1,
+        max_tokens=512,
+        num_ctx=num_ctx,
+        json_output=True,
+    )
+
+    # Post-processing is identical to sync path — extracted to shared helper
+    return _apply_judgment(finding, llm_resp, provider, prompt, conn, run_id)
+
+
+def _apply_judgment(
+    finding: Finding,
+    llm_resp: LLMResponse,
+    provider: ModelProvider,
+    prompt: str,
+    conn: sqlite3.Connection | None,
+    run_id: int | None,
+) -> Finding:
+    """Apply LLM judgment to a finding — shared by sync and async paths."""
     response_text = llm_resp.text
     tokens = llm_resp.token_count or 0
     gen_ms = llm_resp.duration_ms or 0.0
@@ -108,7 +230,6 @@ def _judge_single(
         finding.context = finding.context or {}
         finding.context["judge"] = judgment
 
-        # Adjust severity if the judge says so
         old_severity = finding.severity
         try:
             new_severity = Severity(judgment["adjusted_severity"])
@@ -116,7 +237,6 @@ def _judge_single(
         except (ValueError, KeyError):
             pass
 
-        # If judge says not real, lower confidence
         if not judgment.get("is_real", True):
             finding.confidence = min(finding.confidence, 0.3)
             finding.context["judge_verdict"] = "likely_false_positive"
@@ -133,8 +253,6 @@ def _judge_single(
             logger.debug("Judge summary for '%s': %s", finding.title[:60], summary)
     else:
         logger.debug("Judge returned no parseable judgment for '%s'", finding.title[:60])
-        # Mark the finding so the report can distinguish "judge confirmed"
-        # from "judge failed to parse" (TD-029)
         finding.context = finding.context or {}
         finding.context["judge_verdict"] = "inconclusive"
         verdict = "inconclusive"
