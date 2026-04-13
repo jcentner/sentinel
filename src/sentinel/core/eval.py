@@ -141,7 +141,25 @@ def evaluate(
     ran_detectors = {f.detector for f in filtered}
 
     expected = ground_truth.get("expected", [])
+
+    # Also support [[findings]] format: entries with verdict="tp" become expected
+    for entry in ground_truth.get("findings", []):
+        if entry.get("verdict") == "tp":
+            expected.append({
+                "detector": entry["detector"],
+                "file_path": entry.get("file_path", ""),
+                "title": entry.get("title", ""),
+            })
+
     fp_patterns = ground_truth.get("false_positives", [])
+    # Also support [[findings]] with verdict="fp" as known false positive patterns
+    for entry in ground_truth.get("findings", []):
+        if entry.get("verdict") == "fp":
+            fp_patterns.append({
+                "detector": entry["detector"],
+                "file_path": entry.get("file_path", ""),
+                "title": entry.get("title", ""),
+            })
 
     # Only evaluate expected entries from detectors that actually ran
     # (avoids penalizing recall when LLM detectors are skipped)

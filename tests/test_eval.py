@@ -338,3 +338,95 @@ class TestRecordingProvider:
 
         assert recorder.check_health() is True
         assert recorder.embed(["text"]) == [[1.0, 2.0]]
+
+
+class TestFindingsFormatGroundTruth:
+    """Test that evaluate() supports [[findings]] format with verdict field."""
+
+    def test_findings_tp_treated_as_expected(self):
+        """Entries with verdict='tp' in [[findings]] count as expected TPs."""
+        from sentinel.models import Finding, Evidence, EvidenceType, Severity
+
+        gt = {
+            "findings": [
+                {"detector": "complexity", "title": "Complex function: foo", "verdict": "tp"},
+                {"detector": "complexity", "title": "Complex function: bar", "verdict": "fp"},
+            ],
+        }
+        findings = [
+            Finding(
+                detector="complexity",
+                category="code-quality",
+                severity=Severity.LOW,
+                title="Complex function: foo (30 lines)",
+                description="Long function",
+                file_path="src/foo.py",
+                evidence=[Evidence(type=EvidenceType.CODE, content="...", source="src/foo.py:1")],
+                confidence=0.9,
+            ),
+        ]
+        result = evaluate(findings, gt)
+        assert result.true_positives == 1
+        assert len(result.missing) == 0
+
+    def test_findings_fp_treated_as_false_positive_pattern(self):
+        """Entries with verdict='fp' in [[findings]] flag unexpected FPs."""
+        from sentinel.models import Finding, Evidence, EvidenceType, Severity
+
+        gt = {
+            "findings": [
+                {"detector": "dead-code", "title": "Unused: helper", "verdict": "fp"},
+            ],
+        }
+        findings = [
+            Finding(
+                detector="dead-code",
+                category="code-quality",
+                severity=Severity.LOW,
+                title="Unused: helper function",
+                description="Unused",
+                file_path="src/util.py",
+                evidence=[Evidence(type=EvidenceType.CODE, content="...", source="src/util.py:5")],
+                confidence=0.8,
+            ),
+        ]
+        result = evaluate(findings, gt)
+        assert result.false_positives_found == 1
+
+    def test_mixed_expected_and_findings_formats(self):
+        """Both [[expected]] and [[findings]] entries combine correctly."""
+        from sentinel.models import Finding, Evidence, EvidenceType, Severity
+
+        gt = {
+            "expected": [
+                {"detector": "todo-scanner", "title": "TODO"},
+            ],
+            "findings": [
+                {"detector": "complexity", "title": "Complex function: foo", "verdict": "tp"},
+            ],
+        }
+        findings = [
+            Finding(
+                detector="todo-scanner",
+                category="todo-fixme",
+                severity=Severity.LOW,
+                title="TODO: fix this",
+                description="...",
+                file_path="src/a.py",
+                evidence=[Evidence(type=EvidenceType.CODE, content="...", source="src/a.py:1")],
+                confidence=0.9,
+            ),
+            Finding(
+                detector="complexity",
+                category="code-quality",
+                severity=Severity.LOW,
+                title="Complex function: foo (30 lines)",
+                description="...",
+                file_path="src/b.py",
+                evidence=[Evidence(type=EvidenceType.CODE, content="...", source="src/b.py:1")],
+                confidence=0.9,
+            ),
+        ]
+        result = evaluate(findings, gt)
+        assert result.true_positives == 2
+        assert len(result.missing) == 0

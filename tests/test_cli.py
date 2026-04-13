@@ -964,3 +964,147 @@ class TestCompatibilityCommand:
         result = runner.invoke(main, ["compatibility", "-m", "nonexistent"])
         assert result.exit_code != 0
         assert "Unknown model class" in result.output
+
+
+# ── llm-log command ──────────────────────────────────────────────────
+
+
+class TestLLMLog:
+    """Tests for the sentinel llm-log CLI command."""
+
+    def test_llm_log_empty_db(self, runner, test_repo, db_path):
+        """No entries found in a fresh DB."""
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "No LLM log entries found" in result.output
+
+    def test_llm_log_empty_json(self, runner, test_repo, db_path):
+        """JSON output for empty DB returns empty list."""
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path, "--json-output",
+        ])
+        assert result.exit_code == 0
+        assert json.loads(result.output) == []
+
+    def test_llm_log_stats_empty(self, runner, test_repo, db_path):
+        """Stats on empty DB shows no entries message."""
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path, "--stats",
+        ])
+        assert result.exit_code == 0
+        assert "No LLM log entries found" in result.output
+
+    def test_llm_log_with_entries(self, runner, test_repo, db_path):
+        """Entries appear in table output after inserting log data."""
+        from sentinel.store.db import get_connection
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+        conn = get_connection(db_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="gpt-5.4-nano", prompt="Is this real?",
+            response='{"verdict": "confirmed"}', detector="complexity",
+            verdict="confirmed", tokens_generated=50, generation_ms=1200.0,
+        ))
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="gpt-5.4-nano", prompt="Is this real?",
+            response='{"verdict": "likely_false_positive"}', detector="dead-code",
+            verdict="likely_false_positive", tokens_generated=40, generation_ms=900.0,
+        ))
+        conn.close()
+
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "2 of 2" in result.output
+        assert "complexity" in result.output
+        assert "confirmed" in result.output
+
+    def test_llm_log_filter_by_detector(self, runner, test_repo, db_path):
+        """Filtering by detector narrows results."""
+        from sentinel.store.db import get_connection
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+        conn = get_connection(db_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m", prompt="p", detector="complexity",
+            verdict="confirmed", tokens_generated=10, generation_ms=100.0,
+        ))
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m", prompt="p", detector="dead-code",
+            verdict="confirmed", tokens_generated=10, generation_ms=100.0,
+        ))
+        conn.close()
+
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path,
+            "--detector", "complexity",
+        ])
+        assert result.exit_code == 0
+        assert "1 of 1" in result.output
+
+    def test_llm_log_json_output(self, runner, test_repo, db_path):
+        """JSON output returns list of entry dicts."""
+        from sentinel.store.db import get_connection
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+        conn = get_connection(db_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="gpt-5.4-nano", prompt="p",
+            detector="complexity", verdict="confirmed",
+            tokens_generated=50, generation_ms=1200.0,
+        ))
+        conn.close()
+
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path, "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert data[0]["purpose"] == "judge"
+        assert data[0]["model"] == "gpt-5.4-nano"
+
+    def test_llm_log_stats_with_entries(self, runner, test_repo, db_path):
+        """Stats output shows aggregated metrics."""
+        from sentinel.store.db import get_connection
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+        conn = get_connection(db_path)
+        for i in range(3):
+            insert_llm_log(conn, None, LLMLogEntry(
+                purpose="judge", model="gpt-5.4-nano", prompt="p",
+                verdict="confirmed", tokens_generated=50, generation_ms=1000.0,
+            ))
+        conn.close()
+
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path, "--stats",
+        ])
+        assert result.exit_code == 0
+        assert "Total calls:" in result.output
+        assert "3" in result.output
+        assert "gpt-5.4-nano" in result.output
+
+    def test_llm_log_stats_json(self, runner, test_repo, db_path):
+        """Stats JSON output returns structured data."""
+        from sentinel.store.db import get_connection
+        from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
+
+        conn = get_connection(db_path)
+        insert_llm_log(conn, None, LLMLogEntry(
+            purpose="judge", model="m", prompt="p",
+            verdict="confirmed", tokens_generated=50, generation_ms=1000.0,
+        ))
+        conn.close()
+
+        result = runner.invoke(main, [
+            "llm-log", "--repo", str(test_repo), "--db", db_path,
+            "--stats", "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "stats" in data
+        assert "model_speed" in data

@@ -909,6 +909,125 @@ def eval_history(repo: str, db: str | None, limit: int, output_json: bool) -> No
         conn.close()
 
 
+@main.command("llm-log")
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--run-id", default=None, type=int, help="Filter by run ID")
+@click.option("--detector", default="", help="Filter by detector name")
+@click.option("--model", default="", help="Filter by model name")
+@click.option("--verdict", default="", help="Filter by verdict")
+@click.option("--limit", "-n", default=50, help="Number of entries to show")
+@click.option("--stats", is_flag=True, help="Show aggregate statistics instead of entries")
+@click.option("--json-output", "output_json", is_flag=True, help="Output as JSON")
+def llm_log(
+    repo: str,
+    db: str | None,
+    run_id: int | None,
+    detector: str,
+    model: str,
+    verdict: str,
+    limit: int,
+    stats: bool,
+    output_json: bool,
+) -> None:
+    """Browse and filter LLM interaction log entries.
+
+    Shows prompts, responses, verdicts, and timing for all LLM calls
+    made during scans. Use --stats for aggregate statistics.
+
+    Examples:
+        sentinel llm-log --stats
+        sentinel llm-log --detector test-coherence --verdict confirmed
+        sentinel llm-log --model gpt-5.4-nano --limit 10 --json-output
+    """
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.store.llm_log import (
+        get_llm_log_entries,
+        get_llm_log_stats,
+        get_model_speed_stats,
+    )
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        if stats:
+            summary = get_llm_log_stats(conn, run_id=run_id)
+            speed = get_model_speed_stats(conn)
+            if output_json:
+                click.echo(json.dumps({"stats": summary, "model_speed": speed}, indent=2))
+            else:
+                if not summary or not summary.get("total_calls"):
+                    click.echo("No LLM log entries found.")
+                    return
+                click.echo("LLM Log Statistics")
+                click.echo("=" * 40)
+                click.echo(f"  Total calls:     {summary['total_calls']}")
+                click.echo(f"  Judge calls:     {summary.get('judge_calls', 0)}")
+                click.echo(f"  Doc-code calls:  {summary.get('doc_code_calls', 0)}")
+                click.echo(f"  Confirmed:       {summary.get('confirmed', 0)}")
+                click.echo(f"  Likely FP:       {summary.get('likely_fp', 0)}")
+                click.echo(f"  Drift detected:  {summary.get('drift_detected', 0)}")
+                click.echo(f"  Accurate:        {summary.get('accurate', 0)}")
+                click.echo(f"  Errors:          {summary.get('errors', 0)}")
+                click.echo(f"  No-parse:        {summary.get('no_parse', 0)}")
+                total_ms = summary.get("total_generation_ms") or 0
+                click.echo(f"  Total time:      {total_ms / 1000:.1f}s")
+                click.echo(f"  Total tokens:    {summary.get('total_tokens', 0)}")
+
+                if speed:
+                    click.echo("\nModel Speed")
+                    click.echo("-" * 40)
+                    for m, s in speed.items():
+                        click.echo(f"  {m}: {s['calls']} calls, {s['avg_tok_s']} tok/s")
+            return
+
+        entries, total = get_llm_log_entries(
+            conn,
+            detector=detector,
+            model=model,
+            verdict=verdict,
+            run_id=run_id,
+            limit=limit,
+        )
+
+        if not entries:
+            if output_json:
+                click.echo(json.dumps([]))
+            else:
+                click.echo("No LLM log entries found.")
+            return
+
+        if output_json:
+            click.echo(json.dumps(entries, indent=2, default=str))
+        else:
+            click.echo(f"Showing {len(entries)} of {total} entries")
+            click.echo(
+                f"{'ID':>5}  {'Run':>4}  {'Purpose':>12}  {'Detector':>22}  "
+                f"{'Model':>16}  {'Verdict':>18}  {'ms':>7}  {'Tokens':>6}"
+            )
+            click.echo("-" * 100)
+            for e in entries:
+                run_str = str(e.get('run_id') or '-')
+                ms_val = e.get('generation_ms') or 0
+                tok_val = e.get('tokens_generated') or 0
+                click.echo(
+                    f"{e.get('id', ''):>5}  "
+                    f"{run_str:>4}  "
+                    f"{e.get('purpose', ''):>12}  "
+                    f"{(e.get('detector') or ''):>22}  "
+                    f"{(e.get('model') or ''):>16}  "
+                    f"{(e.get('verdict') or ''):>18}  "
+                    f"{ms_val:>7.0f}  "
+                    f"{tok_val:>6}"
+                )
+    finally:
+        conn.close()
+
+
 @main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option("--host", default="127.0.0.1", help="Bind address (default: localhost only)")
