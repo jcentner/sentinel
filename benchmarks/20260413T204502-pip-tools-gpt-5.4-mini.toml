@@ -1,0 +1,148 @@
+# Sentinel Benchmark Results
+# Generated: 2026-04-13T20:45:02Z
+
+[benchmark]
+repo_path = "/home/jacobcentner/sentinel-test-repos/pip-tools"
+timestamp = "2026-04-13T20:45:02Z"
+model = "gpt-5.4-mini"
+provider = "azure"
+model_capability = "basic"
+total_findings = 94
+total_duration_ms = 582127.5
+detector_count = 18
+
+[benchmark.eval]
+total_findings = 94
+true_positives = 6
+false_positives_found = 0
+missing_count = 7
+unexpected_fps_count = 0
+precision = 0.0638
+recall = 0.4615
+per_detector = {'cicd-drift': {'detector': 'cicd-drift', 'total_findings': 1, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'complexity': {'detector': 'complexity', 'total_findings': 20, 'true_positives': 0, 'expected': 6, 'precision': 0.0, 'recall': 0.0}, 'docs-drift': {'detector': 'docs-drift', 'total_findings': 2, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'git-hotspots': {'detector': 'git-hotspots', 'total_findings': 3, 'true_positives': 3, 'expected': 3, 'precision': 1.0, 'recall': 1.0}, 'inline-comment-drift': {'detector': 'inline-comment-drift', 'total_findings': 6, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'intent-comparison': {'detector': 'intent-comparison', 'total_findings': 35, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'semantic-drift': {'detector': 'semantic-drift', 'total_findings': 4, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'test-coherence': {'detector': 'test-coherence', 'total_findings': 4, 'true_positives': 0, 'expected': 0, 'precision': 0.0, 'recall': 0.0}, 'todo-scanner': {'detector': 'todo-scanner', 'total_findings': 19, 'true_positives': 3, 'expected': 4, 'precision': 0.15789473684210525, 'recall': 0.75}}
+
+[[benchmark.detectors]]
+name = "intent-comparison"
+finding_count = 35
+duration_ms = 74922.2
+tier = "llm-assisted"
+categories = ["cross-artifact"]
+
+[[benchmark.detectors]]
+name = "complexity"
+finding_count = 20
+duration_ms = 144.6
+tier = "heuristic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "todo-scanner"
+finding_count = 19
+duration_ms = 182.3
+tier = "deterministic"
+categories = ["todo-fixme"]
+
+[[benchmark.detectors]]
+name = "inline-comment-drift"
+finding_count = 6
+duration_ms = 335646.6
+tier = "llm-assisted"
+categories = ["docs-drift"]
+
+[[benchmark.detectors]]
+name = "semantic-drift"
+finding_count = 4
+duration_ms = 21598.9
+tier = "llm-assisted"
+categories = ["docs-drift"]
+
+[[benchmark.detectors]]
+name = "test-coherence"
+finding_count = 4
+duration_ms = 127115.2
+tier = "llm-assisted"
+categories = ["test-coherence"]
+
+[[benchmark.detectors]]
+name = "git-hotspots"
+finding_count = 3
+duration_ms = 17.0
+tier = "heuristic"
+categories = ["git-health"]
+
+[[benchmark.detectors]]
+name = "docs-drift"
+finding_count = 2
+duration_ms = 16470.9
+tier = "llm-assisted"
+categories = ["docs-drift"]
+
+[[benchmark.detectors]]
+name = "cicd-drift"
+finding_count = 1
+duration_ms = 16.4
+tier = "deterministic"
+categories = ["config-drift"]
+
+[[benchmark.detectors]]
+name = "architecture-drift"
+finding_count = 0
+duration_ms = 0.0
+tier = "deterministic"
+categories = ["config-drift"]
+
+[[benchmark.detectors]]
+name = "dead-code"
+finding_count = 0
+duration_ms = 100.9
+tier = "heuristic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "dep-audit"
+finding_count = 0
+duration_ms = 5751.3
+tier = "deterministic"
+categories = ["dependency"]
+
+[[benchmark.detectors]]
+name = "eslint-runner"
+finding_count = 0
+duration_ms = 11.5
+tier = "deterministic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "go-linter"
+finding_count = 0
+duration_ms = 13.8
+tier = "deterministic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "lint-runner"
+finding_count = 0
+duration_ms = 24.7
+tier = "deterministic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "rust-clippy"
+finding_count = 0
+duration_ms = 9.6
+tier = "deterministic"
+categories = ["code-quality"]
+
+[[benchmark.detectors]]
+name = "stale-env"
+finding_count = 0
+duration_ms = 0.1
+tier = "deterministic"
+categories = ["config-drift"]
+
+[[benchmark.detectors]]
+name = "unused-deps"
+finding_count = 0
+duration_ms = 98.6
+tier = "deterministic"
+categories = ["dependency"]

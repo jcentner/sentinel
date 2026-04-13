@@ -137,3 +137,70 @@ Key differences:
 4. **semantic-drift works well across all models** — the binary "in sync / needs review" signal is robust even for the smallest model. FP rate is low because the prompt is highly constrained.
 
 5. **test-coherence needs prompt refinement** — the 4B model flags too many tests that are actually fine (CLI integration tests, mock-based tests). The prompt may need to better distinguish "test validates behavior differently than name suggests" from "test uses a framework pattern the model doesn't recognize."
+
+---
+
+## Phase 13 Benchmarks: Full Detector Suite (2026-04-13)
+
+First benchmarks running all 18 detectors including inline-comment-drift and intent-comparison.
+
+### Test Setup
+
+- **Repos**: `tests/fixtures/sample-repo/` (seeded fixture, 30 TPs), `pip-tools` (real-world, 38 annotated TPs)
+- **Models**: gpt-5.4-mini (Azure), gpt-5.4 (Azure)
+- **Mode**: Full scan with judge enabled
+- **Ground truth**: sample-repo fixture ground truth + pip-tools `[[findings]]` format
+
+### Sample Repo Results (All 18 Detectors)
+
+| Metric | gpt-5.4-mini | gpt-5.4 |
+|--------|-------------|---------|
+| Total findings | 36 | 38 |
+| Precision | 92% | 87% |
+| Recall | 97% | 97% |
+| Duration | ~75s | ~97s |
+
+LLM detector findings on sample-repo:
+
+| Detector | gpt-5.4-mini | gpt-5.4 | Duration (mini) |
+|----------|-------------|---------|-----------------|
+| inline-comment-drift | 2 | 4 | 34s |
+| intent-comparison | 0 | 0 | 5s |
+| semantic-drift | 1 | 1 | 8s |
+| test-coherence | 1 | 1 | 10s |
+| docs-drift (LLM) | 5 | 5 | 10s |
+
+The extra 2 ICD findings in gpt-5.4 (vs mini) are the likely cause of its lower precision.
+
+### Pip-tools Results (gpt-5.4-mini)
+
+| Metric | Value |
+|--------|-------|
+| Total findings | 94 |
+| Precision | 6.4% |
+| Recall | 46% |
+| Duration | ~582s (~10 min) |
+
+Low precision/recall is due to ground truth covering only deterministic detectors. LLM detectors produced 49 findings with no ground truth annotations.
+
+LLM detector findings on pip-tools:
+
+| Detector | Findings | Duration |
+|----------|----------|----------|
+| intent-comparison | 35 | 75s |
+| inline-comment-drift | 6 | 336s |
+| semantic-drift | 4 | 22s |
+| test-coherence | 4 | 127s |
+| docs-drift (LLM) | 2 | 16s |
+
+**Key finding**: intent-comparison is extremely noisy on pip-tools (35 findings) vs sample-repo (0). inline-comment-drift is very slow (~336s) due to serial per-function LLM calls.
+
+### Ground Truth Status
+
+| Repo | Annotated Findings | Models Benchmarked |
+|------|-------------------|-------------------|
+| sample-repo | 30 (seeded) | 4B, 9B, nano, mini, full |
+| pip-tools | 38 (deterministic only) | nano(old), mini |
+| sentinel | 61 (annotated) + 120 (assumed TP) | nano(prior, 2 detectors) |
+
+Sentinel self-scan ground truth was created this session but benchmark timed out (226 findings × 10s judge = ~38 min). Deferred to targeted run.

@@ -1,72 +1,82 @@
 # Current State — Sentinel
 
-> Last updated: Session 44 — Phase 12 complete
+> Last updated: Session 45 — Phase 13 in progress
 
-**Phase Status**: Complete: Phase 12 (Multi-language LLM detectors)
+**Phase Status**: In Progress: Phase 13 (Benchmark & ground truth expansion)
 
 ## Latest Session Summary
 
 ### Current Objective
-Phase 12: Multi-language LLM detectors — tree-sitter integration for JS/TS support in all 4 LLM-assisted detectors.
+Phase 13: Benchmark & ground truth expansion — run all detectors on multiple Azure models, create 3rd ground truth repo, update compatibility matrix, add `sentinel llm-log` CLI.
+
+### Environment Constraints
+- **No dGPU** — Ollama models (qwen3.5:4b, 9b) cannot be benchmarked this session
+- **Azure models available**: gpt-5.4-nano, gpt-5.4-mini, gpt-5.4
+- **Ollama benchmarks deferred**: Mark in tech debt for future session with GPU access
 
 ### What Was Accomplished
 
-#### Slice 1: Common extractors module
-- Created `src/sentinel/core/extractors.py` (~750 lines) — unified extraction interface
-- Three backends: Python AST (`_py_*`), tree-sitter (`_ts_*` for JS/TS), regex fallback (`_regex_*`)
-- Dataclasses: `FunctionInfo`, `ClassInfo`, `DocstringPair`, `ImportInfo`
-- Exports: `detect_language()`, `extract_functions()`, `extract_classes()`, `extract_signatures()`, `extract_docstring_pairs()`, `extract_imports()`, `is_test_file()`, `impl_name_from_test()`, `has_tree_sitter()`, `SOURCE_EXTENSIONS`, `TEST_FILE_PATTERNS`
-- tree-sitter guarded by `try/except ImportError` — graceful degradation to regex
-- Added `multilang` optional dependency group in pyproject.toml
-- Created tree-sitter stack skill (`.github/skills/tree-sitter/SKILL.md`)
-- 29 new tests in `tests/test_extractors.py`
+#### Slice 1: Eval format fix + llm-log CLI + sample-repo benchmarks
+- `evaluate()` now handles `[[findings]]` format with `verdict` field alongside `[[expected]]`
+- New `sentinel llm-log` CLI command with filtering, pagination, stats, JSON output
+- Sample-repo benchmarks: gpt-5.4-mini (92% P, 97% R), gpt-5.4 (87% P, 97% R)
+- 11 new tests (3 eval + 8 llm-log CLI)
+- Committed: d7f7b31
 
-#### Slice 2: Detector refactoring
-- Refactored all 4 LLM detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) to use `sentinel.core.extractors`
-- Removed per-detector AST parsing code (~64 net lines removed)
-- Replaced hardcoded `*.py` globs with `SOURCE_EXTENSIONS`
-- Replaced per-detector `_TEST_FILE_RE` with `is_test_file()/impl_name_from_test()`
-- Threaded `language` param through all LLM prompt methods for dynamic code fence labels
-- test-coherence: JS/TS relative import resolution with extension probing
-- Reviewer-identified fixes: removed dead code, added `.egg-info` filter, moved computation
-- Updated 2 test files for new signatures
+#### Slice 2: Pip-tools benchmark + sentinel ground truth + compatibility matrix
+- Pip-tools gpt-5.4-mini benchmark: 94 findings, 582s (LLM detectors very slow)
+  - intent-comparison: 35 findings (75s) — very noisy on real repos
+  - inline-comment-drift: 6 findings (336s) — serial per-function calls
+  - test-coherence: 4 findings (127s)
+  - Precision/recall low (6.4%/46%) because ground truth lacks LLM detector annotations
+- Created sentinel self-scan ground truth: 57 annotated + 120 assumed TP
+  - dead-code: 39/40 FP (17 Click commands, 13 cross-module, 6 test fixtures, 2 framework, 1 dynamic)
+  - todo-scanner: 16/16 FP (test fixtures, sample data, code patterns)
+  - unused-deps: 2/2 FP (framework deps)
+  - cicd-drift: 3/3 FP (build artifacts, YAML syntax)
+- Updated compatibility matrix code with 10 new rated entries:
+  - Judge: cloud-small EXCELLENT (~8% FP), cloud-frontier GOOD (~13% FP)
+  - semantic-drift: cloud-small GOOD, cloud-frontier GOOD
+  - test-coherence: cloud-small GOOD, cloud-frontier GOOD
+  - inline-comment-drift: cloud-small GOOD, cloud-frontier GOOD
+  - intent-comparison: cloud-small FAIR (~50% est, very noisy)
+- Updated docs/reference/model-benchmarks.md + compatibility-matrix.md
 
-#### Slice 3: JS/TS test coverage
-- 33 new test methods across all 4 detector test suites
-- test-coherence: file discovery, impl name derivation, function pairing, integration (drift + coherent), mixed-language repo
-- inline-comment-drift: JSDoc extraction, finding generation, incremental mode, mixed-language
-- intent-comparison: symbol extraction, test lookup, full triangulation integration
-- semantic-drift: code excerpt extraction, symbol matching, integration (drift + coherent)
-- Reviewer review done + fixes applied (strengthened assertions, added symmetric test)
+### Decisions Made
+- **Sentinel self-benchmark deferred**: 226 findings × 10s judge = ~38min, too slow for session. Ground truth created; benchmark can run later.
+- **Pip-tools gpt-5.4 benchmark skipped**: Each benchmark takes 10+ min; diminishing returns vs mini data.
+- **intent-comparison rated FAIR (est)**: 35 noisy findings on pip-tools, per-detector FP rate unknown. Transparent notes in matrix.
 
-#### Files modified (11)
-- `src/sentinel/core/extractors.py` — new common extraction module
-- `src/sentinel/detectors/semantic_drift.py` — refactored to extractors
-- `src/sentinel/detectors/test_coherence.py` — refactored to extractors
-- `src/sentinel/detectors/inline_comment_drift.py` — refactored to extractors
-- `src/sentinel/detectors/intent_comparison.py` — refactored to extractors
-- `tests/test_extractors.py` — new, 29 tests
-- `tests/detectors/test_semantic_drift.py` — updated + JS/TS tests
-- `tests/detectors/test_test_coherence.py` — updated + JS/TS tests
-- `tests/detectors/test_inline_comment_drift.py` — JS/TS tests
-- `tests/detectors/test_intent_comparison.py` — JS/TS tests
-- `pyproject.toml` — `multilang` optional dependency group
-- `.github/skills/tree-sitter/SKILL.md` — new stack skill
-- `docs/vision/VISION-LOCK.md` — Phase 12 complete, SC#12 met
+### Files Modified
+- `src/sentinel/core/eval.py` — `[[findings]]` format support
+- `src/sentinel/cli.py` — `llm-log` command
+- `src/sentinel/core/compatibility.py` — 10 new rated entries
+- `docs/reference/model-benchmarks.md` — Phase 13 benchmark results
+- `docs/reference/compatibility-matrix.md` — updated matrix, sources, model list
+- `benchmarks/ground-truth/sentinel.toml` — NEW: sentinel ground truth
+- `benchmarks/20260413T200632-sample-repo-gpt-5.4-mini.toml` — NEW
+- `benchmarks/20260413T200800-sample-repo-gpt-5.4.toml` — NEW
+- `benchmarks/20260413T204502-pip-tools-gpt-5.4-mini.toml` — NEW
+- `tests/test_eval.py` — 3 new tests
+- `tests/test_cli.py` — 8 new tests + lint fix
 
 ### Repository State
-- **Tests**: 1376 passing, 3 skipped (was 1314)
-- **VISION-LOCK**: v6.0 (updated in place)
-- **Tech debt items**: 9 active (unchanged)
+- **Tests**: 1387 passing, 3 skipped
+- **VISION-LOCK**: v6.0
+- **Tech debt items**: 9 active
 - **ADRs**: 17
 - **Detectors**: 18
-- **Commits this session**: 4
+- **Commits this session**: 1 (d7f7b31) + 1 pending
 
 ### What Remains / Next Priority
-Phase 12 is complete. All success criteria met:
-- Success criterion #12 (LLM detectors work for JS/TS repos): **Met** — tree-sitter extraction, all 4 detectors extended, 33 JS/TS tests
+Phase 13 progress against success criteria:
+- **≥3 repos with annotated ground truth**: ✅ sample-repo (30 TPs), pip-tools (38 annotated), sentinel (57 annotated)
+- **All detectors benchmarked on ≥2 models**: Partially — ICD+IC benchmarked on mini+full; older detectors on 4B+9B+nano+mini+full. Missing: ICD/IC on local models (need dGPU), full benchmark suite on sentinel.
 
-Next session should move to Phase 13 (benchmark & ground truth expansion) or Phase 14 (CLI/web parity).
+Remaining work for Phase 13 completion:
+1. Sentinel benchmark with at least 1 model (need shorter run or targeted scan)
+2. Annotate LLM detector findings in pip-tools ground truth (would fix precision/recall)
+3. Ollama benchmarks deferred until dGPU access
 
 ## Previous Sessions (Archived)
 

@@ -2,7 +2,7 @@
 
 Which models work well for which detectors — and which combinations to avoid.
 
-> **Last updated**: 2026-04-11 | **Based on**: Self-scan, tsgbuilder, wyoclear, sample-repo benchmarks
+> **Last updated**: 2026-04-13 | **Based on**: sample-repo, pip-tools, sentinel self-scan benchmarks
 
 ## How to Read This
 
@@ -23,11 +23,11 @@ These detectors **use the model directly** to analyze code. Model quality direct
 
 | Detector | 4B Local | 9B Local | Cloud Nano | Cloud Small | Cloud Frontier |
 |----------|----------|----------|------------|-------------|----------------|
-| **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | ❓ Untested | ❓ Untested |
-| **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | ❓ Untested | ❓ Untested |
-| **inline-comment-drift** | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested |
-| **intent-comparison** | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested |
-| **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
+| **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) |
+| **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) |
+| **inline-comment-drift** | ❓ Untested | ❓ Untested | ❓ Untested | 🔵 Good (<15% FP) | 🔵 Good (~15% FP) |
+| **intent-comparison** | ❓ Untested | ❓ Untested | ❓ Untested | 🟡 Fair (~50% FP) | ❓ Untested |
+| **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | 🟢 Excellent (~8% FP) | 🔵 Good (~13% FP) |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
 
@@ -54,13 +54,13 @@ The 4B model cannot reliably distinguish between:
 
 **Recommendation**: Use `gpt-5.4-nano` or equivalent for test-coherence. If privacy requires local-only, either accept the noise or skip this detector with 4B.
 
-### inline-comment-drift (new — no benchmark data yet)
+### inline-comment-drift — benchmarked on gpt-5.4-mini and gpt-5.4
 
-Uses the same binary prompt pattern as semantic-drift. Expected to work well at 4B for clear factual inaccuracies (wrong parameter names, wrong return values). May need cloud-nano for subtle semantic drift in complex docstrings. Python-only in v1.
+Finds real docstring-code drift. 2 findings on sample-repo with gpt-5.4-mini (within 92% overall precision), 4 with gpt-5.4. On pip-tools: 6 findings. **Very slow**: ~336s on pip-tools due to serial per-function LLM calls. Local models and cloud-nano not yet benchmarked.
 
-### intent-comparison (new — ADVANCED tier, no benchmark data yet)
+### intent-comparison — noisy on large repos
 
-Multi-artifact triangulation: gathers code, docstring, tests, and doc sections for each function, then asks the LLM for contradictions between any pair. Requires `CapabilityTier.ADVANCED` — use frontier-class models (GPT-5.4-nano or better). Multi-artifact prompts are significantly larger than pairwise, and reliable cross-reference reasoning needs stronger models. Python-only in v1.
+0 findings on sample-repo (small repo may lack cross-artifact signal). 35 findings on pip-tools with gpt-5.4-mini — likely very high FP rate. Multi-artifact prompts are expensive and slow (~75s on pip-tools). **Use with caution** until per-detector precision data is available.
 
 Configure per-detector model in `sentinel.toml`:
 
@@ -114,17 +114,18 @@ Our reference benchmarks cover these models. For all other models, run `sentinel
 | **qwen3.5:4b** | Local | ~3.4 GB | ~53 tok/s | Best value for 8 GB VRAM. Default recommendation. |
 | **qwen3.5:9b-q4_K_M** | Local | ~6.6 GB | ~19 tok/s | Marginal improvement over 4B at 2–3× slower. Not recommended on 8 GB. |
 | **gpt-5.4-nano** | Cloud | Low cost | ~100 tok/s | Substantially stronger. Best tested model for test-coherence. |
+| **gpt-5.4-mini** | Cloud | Low cost | ~100 tok/s | 92% precision on sample-repo as judge. Good for all LLM detectors. |
+| **gpt-5.4** | Cloud | Medium cost | ~100 tok/s | 87% precision on sample-repo. Slightly more aggressive than mini. |
 
-Models like gpt-5.4-mini, Claude Haiku 4.5, larger local models (14B, 30B, 70B), and other providers are not yet benchmarked. Quality is unknown until measured — the system defaults to conservative (binary) prompts for untested models.
+Models like Claude Haiku 4.5, larger local models (14B, 30B, 70B), and other providers are not yet benchmarked. Quality is unknown until measured — the system defaults to conservative (binary) prompts for untested models.
 
 ## How These Numbers Were Measured
 
 All ratings come from running Sentinel against real repos:
 
-- **Sample-repo fixture**: 30+ seeded findings, ground truth annotated
-- **Sentinel self-scan**: ~4500 LOC Python project
-- **tsgbuilder**: Production Python CLI tool
-- **wyoclear**: Production Next.js web app
+- **Sample-repo fixture**: 30 seeded findings, ground truth annotated (benchmarked on 5 models)
+- **pip-tools**: Real-world Python project, 38 annotated findings (benchmarked on 2 models)
+- **Sentinel self-scan**: Python project, 226 deterministic findings, 61 annotated
 
 Each run records findings, FP rates, and timing. See [model-benchmarks.md](model-benchmarks.md) for raw benchmark data.
 

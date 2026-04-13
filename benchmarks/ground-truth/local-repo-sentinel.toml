@@ -1,0 +1,550 @@
+# Ground Truth: Local Repo Sentinel (self-scan)
+#
+# Repository: local (self)
+# Scan date: 2026-04-13 (Session 45)
+# Total deterministic findings: 226
+# Annotation method: Agent identified findings via --skip-llm --skip-judge scan,
+#   agent+human verified each against source code.
+#
+# Key: verdict = "tp" (true positive) or "fp" (false positive)
+#       reason = brief explanation
+#       fp_pattern = categorized FP cause (for FPs only)
+
+[meta]
+repo = "local-repo-sentinel"
+scan_date = "2026-04-13"
+annotator = "agent"
+total_deterministic_findings = 226
+annotated_findings = 57  # individually annotated with [[findings]] entries
+assume_tp_findings = 120  # 111 complexity + 9 git-hotspots
+assume_tp_reason = "Complexity findings are objective metrics (function genuinely exceeds threshold). Git-hotspots are factual churn data."
+
+# ── complexity (111 findings) ──────────────────────────────────────────
+# All structurally accurate — functions genuinely exceed thresholds.
+# Not individually annotated. TP by definition.
+
+[[findings]]
+id = 1
+detector = "complexity"
+title = "Complex function: _scan (cyclomatic complexity 23)"
+verdict = "tp"
+reason = "Genuinely complex scanner function with many branches."
+
+[[findings]]
+id = 2
+detector = "complexity"
+title = "Complex function: cli (385 lines)"
+verdict = "tp"
+reason = "Large CLI module with many subcommands."
+
+# Remaining 109 complexity findings follow identical TP pattern (not annotated).
+
+# ── dead-code (40 findings, 40 annotated) ──────────────────────────────
+# Major FP pattern: Click CLI commands detected as "unused functions."
+# The dead-code detector cannot trace Click decorator registration.
+
+# -- FP: Click commands (17 findings) --
+
+[[findings]]
+id = 10
+detector = "dead-code"
+title = "Unused function: scan"
+verdict = "fp"
+reason = "Click CLI command registered via @main.command decorator. Called by CLI framework."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 11
+detector = "dead-code"
+title = "Unused function: suppress"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 12
+detector = "dead-code"
+title = "Unused function: approve"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 13
+detector = "dead-code"
+title = "Unused function: show"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 14
+detector = "dead-code"
+title = "Unused function: create_issues_cmd"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 15
+detector = "dead-code"
+title = "Unused function: history"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 16
+detector = "dead-code"
+title = "Unused function: index"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 17
+detector = "dead-code"
+title = "Unused function: eval"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 18
+detector = "dead-code"
+title = "Unused function: eval_history"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 19
+detector = "dead-code"
+title = "Unused function: llm_log"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 20
+detector = "dead-code"
+title = "Unused function: serve"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 21
+detector = "dead-code"
+title = "Unused function: scan_all"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 22
+detector = "dead-code"
+title = "Unused function: init"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 23
+detector = "dead-code"
+title = "Unused function: doctor"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 24
+detector = "dead-code"
+title = "Unused function: compatibility"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 25
+detector = "dead-code"
+title = "Unused function: benchmark"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+[[findings]]
+id = 26
+detector = "dead-code"
+title = "Unused function: prune"
+verdict = "fp"
+reason = "Click CLI command."
+fp_pattern = "click-command"
+
+# -- FP: Cross-module imports / framework usage (13 findings) --
+
+[[findings]]
+id = 27
+detector = "dead-code"
+title = "Unused function: make_mock_provider"
+verdict = "fp"
+reason = "Imported by multiple test files (test_async_judge.py, test_judge.py, etc.)."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 28
+detector = "dead-code"
+title = "Unused function: prune_old_data"
+verdict = "fp"
+reason = "Called by prune CLI command in cli.py."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 29
+detector = "dead-code"
+title = "Unused function: save_eval_result"
+verdict = "fp"
+reason = "Called by eval system in benchmark.py and eval CLI command."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 30
+detector = "dead-code"
+title = "Unused function: get_eval_history"
+verdict = "fp"
+reason = "Called by eval-history CLI command."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 31
+detector = "dead-code"
+title = "Unused function: get_file_content_hashes"
+verdict = "fp"
+reason = "Used by incremental scan system."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 32
+detector = "dead-code"
+title = "Unused function: get_detector_info"
+verdict = "fp"
+reason = "Called by CLI and web UI."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 33
+detector = "dead-code"
+title = "Unused function: run_doctor_checks"
+verdict = "fp"
+reason = "Called by doctor CLI command."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 34
+detector = "dead-code"
+title = "Unused function: get_matrix_for_model"
+verdict = "fp"
+reason = "Called by compatibility CLI command and web UI."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 35
+detector = "dead-code"
+title = "Unused function: get_detector_recommendation"
+verdict = "fp"
+reason = "Called by compatibility CLI command."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 36
+detector = "dead-code"
+title = "Unused function: build_summary_table"
+verdict = "fp"
+reason = "Called by compatibility CLI command."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 37
+detector = "dead-code"
+title = "Unused function: get_reference_quality"
+verdict = "fp"
+reason = "Called by compatibility CLI and benchmark system."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 38
+detector = "dead-code"
+title = "Unused function: create_provider_for_detector"
+verdict = "fp"
+reason = "Called by runner module for per-detector provider creation."
+fp_pattern = "cross-module-import"
+
+[[findings]]
+id = 39
+detector = "dead-code"
+title = "Unused class: CSRFMiddleware"
+verdict = "fp"
+reason = "Used in web app middleware chain (app.py)."
+fp_pattern = "framework-usage"
+
+# -- FP: Dynamic/plugin loading (2 findings) --
+
+[[findings]]
+id = 40
+detector = "dead-code"
+title = "Unused class: AzureProvider"
+verdict = "fp"
+reason = "Instantiated dynamically via provider config (provider='azure' in sentinel.toml)."
+fp_pattern = "dynamic-loading"
+
+[[findings]]
+id = 41
+detector = "dead-code"
+title = "Unused class: RecordingProvider"
+verdict = "fp"
+reason = "Used by replay-based evaluation system."
+fp_pattern = "cross-module-import"
+
+# -- FP: Web route handlers (1 finding) --
+
+[[findings]]
+id = 42
+detector = "dead-code"
+title = "Unused function: index_page"
+verdict = "fp"
+reason = "Starlette route handler registered via app.route decorator."
+fp_pattern = "framework-usage"
+
+# -- FP: Test fixture code (6 findings) --
+
+[[findings]]
+id = 43
+detector = "dead-code"
+title = "Unused function: long_report_generator"
+verdict = "fp"
+reason = "Intentionally dead code in test fixture (sample-repo/src/myapp/processing.py)."
+fp_pattern = "test-fixture-code"
+
+[[findings]]
+id = 44
+detector = "dead-code"
+title = "Unused constant: DATABASE_URL"
+verdict = "fp"
+reason = "Test fixture code (sample-repo config)."
+fp_pattern = "test-fixture-code"
+
+[[findings]]
+id = 45
+detector = "dead-code"
+title = "Unused constant: SECRET_KEY"
+verdict = "fp"
+reason = "Test fixture code (sample-repo config)."
+fp_pattern = "test-fixture-code"
+
+[[findings]]
+id = 46
+detector = "dead-code"
+title = "Unused constant: DEBUG"
+verdict = "fp"
+reason = "Test fixture code (sample-repo config)."
+fp_pattern = "test-fixture-code"
+
+[[findings]]
+id = 47
+detector = "dead-code"
+title = "Unused constant: REDIS_URL"
+verdict = "fp"
+reason = "Test fixture code (sample-repo config)."
+fp_pattern = "test-fixture-code"
+
+[[findings]]
+id = 48
+detector = "dead-code"
+title = "Unused function: helper"
+verdict = "fp"
+reason = "Intentionally dead code in test fixture (sample-repo/src/myapp/main.py)."
+fp_pattern = "test-fixture-code"
+
+# -- TP: Genuinely unused (1 finding) --
+
+[[findings]]
+id = 49
+detector = "dead-code"
+title = "Unused constant: SUPPORTED_LANGUAGES"
+verdict = "tp"
+reason = "Defined in extractors.py but not referenced by any consumer. Genuinely unused."
+
+# ── docs-drift (40 findings, 7 annotated) ──────────────────────────────
+# 9 findings from test fixtures → FP (test-fixture-code)
+# 29 findings from vision archive files → TP (genuinely broken links in archived docs)
+# 2 findings from CONTRIBUTING.md → FP (example paths)
+
+[[findings]]
+id = 50
+detector = "docs-drift"
+title = "Stale path reference: `src/sentinel/detectors/my_detector.py`"
+verdict = "fp"
+reason = "Example path in CONTRIBUTING.md. Not a reference to an existing file."
+fp_pattern = "example-text-as-path"
+
+[[findings]]
+id = 51
+detector = "docs-drift"
+title = "Stale path reference: `tests/detectors/test_my_detector.py`"
+verdict = "fp"
+reason = "Example path in CONTRIBUTING.md. Not a reference to an existing file."
+fp_pattern = "example-text-as-path"
+
+# Remaining 29 docs-drift findings in vision archive files are genuine broken links (TP).
+# 9 docs-drift findings in test fixtures are FP (test-fixture-code).
+
+# ── todo-scanner (16 findings, 6 annotated) ────────────────────────────
+# All 16 findings are FP — sentinel source code has no real TODO comments.
+# The detector picks up code patterns, test data, docs, and sample output.
+
+[[findings]]
+id = 55
+detector = "todo-scanner"
+title = "TODO: message -->"
+verdict = "fp"
+reason = "Regex pattern in todo_scanner.py detector source code. Not a real action item."
+fp_pattern = "code-pattern"
+
+[[findings]]
+id = 56
+detector = "todo-scanner"
+title = "TODO: ,"
+verdict = "fp"
+reason = "Test data in test_todo_scanner.py. Not a real action item."
+fp_pattern = "test-fixture-code"
+
+[[findings]]
+id = 57
+detector = "todo-scanner"
+title = "TODO: Load from environment variables instead of hardcoding"
+verdict = "fp"
+reason = "Test fixture code (sample-repo/config.py). Intentional sample content."
+fp_pattern = "test-fixture-code"
+
+[[findings]]
+id = 58
+detector = "todo-scanner"
+title = "TODO: /"
+verdict = "fp"
+reason = "TOML content in pip-tools ground-truth file. Not a real TODO."
+fp_pattern = "data-file-content"
+
+[[findings]]
+id = 59
+detector = "todo-scanner"
+title = "TODO: /FIXME/HACK/XXX: ..."
+verdict = "fp"
+reason = "Documentation of the pattern in tech-debt-resolved.md. Not a real action item."
+fp_pattern = "documentation-content"
+
+[[findings]]
+id = 60
+detector = "todo-scanner"
+title = "TODO: add contributing section before release"
+verdict = "fp"
+reason = "Sample report output in samples/sample-report.md. Not a real action item."
+fp_pattern = "sample-output"
+
+# Remaining 10 todo-scanner findings follow same FP patterns (test fixtures, sample output).
+
+# ── unused-deps (2 findings, 2 annotated) ──────────────────────────────
+
+[[findings]]
+id = 65
+detector = "unused-deps"
+title = "Unused dependency: jinja2"
+verdict = "fp"
+reason = "Used by Starlette Jinja2Templates for web UI template rendering."
+fp_pattern = "framework-dependency"
+
+[[findings]]
+id = 66
+detector = "unused-deps"
+title = "Unused dependency: python-multipart"
+verdict = "fp"
+reason = "Required by Starlette for form data parsing."
+fp_pattern = "framework-dependency"
+
+# ── cicd-drift (3 findings, 3 annotated) ────────────────────────────────
+
+[[findings]]
+id = 70
+detector = "cicd-drift"
+title = "Stale path reference: coverage.xml"
+verdict = "fp"
+reason = "Generated at runtime by pytest-cov. Not expected to exist in repo."
+fp_pattern = "build-artifact"
+
+[[findings]]
+id = 71
+detector = "cicd-drift"
+title = "Stale path reference: |"
+verdict = "fp"
+reason = "YAML multiline indicator, not a file path. Detection bug."
+fp_pattern = "yaml-syntax"
+
+[[findings]]
+id = 72
+detector = "cicd-drift"
+title = "Stale path reference: dist/"
+verdict = "fp"
+reason = "Build output directory created during release. Not expected in repo."
+fp_pattern = "build-artifact"
+
+# ── lint-runner (5 findings, 2 annotated) ───────────────────────────────
+# All lint findings are TP — actual ruff violations in source code.
+
+[[findings]]
+id = 75
+detector = "lint-runner"
+title = "F401: `os` imported but unused"
+verdict = "tp"
+reason = "Genuine unused import."
+
+[[findings]]
+id = 76
+detector = "lint-runner"
+title = "F841: Local variable `msg` is assigned to but never used"
+verdict = "tp"
+reason = "Genuine unused variable."
+
+# Remaining 3 lint-runner findings are also TP (not individually annotated).
+
+# ── git-hotspots (9 findings) ──────────────────────────────────────────
+# All TP — factual git churn data. Not individually annotated.
+
+# ── Summary ────────────────────────────────────────────────────────────
+# Deterministic scan: 226 findings
+#
+# By detector (finding count / TP / FP):
+#   complexity:           111 /  111 /   0  (all TP by definition)
+#   dead-code:             40 /    1 /  39  (97.5% FP — mostly Click commands + cross-module)
+#   docs-drift:            40 /   29 /  11  (72.5% TP — archive broken links are real)
+#   todo-scanner:          16 /    0 /  16  (100% FP — no real TODOs in sentinel source)
+#   git-hotspots:           9 /    9 /   0  (all TP)
+#   lint-runner:            5 /    5 /   0  (all TP)
+#   cicd-drift:             3 /    0 /   3  (100% FP)
+#   unused-deps:            2 /    0 /   2  (100% FP)
+#
+# Overall: 155 TP / 71 FP = 68.6% precision
+# Non-trivial detectors (excl. complexity + git-hotspots): 35 TP / 71 FP = 33.0% precision
+#
+# FP patterns identified:
+#   click-command (17): dead-code misses Click decorator registration
+#   cross-module-import (13): dead-code scope limited to single module
+#   test-fixture-code (15): Multiple detectors flag content in test fixtures
+#   example-text-as-path (2): docs-drift treats examples as real paths
+#   framework-usage (2): dead-code misses framework registration patterns
+#   framework-dependency (2): unused-deps misses framework-level imports
+#   build-artifact (2): cicd-drift treats generated artifacts as missing files
+#   dynamic-loading (1): dead-code misses config-driven instantiation
+#   code-pattern (1): todo-scanner matches regex patterns in source
+#   documentation-content (1): todo-scanner matches doc descriptions
+#   data-file-content (1): todo-scanner matches TOML data
+#   sample-output (1): todo-scanner matches sample report content
+#   yaml-syntax (1): cicd-drift misparses YAML multiline indicator

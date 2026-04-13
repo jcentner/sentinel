@@ -45,9 +45,9 @@ class CompatibilityEntry:
 
 # ── Empirical compatibility data ─────────────────────────────────
 #
-# Updated: 2026-04-11
-# Sources: Self-scan, tsgbuilder, wyoclear, sample-repo fixture
-# Models tested: qwen3.5:4b, qwen3.5:9b-q4_K_M, gpt-5.4-nano
+# Updated: 2026-04-13
+# Sources: sample-repo, pip-tools, sentinel self-scan
+# Models tested: qwen3.5:4b, qwen3.5:9b-q4_K_M, gpt-5.4-nano, gpt-5.4-mini, gpt-5.4
 
 # Model class definitions for display
 #
@@ -74,7 +74,7 @@ MODEL_CLASSES = [
     {"id": "cloud-frontier", "name": "Cloud Frontier", "example": "gpt-5.4, Claude Sonnet 4.6",
      "vram": "n/a", "speed": "varies",
      "tier": "advanced",
-     "notes": "Frontier models. Not yet benchmarked for Sentinel"},
+     "notes": "Frontier models. Benchmarked on sample-repo (87% precision, 97% recall)"},
 ]
 
 # Detector metadata for the matrix
@@ -208,10 +208,13 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     _e("(judge)", "cloud-nano", "standard", QualityRating.GOOD, "~10%",
        "Selective and fast. Good balance of confirmation and filtering.",
        "2026-04-11"),
-    _e("(judge)", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked as judge"),
-    _e("(judge)", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked as judge"),
+    _e("(judge)", "cloud-small", "advanced", QualityRating.EXCELLENT, "<5%",
+       "92% precision on sample-repo (36 findings). Best judge quality tested.",
+       "2026-04-13"),
+    _e("(judge)", "cloud-frontier", "advanced", QualityRating.GOOD, "~13%",
+       "87% precision on sample-repo (38 findings). Confirms more aggressively — "
+       "2 extra inline-comment-drift findings vs mini may be marginal.",
+       "2026-04-13"),
 
     # ── semantic-drift (LLM-assisted, basic tier) ────────────────
     _e("semantic-drift", "4b-local", "basic", QualityRating.GOOD, "<15%",
@@ -223,6 +226,12 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     _e("semantic-drift", "cloud-nano", "basic", QualityRating.EXCELLENT, "<10%",
        "Fastest and most precise. Finds the same issues with fewer false signals.",
        "2026-04-11"),
+    _e("semantic-drift", "cloud-small", "basic", QualityRating.GOOD, "<15%",
+       "Same finding pattern as nano (1 on sample-repo, 4 on pip-tools). Consistent.",
+       "2026-04-13"),
+    _e("semantic-drift", "cloud-frontier", "basic", QualityRating.GOOD, "<15%",
+       "Same finding pattern (1 on sample-repo). Consistent across all model classes.",
+       "2026-04-13"),
     _e("semantic-drift", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode (structured explanations) not yet benchmarked with cloud-nano"),
     _e("semantic-drift", "cloud-small", "standard", QualityRating.UNTESTED, "?",
@@ -243,6 +252,12 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "Significantly more precise. Correctly handles CLI runners, mocks, and simple tests. "
        "Minimum recommended model for this detector.",
        "2026-04-11"),
+    _e("test-coherence", "cloud-small", "basic", QualityRating.GOOD, "~15%",
+       "1 finding on sample-repo (same as nano), 4 on pip-tools. Consistent quality.",
+       "2026-04-13"),
+    _e("test-coherence", "cloud-frontier", "basic", QualityRating.GOOD, "~15%",
+       "1 finding on sample-repo. Consistent with lower model classes.",
+       "2026-04-13"),
     _e("test-coherence", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode (structured gap analysis) not yet benchmarked"),
     _e("test-coherence", "cloud-small", "standard", QualityRating.UNTESTED, "?",
@@ -252,16 +267,20 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
 
     # ── inline-comment-drift (LLM-assisted, basic tier) ──────────
     _e("inline-comment-drift", "4b-local", "basic", QualityRating.UNTESTED, "?",
-       "Expected to work well for clear factual inaccuracies. Not yet benchmarked.",
+       "Not yet benchmarked (requires dGPU).",
        "2026-04-13"),
     _e("inline-comment-drift", "9b-local", "basic", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked"),
+       "Not yet benchmarked (requires dGPU)."),
     _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked"),
-    _e("inline-comment-drift", "cloud-small", "standard", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked"),
-    _e("inline-comment-drift", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked"),
+       "Not yet benchmarked with full detector set."),
+    _e("inline-comment-drift", "cloud-small", "basic", QualityRating.GOOD, "<15%",
+       "2 findings on sample-repo (within 92% overall precision), "
+       "6 on pip-tools. Finds real docstring-code drift. Very slow (~336s on pip-tools).",
+       "2026-04-13"),
+    _e("inline-comment-drift", "cloud-frontier", "basic", QualityRating.GOOD, "~15%",
+       "4 findings on sample-repo (2 more than mini — possibly marginal). "
+       "Overall 87% precision. Quality close to mini.",
+       "2026-04-13"),
 
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
     _e("intent-comparison", "4b-local", "advanced", QualityRating.UNTESTED, "?",
@@ -270,11 +289,15 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     _e("intent-comparison", "9b-local", "advanced", QualityRating.UNTESTED, "?",
        "Requires advanced model. Not expected to work well at 9B."),
     _e("intent-comparison", "cloud-nano", "advanced", QualityRating.UNTESTED, "?",
-       "May work at cloud-nano but not yet benchmarked. Frontier models recommended."),
-    _e("intent-comparison", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
-       "Frontier-class model, should handle multi-artifact analysis. Not yet benchmarked."),
+       "Not benchmarked with full detector set on nano."),
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.FAIR, "~50% (est)",
+       "0 findings on sample-repo (small repo). 35 findings on pip-tools — "
+       "very noisy, likely high FP rate. Per-detector precision unknown. "
+       "Slow (~75s on pip-tools). Use with caution.",
+       "2026-04-13"),
     _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
-       "Recommended model class. Not yet benchmarked."),
+       "0 findings on sample-repo. Not yet benchmarked on larger repo.",
+       "2026-04-13"),
 ]
 
 

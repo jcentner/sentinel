@@ -1073,7 +1073,7 @@ class TestLLMLog:
         from sentinel.store.llm_log import LLMLogEntry, insert_llm_log
 
         conn = get_connection(db_path)
-        for i in range(3):
+        for _i in range(3):
             insert_llm_log(conn, None, LLMLogEntry(
                 purpose="judge", model="gpt-5.4-nano", prompt="p",
                 verdict="confirmed", tokens_generated=50, generation_ms=1000.0,

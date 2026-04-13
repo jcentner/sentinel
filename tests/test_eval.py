@@ -345,7 +345,7 @@ class TestFindingsFormatGroundTruth:
 
     def test_findings_tp_treated_as_expected(self):
         """Entries with verdict='tp' in [[findings]] count as expected TPs."""
-        from sentinel.models import Finding, Evidence, EvidenceType, Severity
+        from sentinel.models import Evidence, EvidenceType, Finding, Severity
 
         gt = {
             "findings": [
@@ -371,7 +371,7 @@ class TestFindingsFormatGroundTruth:
 
     def test_findings_fp_treated_as_false_positive_pattern(self):
         """Entries with verdict='fp' in [[findings]] flag unexpected FPs."""
-        from sentinel.models import Finding, Evidence, EvidenceType, Severity
+        from sentinel.models import Evidence, EvidenceType, Finding, Severity
 
         gt = {
             "findings": [
@@ -395,7 +395,7 @@ class TestFindingsFormatGroundTruth:
 
     def test_mixed_expected_and_findings_formats(self):
         """Both [[expected]] and [[findings]] entries combine correctly."""
-        from sentinel.models import Finding, Evidence, EvidenceType, Severity
+        from sentinel.models import Evidence, EvidenceType, Finding, Severity
 
         gt = {
             "expected": [
