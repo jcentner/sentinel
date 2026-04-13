@@ -2,26 +2,31 @@
 
 Detects stale docstrings that no longer accurately describe their
 function or class. Uses the LLM for semantic comparison:
-1. Parse Python files with ast to extract docstring + function body pairs
+1. Parse source files to extract docstring + function body pairs
 2. Send each pair to the LLM for binary comparison
 3. Produce findings for docstrings flagged as "needs review"
 
 This is a per-file analysis (unlike semantic-drift which compares separate
-doc files against separate code files). Python-only for v1.
+doc files against separate code files). Supports Python, JavaScript, and TypeScript.
 """
 
 from __future__ import annotations
 
-import ast
 import json
 import logging
 import re
 import sqlite3
-import textwrap
 from pathlib import Path
 from typing import Any
 
 from sentinel.core.compatibility import should_use_enhanced_prompt
+from sentinel.core.extractors import (
+    SOURCE_EXTENSIONS,
+    detect_language,
+)
+from sentinel.core.extractors import (
+    extract_docstring_pairs as _extractor_docstring_pairs,
+)
 from sentinel.core.provider import ModelProvider
 from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
@@ -104,13 +109,15 @@ class InlineCommentDrift(Detector):
             return []
 
         repo_root = Path(context.repo_root)
-        py_files = self._get_python_files(context, repo_root)
-        if not py_files:
+        source_files = self._get_source_files(context, repo_root)
+        if not source_files:
             return []
 
         # Sort by risk if signals available (high-churn files first)
         if context.risk_signals:
-            py_files = _sort_by_risk(py_files, repo_root, context.risk_signals)
+            source_files = _sort_by_risk(
+                source_files, repo_root, context.risk_signals,
+            )
 
         raw_cap = context.config.get("model_capability", "basic")
         model_name = getattr(provider, "model", "")
@@ -122,20 +129,21 @@ class InlineCommentDrift(Detector):
         findings: list[Finding] = []
         total_checked = 0
 
-        for py_file in py_files:
+        for source_file in source_files:
             if total_checked >= _MAX_PER_SCAN:
                 break
 
             try:
-                source = py_file.read_text(encoding="utf-8", errors="replace")
+                source = source_file.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
 
-            pairs = extract_docstring_pairs(source)
+            language = detect_language(source_file) or "python"
+            pairs = extract_docstring_pairs(source, language)
             if not pairs:
                 continue
 
-            rel_path = str(py_file.relative_to(repo_root))
+            rel_path = str(source_file.relative_to(repo_root))
 
             for pair in pairs[:_MAX_PER_FILE]:
                 if total_checked >= _MAX_PER_SCAN:
@@ -153,6 +161,7 @@ class InlineCommentDrift(Detector):
                     conn=context.conn,
                     run_id=context.run_id,
                     use_enhanced=use_enhanced,
+                    language=language,
                 )
 
                 if result and result.get("needs_review"):
@@ -219,29 +228,39 @@ class InlineCommentDrift(Detector):
     # ── File discovery ─────────────────────────────────────────────
 
     @staticmethod
-    def _get_python_files(
+    def _get_source_files(
         context: DetectorContext, repo_root: Path,
     ) -> list[Path]:
-        """Get Python files to analyze."""
+        """Get source files to analyze (Python, JS, TS)."""
+
+        def _is_supported(path_str: str) -> bool:
+            return detect_language(path_str) is not None
+
         if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
-                if p.endswith(".py") and (repo_root / p).is_file()
+                if _is_supported(p) and (repo_root / p).is_file()
             ]
 
         if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / f
                 for f in context.changed_files
-                if f.endswith(".py") and (repo_root / f).is_file()
+                if _is_supported(f) and (repo_root / f).is_file()
             ]
 
+        all_globs = sorted(
+            glob for globs in SOURCE_EXTENSIONS.values() for glob in globs
+        )
         files: list[Path] = []
-        for py_file in sorted(repo_root.rglob("*.py")):
-            if any(part in COMMON_SKIP_DIRS for part in py_file.parts):
-                continue
-            files.append(py_file)
+        for glob in all_globs:
+            for src_file in sorted(repo_root.rglob(glob)):
+                if any(part in COMMON_SKIP_DIRS for part in src_file.parts):
+                    continue
+                if any(part.endswith(".egg-info") for part in src_file.parts):
+                    continue
+                files.append(src_file)
         return files
 
     # ── LLM comparison ─────────────────────────────────────────────
@@ -259,6 +278,7 @@ class InlineCommentDrift(Detector):
         conn: sqlite3.Connection | None = None,
         run_id: int | None = None,
         use_enhanced: bool = False,
+        language: str = "python",
     ) -> dict[str, Any] | None:
         """Ask the LLM whether a docstring accurately describes its code."""
         if use_enhanced:
@@ -287,7 +307,7 @@ class InlineCommentDrift(Detector):
                 f"## Docstring for `{symbol_name}` ({file_path}:{line_start})\n"
                 f'"""\n{doc_text}\n"""\n\n'
                 f"## Implementation\n"
-                f"```python\n{code_text}\n```\n\n"
+                f"```{language}\n{code_text}\n```\n\n"
                 "Respond ONLY with a JSON object:\n"
                 '{"needs_review": true/false, "severity": "high"/"medium"/"low", '
                 '"reason": "One sentence if needs_review is true, empty string if '
@@ -308,7 +328,7 @@ class InlineCommentDrift(Detector):
                 f"## Docstring for `{symbol_name}` ({file_path}:{line_start})\n"
                 f'"""\n{doc_text}\n"""\n\n'
                 f"## Implementation\n"
-                f"```python\n{code_text}\n```\n\n"
+                f"```{language}\n{code_text}\n```\n\n"
                 "Respond ONLY with a JSON object (no markdown fences, no "
                 "explanation outside JSON):\n"
                 '{"needs_review": true/false, "reason": "One sentence if '
@@ -383,72 +403,33 @@ class InlineCommentDrift(Detector):
         return result
 
 
-# ── AST extraction ─────────────────────────────────────────────────
+# ── Extraction wrapper ─────────────────────────────────────────────
 
 
-def extract_docstring_pairs(source: str) -> list[dict[str, Any]]:
-    """Extract (docstring, code) pairs from Python source.
+def extract_docstring_pairs(
+    source: str, language: str = "python",
+) -> list[dict[str, Any]]:
+    """Extract (docstring, code) pairs from source code.
 
+    Delegates to the extractors module for language-agnostic extraction.
     Returns a list of dicts with keys:
-    - name: function/class name
-    - docstring: the docstring text
-    - code: the function/class body (without the docstring)
-    - line_start: line number of the function/class def
-    - docstring_end: line number where docstring ends
-    - code_start: line number where code body starts
-    - code_end: line number of the last line of the function/class
+    - name, docstring, code, line_start, docstring_end, code_start, code_end
     """
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return []
-
-    lines = source.splitlines()
-    pairs: list[dict[str, Any]] = []
-
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            continue
-
-        docstring = ast.get_docstring(node, clean=True)
-        if not docstring or len(docstring) < _MIN_DOCSTRING_CHARS:
-            continue
-
-        # Get the body lines excluding the docstring
-        body_nodes = node.body[1:]  # skip docstring node
-        if not body_nodes:
-            continue  # trivial function with only a docstring
-
-        # Determine line ranges
-        line_start = node.lineno
-        end_lineno = node.end_lineno or node.lineno
-
-        # Docstring node is the first body element
-        ds_node = node.body[0]
-        docstring_end = ds_node.end_lineno or ds_node.lineno
-
-        # Code body starts after docstring
-        code_start = body_nodes[0].lineno
-        code_end = end_lineno
-
-        # Extract function/class body code (excluding docstring)
-        if code_start <= code_end <= len(lines):
-            body_text = "\n".join(lines[code_start - 1 : code_end])
-            body_text = textwrap.dedent(body_text)
-        else:
-            continue
-
-        pairs.append({
-            "name": node.name,
-            "docstring": docstring,
-            "code": body_text,
-            "line_start": line_start,
-            "docstring_end": docstring_end,
-            "code_start": code_start,
-            "code_end": code_end,
-        })
-
-    return pairs
+    pairs = _extractor_docstring_pairs(
+        source, language, min_docstring_chars=_MIN_DOCSTRING_CHARS,
+    )
+    return [
+        {
+            "name": p.name,
+            "docstring": p.docstring,
+            "code": p.code,
+            "line_start": p.line_start,
+            "docstring_end": p.docstring_end,
+            "code_start": p.code_start,
+            "code_end": p.code_end,
+        }
+        for p in pairs
+    ]
 
 
 # Risk signal thresholds (same as test_coherence for consistency)

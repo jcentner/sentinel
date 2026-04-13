@@ -5,16 +5,15 @@ extracts matched (test function, implementation function) pairs, and asks the LL
 whether the test meaningfully validates the current implementation.
 
 Strategy:
-1. Find test files (files matching test_*.py or *_test.py)
+1. Find test files (Python test_*.py/*_test.py, JS/TS *.test.ts/*.spec.ts)
 2. Pair each test file with its implementation file (naming convention + import analysis)
-3. Extract function-level pairs via ast (test_run_scan → run_scan)
+3. Extract function-level pairs (test_run_scan → run_scan)
 4. Send (test function body + implementation function body) to LLM for binary comparison
 5. Produce findings for test functions flagged as "needs review"
 """
 
 from __future__ import annotations
 
-import ast
 import json
 import logging
 import re
@@ -23,6 +22,18 @@ from pathlib import Path
 from typing import Any
 
 from sentinel.core.compatibility import should_use_enhanced_prompt
+from sentinel.core.extractors import (
+    SOURCE_EXTENSIONS,
+    detect_language,
+    extract_imports,
+    is_test_file,
+)
+from sentinel.core.extractors import (
+    extract_functions as _ext_functions,
+)
+from sentinel.core.extractors import (
+    impl_name_from_test as _impl_name_from_test,
+)
 from sentinel.core.provider import ModelProvider
 from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
@@ -53,9 +64,6 @@ _MAX_PAIRS_PER_FILE = 5
 # TD-043: Risk-based sorting thresholds for LLM targeting
 _FIX_HEAVY_BONUS = 10.0  # Add to risk score when fix ratio exceeds threshold
 _FIX_RATIO_THRESHOLD = 0.3  # Files with >30% fix commits get priority
-
-# Test file patterns
-_TEST_FILE_RE = re.compile(r"^test_\w+\.py$|^\w+_test\.py$")
 
 
 class TestCoherenceDetector(Detector):
@@ -143,6 +151,7 @@ class TestCoherenceDetector(Detector):
 
             test_rel = str(test_file.relative_to(repo_root))
             impl_rel = str(impl_file.relative_to(repo_root))
+            language = detect_language(impl_file) or "python"
 
             for test_name, test_body, impl_name, impl_body in pairs[:_MAX_PAIRS_PER_FILE]:
                 if use_enhanced:
@@ -157,6 +166,7 @@ class TestCoherenceDetector(Detector):
                         num_ctx=context.config.get("num_ctx", 2048),
                         conn=context.conn,
                         run_id=context.run_id,
+                        language=language,
                     )
                 else:
                     result = self._llm_compare(
@@ -170,6 +180,7 @@ class TestCoherenceDetector(Detector):
                         num_ctx=context.config.get("num_ctx", 2048),
                         conn=context.conn,
                         run_id=context.run_id,
+                        language=language,
                     )
                 if result and result.get("needs_review"):
                     reason = result.get(
@@ -245,6 +256,7 @@ class TestCoherenceDetector(Detector):
         num_ctx: int = 2048,
         conn: sqlite3.Connection | None = None,
         run_id: int | None = None,
+        language: str = "python",
     ) -> dict[str, Any] | None:
         """Ask the LLM whether a test meaningfully validates its implementation."""
         test_text = test_body[:_MAX_TEST_CHARS]
@@ -272,9 +284,9 @@ class TestCoherenceDetector(Detector):
             "simple assertions — the assertions match the method's complexity\n"
             "- It checks error handling (exit codes, exceptions, error messages)\n\n"
             f"## Test function: {test_name} (from {test_path})\n"
-            f"```python\n{test_text}\n```\n\n"
+            f"```{language}\n{test_text}\n```\n\n"
             f"## Implementation: {impl_name} (from {impl_path})\n"
-            f"```python\n{impl_text}\n```\n\n"
+            f"```{language}\n{impl_text}\n```\n\n"
             "Respond ONLY with a JSON object (no markdown fences, no explanation outside JSON):\n"
             '{"needs_review": true/false, "reason": "One sentence if needs_review is true, '
             'empty string if false"}'
@@ -355,6 +367,7 @@ class TestCoherenceDetector(Detector):
         num_ctx: int = 2048,
         conn: sqlite3.Connection | None = None,
         run_id: int | None = None,
+        language: str = "python",
     ) -> dict[str, Any] | None:
         """Enhanced comparison using standard+ tier model.
 
@@ -382,9 +395,9 @@ class TestCoherenceDetector(Detector):
             "- Simple tests for simple methods (serialization, config, data models)\n"
             "- Error-handling tests checking exit codes, exceptions, or error messages\n\n"
             f"## Test function: {test_name} (from {test_path})\n"
-            f"```python\n{test_text}\n```\n\n"
+            f"```{language}\n{test_text}\n```\n\n"
             f"## Implementation: {impl_name} (from {impl_path})\n"
-            f"```python\n{impl_text}\n```\n\n"
+            f"```{language}\n{impl_text}\n```\n\n"
             "Respond ONLY with a JSON object (no markdown fences, no explanation "
             "outside JSON):\n"
             "{\n"
@@ -468,29 +481,30 @@ class TestCoherenceDetector(Detector):
 
 
 def find_test_files(repo_root: Path) -> list[Path]:
-    """Find Python test files in the repository.
+    """Find test files in the repository (Python, JS, TS).
 
     Walks the repo tree, skipping common non-source directories.
     Returns test files sorted by path for deterministic ordering.
     """
     test_files: list[Path] = []
 
-    for py_file in sorted(repo_root.rglob("*.py")):
-        try:
-            rel = py_file.relative_to(repo_root)
-        except ValueError:
-            continue
+    all_globs = sorted(
+        glob for globs in SOURCE_EXTENSIONS.values() for glob in globs
+    )
+    for glob in all_globs:
+        for src_file in sorted(repo_root.rglob(glob)):
+            try:
+                rel = src_file.relative_to(repo_root)
+            except ValueError:
+                continue
 
-        # Skip common dirs
-        if any(part in COMMON_SKIP_DIRS for part in rel.parts):
-            continue
+            if any(part in COMMON_SKIP_DIRS for part in rel.parts):
+                continue
+            if any(part.endswith(".egg-info") for part in rel.parts):
+                continue
 
-        # Skip egg-info dirs
-        if any(part.endswith(".egg-info") for part in rel.parts):
-            continue
-
-        if _TEST_FILE_RE.match(py_file.name):
-            test_files.append(py_file)
+            if is_test_file(src_file):
+                test_files.append(src_file)
 
     return test_files
 
@@ -499,12 +513,13 @@ def find_implementation_file(test_file: Path, repo_root: Path) -> Path | None:
     """Find the implementation file corresponding to a test file.
 
     Strategy (in priority order):
-    1. Naming convention: test_foo.py → foo.py (search src/ and repo root)
+    1. Naming convention: test_foo.py → foo.py, foo.test.ts → foo.ts
     2. Import analysis: parse the test file's imports to find the most likely target
 
     Returns the implementation file path, or None if not found.
     """
-    impl_name = _impl_name_from_test(test_file.name)
+    language = detect_language(test_file)
+    impl_name = _impl_name_from_test(test_file.name, language or "python")
     if impl_name:
         # Search common source directories
         candidates = _find_file_by_name(impl_name, repo_root)
@@ -513,21 +528,6 @@ def find_implementation_file(test_file: Path, repo_root: Path) -> Path | None:
 
     # Fall back to import analysis
     return _find_impl_from_imports(test_file, repo_root)
-
-
-def _impl_name_from_test(test_filename: str) -> str | None:
-    """Derive implementation filename from test filename.
-
-    test_config.py → config.py
-    config_test.py → config.py
-    test_foo_bar.py → foo_bar.py
-    """
-    name = test_filename
-    if name.startswith("test_"):
-        return name[5:]  # Remove "test_" prefix
-    if name.endswith("_test.py"):
-        return name[:-8] + ".py"  # Remove "_test" suffix
-    return None
 
 
 def _find_file_by_name(filename: str, repo_root: Path) -> list[Path]:
@@ -558,7 +558,7 @@ def _find_file_by_name(filename: str, repo_root: Path) -> list[Path]:
             if any(part.endswith(".egg-info") for part in rel.parts):
                 continue
             # Skip test files themselves
-            if _TEST_FILE_RE.match(found.name):
+            if is_test_file(found):
                 continue
             candidates.append(found)
             if len(candidates) >= 3:
@@ -571,46 +571,68 @@ def _find_impl_from_imports(test_file: Path, repo_root: Path) -> Path | None:
     """Analyze imports in a test file to find the implementation module.
 
     Looks for the most common import prefix from the project's own packages
-    (not stdlib or third-party).
+    (not stdlib or third-party). Supports Python and JS/TS imports.
     """
     try:
         source = test_file.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return None
 
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
+    language = detect_language(test_file)
+    if not language:
         return None
 
-    # Collect all imported module paths that look like project-internal
-    project_imports: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            module = node.module
-            # Skip stdlib/third-party (heuristic: project imports typically start
-            # with a package name that has a directory in the repo)
-            top_level = module.split(".")[0]
+    imports = extract_imports(source, language)
+    if not imports:
+        return None
+
+    if language == "python":
+        # Collect project-internal imports
+        project_imports: list[str] = []
+        for imp in imports:
+            if not imp.names:
+                continue  # skip bare `import x`
+            top_level = imp.module.split(".")[0]
             if (repo_root / top_level).is_dir() or (repo_root / "src" / top_level).is_dir():
-                project_imports.append(module)
+                project_imports.append(imp.module)
 
-    if not project_imports:
-        return None
+        if not project_imports:
+            return None
 
-    # Find the most specific import (longest module path) — usually the impl
-    project_imports.sort(key=lambda m: len(m), reverse=True)
-    for module_path in project_imports:
-        # Convert module path to file path
-        parts = module_path.split(".")
-        for base in [repo_root / "src", repo_root]:
-            candidate = base / "/".join(parts)
-            py_file = candidate.with_suffix(".py")
-            if py_file.is_file():
-                return py_file
-            # Check __init__.py for package imports
-            init_file = candidate / "__init__.py"
-            if init_file.is_file():
-                return init_file
+        # Find the most specific import (longest module path)
+        project_imports.sort(key=lambda m: len(m), reverse=True)
+        for module_path in project_imports:
+            parts = module_path.split(".")
+            for base in [repo_root / "src", repo_root]:
+                candidate = base / "/".join(parts)
+                py_file = candidate.with_suffix(".py")
+                if py_file.is_file():
+                    return py_file
+                init_file = candidate / "__init__.py"
+                if init_file.is_file():
+                    return init_file
+
+    elif language in ("javascript", "typescript"):
+        # JS/TS: resolve relative imports
+        test_dir = test_file.parent
+        for imp in imports:
+            if imp.is_type_only:
+                continue
+            if not imp.module.startswith("."):
+                continue  # skip external packages
+            # Resolve relative path
+            resolved = (test_dir / imp.module).resolve()
+            # Try with common extensions
+            for ext in (".ts", ".tsx", ".js", ".jsx"):
+                candidate = resolved.with_suffix(ext)
+                if candidate.is_file():
+                    return candidate
+            # Check for index file
+            if resolved.is_dir():
+                for ext in (".ts", ".js"):
+                    idx = resolved / f"index{ext}"
+                    if idx.is_file():
+                        return idx
 
     return None
 
@@ -695,60 +717,38 @@ def _match_test_to_impl(
 
 
 def _extract_functions(file_path: Path) -> list[tuple[str, str]]:
-    """Extract function names and bodies from a Python file.
+    """Extract function names and bodies from a source file.
 
     Returns list of (function_name, function_body_text) tuples.
-    Class methods are included by method name only (without class prefix).
+    Uses language-agnostic extractors (Python AST, tree-sitter for JS/TS).
     """
     try:
         source = file_path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return []
 
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
+    language = detect_language(file_path)
+    if not language:
         return []
 
-    lines = source.split("\n")
-    functions: list[tuple[str, str]] = []
-
-    for node in ast.iter_child_nodes(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            body = _get_node_source(node, lines)
-            if body:
-                functions.append((node.name, body))
-        elif isinstance(node, ast.ClassDef):
-            for child in ast.iter_child_nodes(node):
-                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    body = _get_node_source(child, lines)
-                    if body:
-                        functions.append((child.name, body))
-
-    return functions
-
-
-def _get_node_source(node: ast.AST, lines: list[str]) -> str | None:
-    """Extract the source text for an AST node."""
-    if not hasattr(node, "lineno") or not hasattr(node, "end_lineno"):
-        return None
-    start = node.lineno - 1  # 0-indexed
-    end = node.end_lineno  # exclusive
-    if start < 0 or end is None or end > len(lines):
-        return None
-    return "\n".join(lines[start:end])
+    funcs = _ext_functions(source, language)
+    return [(fn.name, fn.body) for fn in funcs]
 
 
 def _find_function_line(file_path: Path, func_name: str) -> int:
     """Find the line number of a function definition in a file."""
     try:
         source = file_path.read_text(encoding="utf-8", errors="ignore")
-        tree = ast.parse(source)
-    except (OSError, SyntaxError):
+    except OSError:
         return 1
 
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == func_name:
-            return node.lineno
+    language = detect_language(file_path)
+    if not language:
+        return 1
+
+    funcs = _ext_functions(source, language)
+    for fn in funcs:
+        if fn.name == func_name:
+            return fn.line_start
 
     return 1

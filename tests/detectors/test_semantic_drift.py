@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
+from sentinel.core.extractors import extract_signatures
 from sentinel.detectors.semantic_drift import (
     SemanticDriftDetector,
     _extract_code_excerpt,
-    _extract_python_signatures,
     _extract_symbols,
     _match_symbols_to_files,
     extract_code_pairs,
@@ -276,7 +276,7 @@ class TestExtractPythonSignatures:
             "def helper():\n"
             "    pass\n"
         )
-        result = _extract_python_signatures(source)
+        result = extract_signatures(source, "python")
         assert "run_scan" in result
         assert "helper" in result
 
@@ -289,7 +289,7 @@ class TestExtractPythonSignatures:
             "    def load(self):\n"
             "        pass\n"
         )
-        result = _extract_python_signatures(source)
+        result = extract_signatures(source, "python")
         assert "class Config" in result
         assert "__init__" in result
         assert "load" in result
@@ -300,16 +300,16 @@ class TestExtractPythonSignatures:
             '    """This function does a specific thing."""\n'
             "    return 42\n"
         )
-        result = _extract_python_signatures(source)
+        result = extract_signatures(source, "python")
         assert "specific thing" in result
 
     def test_handles_syntax_error(self):
         source = "def broken(\n    # missing close paren\n"
-        result = _extract_python_signatures(source)
+        result = extract_signatures(source, "python")
         assert result is not None  # falls back to first lines
 
     def test_empty_file(self):
-        result = _extract_python_signatures("")
+        result = extract_signatures("", "python")
         # Empty file has no functions — returns first lines (empty)
         assert result is not None
 

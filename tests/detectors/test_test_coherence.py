@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from sentinel.core.extractors import impl_name_from_test
 from sentinel.detectors.test_coherence import (
     TestCoherenceDetector,
-    _impl_name_from_test,
     _match_test_to_impl,
     extract_function_pairs,
     find_implementation_file,
@@ -73,15 +73,15 @@ class TestFindTestFiles:
 
 class TestImplNameFromTest:
     def test_test_prefix(self):
-        assert _impl_name_from_test("test_config.py") == "config.py"
-        assert _impl_name_from_test("test_foo_bar.py") == "foo_bar.py"
+        assert impl_name_from_test("test_config.py", "python") == "config.py"
+        assert impl_name_from_test("test_foo_bar.py", "python") == "foo_bar.py"
 
     def test_test_suffix(self):
-        assert _impl_name_from_test("config_test.py") == "config.py"
+        assert impl_name_from_test("config_test.py", "python") == "config.py"
 
     def test_no_pattern(self):
-        assert _impl_name_from_test("conftest.py") is None
-        assert _impl_name_from_test("helper.py") is None
+        assert impl_name_from_test("conftest.py", "python") is None
+        assert impl_name_from_test("helper.py", "python") is None
 
 
 # ── Implementation file finding ──────────────────────────────────

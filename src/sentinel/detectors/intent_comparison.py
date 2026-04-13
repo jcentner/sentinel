@@ -12,21 +12,33 @@ that pairwise detectors (semantic-drift, test-coherence, inline-comment-drift)
 miss because they only compare two artifacts at a time.
 
 Cap: ADVANCED — needs a frontier-class model for reliable multi-artifact reasoning.
-Python-only for v1.
+Supports Python, JavaScript, and TypeScript.
 """
 
 from __future__ import annotations
 
-import ast
 import json
 import logging
 import re
 import sqlite3
-import textwrap
 from pathlib import Path
 from typing import Any
 
 from sentinel.core.compatibility import should_use_enhanced_prompt
+from sentinel.core.extractors import (
+    SOURCE_EXTENSIONS,
+    detect_language,
+    is_test_file,
+)
+from sentinel.core.extractors import (
+    extract_classes as _ext_classes,
+)
+from sentinel.core.extractors import (
+    extract_docstring_pairs as _ext_docstring_pairs,
+)
+from sentinel.core.extractors import (
+    extract_functions as _ext_functions,
+)
 from sentinel.core.provider import ModelProvider
 from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
@@ -70,9 +82,6 @@ _MIN_ARTIFACTS = 3
 # Risk signal thresholds (same as other LLM detectors)
 _FIX_HEAVY_BONUS = 10.0
 _FIX_RATIO_THRESHOLD = 0.3
-
-# Test file detection
-_TEST_FILE_RE = re.compile(r"^test_\w+\.py$|^\w+_test\.py$")
 
 # Doc file detection
 _DOC_EXTENSIONS = frozenset({".md", ".rst"})
@@ -142,14 +151,16 @@ class IntentComparisonDetector(Detector):
 
         repo_root = Path(context.repo_root)
 
-        # Phase 1: discover Python files to analyze
-        py_files = self._get_python_files(context, repo_root)
-        if not py_files:
+        # Phase 1: discover source files to analyze
+        source_files = self._get_source_files(context, repo_root)
+        if not source_files:
             return []
 
         # Sort by risk if signals available
         if context.risk_signals:
-            py_files = _sort_by_risk(py_files, repo_root, context.risk_signals)
+            source_files = _sort_by_risk(
+                source_files, repo_root, context.risk_signals,
+            )
 
         # Phase 2: build lookup tables for tests and doc sections
         test_lookup = _build_test_lookup(repo_root)
@@ -165,24 +176,25 @@ class IntentComparisonDetector(Detector):
         findings: list[Finding] = []
         total_checked = 0
 
-        for py_file in py_files:
+        for source_file in source_files:
             if total_checked >= _MAX_PER_SCAN:
                 break
 
             # Skip test files — we analyze *implementations*, not tests
-            if _TEST_FILE_RE.match(py_file.name):
+            if is_test_file(source_file):
                 continue
 
             try:
-                source = py_file.read_text(encoding="utf-8", errors="replace")
+                source = source_file.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
 
-            symbols = _extract_symbols(source)
+            language = detect_language(source_file) or "python"
+            symbols = _extract_symbols(source, language)
             if not symbols:
                 continue
 
-            rel_path = str(py_file.relative_to(repo_root))
+            rel_path = str(source_file.relative_to(repo_root))
 
             for sym in symbols[:_MAX_PER_FILE]:
                 if total_checked >= _MAX_PER_SCAN:
@@ -190,7 +202,7 @@ class IntentComparisonDetector(Detector):
 
                 # Gather artifacts
                 artifacts = _gather_artifacts(
-                    sym, py_file, rel_path, repo_root,
+                    sym, source_file, rel_path, repo_root,
                     test_lookup, doc_lookup,
                 )
 
@@ -210,6 +222,7 @@ class IntentComparisonDetector(Detector):
                     conn=context.conn,
                     run_id=context.run_id,
                     use_enhanced=use_enhanced,
+                    language=language,
                 )
 
                 if result and result.get("contradictions"):
@@ -268,94 +281,114 @@ class IntentComparisonDetector(Detector):
     # ── File discovery ─────────────────────────────────────────────
 
     @staticmethod
-    def _get_python_files(
+    def _get_source_files(
         context: DetectorContext, repo_root: Path,
     ) -> list[Path]:
-        """Get Python implementation files to analyze."""
+        """Get source files to analyze (Python, JS, TS)."""
+        def _is_supported(path_str: str) -> bool:
+            return detect_language(path_str) is not None
+
         if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
-                if p.endswith(".py") and (repo_root / p).is_file()
+                if _is_supported(p) and (repo_root / p).is_file()
             ]
 
         if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / f
                 for f in context.changed_files
-                if f.endswith(".py") and (repo_root / f).is_file()
+                if _is_supported(f) and (repo_root / f).is_file()
             ]
 
+        all_globs = sorted(
+            glob for globs in SOURCE_EXTENSIONS.values() for glob in globs
+        )
         files: list[Path] = []
-        for py_file in sorted(repo_root.rglob("*.py")):
-            if any(part in COMMON_SKIP_DIRS for part in py_file.parts):
-                continue
-            if any(part.endswith(".egg-info") for part in py_file.parts):
-                continue
-            files.append(py_file)
+        for glob in all_globs:
+            for src_file in sorted(repo_root.rglob(glob)):
+                if any(part in COMMON_SKIP_DIRS for part in src_file.parts):
+                    continue
+                if any(part.endswith(".egg-info") for part in src_file.parts):
+                    continue
+                files.append(src_file)
         return files
 
 
 # ── Symbol extraction ──────────────────────────────────────────────
 
 
-def _extract_symbols(source: str) -> list[dict[str, Any]]:
+def _extract_symbols(
+    source: str, language: str = "python",
+) -> list[dict[str, Any]]:
     """Extract function/class symbols with their code and docstrings.
 
-    Returns list of dicts with keys: name, docstring, code, line_start,
-    code_end, docstring_end, code_start.
+    Delegates to the language-agnostic extractors module.
+    Returns list of dicts with keys: name, code, line_start,
+    code_end, code_start, and optionally docstring, docstring_end.
     """
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return []
+    funcs = _ext_functions(source, language)
+    classes = _ext_classes(source, language)
 
-    lines = source.splitlines()
+    # Build docstring pair lookup for code-without-docstring extraction
+    pairs_raw = _ext_docstring_pairs(
+        source, language, min_docstring_chars=_MIN_DOCSTRING_CHARS,
+    )
+    pair_by_name = {p.name: p for p in pairs_raw}
+
     symbols: list[dict[str, Any]] = []
 
-    for node in ast.walk(tree):
-        if not isinstance(
-            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
-        ):
-            continue
-
-        line_start = node.lineno
-        end_lineno = node.end_lineno or node.lineno
-
-        docstring = ast.get_docstring(node, clean=True)
-
-        # Get the code body (excluding docstring if present)
-        body_nodes = node.body[1:] if docstring else node.body
-
-        if not body_nodes:
-            continue
-
-        code_start = body_nodes[0].lineno
-        code_end = end_lineno
-
-        if code_start <= code_end <= len(lines):
-            body_text = "\n".join(lines[code_start - 1 : code_end])
-            body_text = textwrap.dedent(body_text)
-        else:
-            continue
-
+    for fn in funcs:
         # Skip trivial functions
-        if body_text.count("\n") < _MIN_CODE_LINES:
+        if fn.body.count("\n") < _MIN_CODE_LINES:
             continue
 
-        sym: dict[str, Any] = {
-            "name": node.name,
-            "code": body_text,
-            "line_start": line_start,
-            "code_start": code_start,
-            "code_end": code_end,
-        }
+        pair = pair_by_name.get(fn.name)
+        if pair:
+            # Use the docstring pair which has code-without-docstring
+            sym: dict[str, Any] = {
+                "name": fn.name,
+                "code": pair.code,
+                "line_start": fn.line_start,
+                "code_start": pair.code_start,
+                "code_end": pair.code_end,
+                "docstring": pair.docstring,
+                "docstring_end": pair.docstring_end,
+            }
+        else:
+            sym = {
+                "name": fn.name,
+                "code": fn.body,
+                "line_start": fn.line_start,
+                "code_start": fn.line_start,
+                "code_end": fn.line_end,
+            }
+        symbols.append(sym)
 
-        if docstring and len(docstring) >= _MIN_DOCSTRING_CHARS:
-            ds_node = node.body[0]
-            sym["docstring"] = docstring
-            sym["docstring_end"] = ds_node.end_lineno or ds_node.lineno
+    for cls in classes:
+        if cls.body.count("\n") < _MIN_CODE_LINES:
+            continue
 
+        pair = pair_by_name.get(cls.name)
+        if pair:
+            sym = {
+                "name": cls.name,
+                "code": pair.code,
+                "line_start": cls.line_start,
+                "code_start": pair.code_start,
+                "code_end": pair.code_end,
+                "docstring": pair.docstring,
+                "docstring_end": pair.docstring_end,
+            }
+        else:
+            sym = {
+                "name": cls.name,
+                "code": cls.body,
+                "line_start": cls.line_start,
+                "code_start": cls.line_start,
+                "code_end": cls.line_end,
+            }
         symbols.append(sym)
 
     return symbols
@@ -370,49 +403,56 @@ def _build_test_lookup(
     """Build a mapping from implementation function name to test function bodies.
 
     Returns: {lower_func_name: {test_func_name: test_body, ...}}
+    Searches test files in all supported languages (Python, JS, TS).
     """
     lookup: dict[str, dict[str, str]] = {}
 
-    for py_file in sorted(repo_root.rglob("*.py")):
-        if any(part in COMMON_SKIP_DIRS for part in py_file.parts):
-            continue
-        if any(part.endswith(".egg-info") for part in py_file.parts):
-            continue
-        if not _TEST_FILE_RE.match(py_file.name):
-            continue
-
-        try:
-            source = py_file.read_text(encoding="utf-8", errors="replace")
-            tree = ast.parse(source)
-        except (OSError, SyntaxError):
-            continue
-
-        lines = source.splitlines()
-
-        for node in ast.walk(tree):
-            if not isinstance(
-                node, (ast.FunctionDef, ast.AsyncFunctionDef),
-            ):
+    all_globs = sorted(
+        glob for globs in SOURCE_EXTENSIONS.values() for glob in globs
+    )
+    for glob in all_globs:
+        for src_file in sorted(repo_root.rglob(glob)):
+            if any(part in COMMON_SKIP_DIRS for part in src_file.parts):
+                continue
+            if any(part.endswith(".egg-info") for part in src_file.parts):
+                continue
+            if not is_test_file(src_file):
                 continue
 
-            if not node.name.startswith("test_"):
+            language = detect_language(src_file)
+            if not language:
                 continue
 
-            # Derive implementation function name
-            base = node.name[5:].lower()  # strip test_ prefix
-            if not base:
+            try:
+                source = src_file.read_text(encoding="utf-8", errors="replace")
+            except OSError:
                 continue
 
-            end = node.end_lineno or node.lineno
-            if node.lineno - 1 < end <= len(lines):
-                body = "\n".join(lines[node.lineno - 1 : end])
-            else:
-                continue
+            funcs = _ext_functions(source, language)
 
-            if body.count("\n") < _MIN_TEST_LINES:
-                continue
+            for fn in funcs:
+                # Python convention: test_ prefix
+                if language == "python" and not fn.name.startswith("test_"):
+                    continue
 
-            lookup.setdefault(base, {})[node.name] = body
+                # JS/TS: all functions in test files are considered tests
+                # (describe/it/test blocks are handled as functions)
+
+                if fn.body.count("\n") < _MIN_TEST_LINES:
+                    continue
+
+                # Derive implementation function name
+                if fn.name.startswith("test_"):
+                    base = fn.name[5:].lower()
+                elif fn.name.startswith("test"):
+                    base = fn.name[4:].lower()
+                else:
+                    base = fn.name.lower()
+
+                if not base:
+                    continue
+
+                lookup.setdefault(base, {})[fn.name] = fn.body
 
     return lookup
 
@@ -572,6 +612,7 @@ def _llm_triangulate(
     conn: sqlite3.Connection | None = None,
     run_id: int | None = None,
     use_enhanced: bool = False,
+    language: str = "python",
 ) -> dict[str, Any] | None:
     """Ask the LLM to find contradictions across multiple artifacts."""
     if use_enhanced:
@@ -592,7 +633,7 @@ def _llm_triangulate(
     # Always include code
     sections.append(
         f"## CODE — `{sym_name}` ({file_path}:{line_start})\n"
-        f"```python\n{artifacts['code'][:max_code]}\n```"
+        f"```{language}\n{artifacts['code'][:max_code]}\n```"
     )
     artifact_names.append("code")
 
@@ -607,7 +648,7 @@ def _llm_triangulate(
         for t in artifacts["tests"]:
             test_parts.append(
                 f"### {t['test_name']}\n"
-                f"```python\n{t['test_body'][:max_test]}\n```"
+                f"```{language}\n{t['test_body'][:max_test]}\n```"
             )
         sections.append("## TEST(S)\n" + "\n".join(test_parts))
         artifact_names.append("test")

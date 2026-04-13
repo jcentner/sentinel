@@ -14,7 +14,6 @@ Strategy:
 
 from __future__ import annotations
 
-import ast
 import json
 import logging
 import re
@@ -23,6 +22,11 @@ from pathlib import Path
 from typing import Any
 
 from sentinel.core.compatibility import should_use_enhanced_prompt
+from sentinel.core.extractors import (
+    SOURCE_EXTENSIONS,
+    detect_language,
+    extract_signatures,
+)
 from sentinel.core.provider import ModelProvider
 from sentinel.detectors.base import COMMON_SKIP_DIRS, Detector
 from sentinel.models import (
@@ -618,13 +622,19 @@ def _extract_symbols(body: str) -> list[str]:
     return symbols
 
 
+# Source file globs for symbol matching (all supported languages)
+_SOURCE_GLOBS = tuple(
+    glob for globs in SOURCE_EXTENSIONS.values() for glob in globs
+)
+
+
 def _match_symbols_to_files(
     symbols: list[str], repo_root: Path
 ) -> list[tuple[str, str]]:
     """Try to find source files containing the referenced symbols.
 
-    Walks Python source files in the repo looking for function/class definitions
-    matching the symbol names. Returns at most 3 matches to limit LLM calls.
+    Walks source files (Python, JS, TS) in the repo looking for function/class
+    definitions matching the symbol names. Returns at most 3 matches to limit LLM calls.
     """
     pairs: list[tuple[str, str]] = []
     target_names = {s.lower() for s in symbols}
@@ -635,36 +645,40 @@ def _match_symbols_to_files(
     for src_dir in src_dirs:
         if not src_dir.is_dir():
             continue
-        for py_file in sorted(src_dir.rglob("*.py")):
-            if py_file in searched:
-                continue
-            searched.add(py_file)
+        for glob in _SOURCE_GLOBS:
+            for src_file in sorted(src_dir.rglob(glob)):
+                if src_file in searched:
+                    continue
+                searched.add(src_file)
 
-            try:
-                rel = py_file.relative_to(repo_root)
-            except ValueError:
-                continue
-            if any(part in COMMON_SKIP_DIRS for part in rel.parts):
-                continue
+                try:
+                    rel = src_file.relative_to(repo_root)
+                except ValueError:
+                    continue
+                if any(part in COMMON_SKIP_DIRS for part in rel.parts):
+                    continue
 
-            try:
-                source = py_file.read_text(encoding="utf-8", errors="ignore")
-            except OSError:
-                continue
+                try:
+                    source = src_file.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    continue
 
-            # Quick check: does this file define any of the target symbols?
-            found = False
-            for sym in target_names:
-                if re.search(rf"(?:def|class)\s+{re.escape(sym)}\b", source, re.IGNORECASE):
-                    found = True
-                    break
+                # Quick check: does this file define any of the target symbols?
+                found = False
+                for sym in target_names:
+                    if re.search(
+                        rf"(?:def|class|function)\s+{re.escape(sym)}\b",
+                        source, re.IGNORECASE,
+                    ):
+                        found = True
+                        break
 
-            if found:
-                excerpt = _extract_code_excerpt(py_file)
-                if excerpt:
-                    pairs.append((str(rel), excerpt))
-                    if len(pairs) >= 3:
-                        return pairs
+                if found:
+                    excerpt = _extract_code_excerpt(src_file)
+                    if excerpt:
+                        pairs.append((str(rel), excerpt))
+                        if len(pairs) >= 3:
+                            return pairs
 
     return pairs
 
@@ -672,8 +686,8 @@ def _match_symbols_to_files(
 def _extract_code_excerpt(file_path: Path) -> str | None:
     """Extract a meaningful code excerpt from a source file.
 
-    For Python files: uses ast to extract function/class signatures with docstrings.
-    For other files: takes the first ~80 lines.
+    Uses the language-agnostic extractor for supported languages (Python, JS, TS).
+    Falls back to first ~80 lines for unsupported languages.
     """
     try:
         source = file_path.read_text(encoding="utf-8", errors="ignore")
@@ -683,112 +697,12 @@ def _extract_code_excerpt(file_path: Path) -> str | None:
     if not source.strip():
         return None
 
-    if file_path.suffix == ".py":
-        return _extract_python_signatures(source)
+    language = detect_language(file_path)
+    if language:
+        sigs = extract_signatures(source, language)
+        if sigs:
+            return sigs[:_MAX_CODE_CHARS]
 
-    # For non-Python: take first lines, skipping large files
+    # Unsupported language: take first lines
     lines = source.split("\n")
-    if len(lines) > 500:
-        # For large files, try to extract function-like signatures
-        sig_lines = _extract_generic_signatures(lines)
-        if sig_lines:
-            return sig_lines
     return "\n".join(lines[:80])
-
-
-def _extract_python_signatures(source: str) -> str | None:
-    """Extract function and class signatures with docstrings using Python ast."""
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        # Fall back to first 80 lines if unparseable
-        lines = source.split("\n")
-        return "\n".join(lines[:80])
-
-    parts: list[str] = []
-
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            sig = _format_function_sig(node, source)
-            if sig:
-                parts.append(sig)
-        elif isinstance(node, ast.ClassDef):
-            sig = _format_class_sig(node, source)
-            if sig:
-                parts.append(sig)
-
-    if not parts:
-        # No functions or classes — return first lines
-        lines = source.split("\n")
-        return "\n".join(lines[:80])
-
-    result = "\n\n".join(parts)
-    return result[:_MAX_CODE_CHARS]
-
-
-def _format_function_sig(
-    node: ast.FunctionDef | ast.AsyncFunctionDef, source: str
-) -> str | None:
-    """Format a function signature with its docstring."""
-    lines = source.split("\n")
-    # Get the def line(s)
-    start = node.lineno - 1
-    # Find end of signature (could span multiple lines due to args)
-    end = start + 1
-    if node.body:
-        end = node.body[0].lineno - 1
-    sig_lines = lines[start:min(end, start + 5)]
-    sig = "\n".join(sig_lines).rstrip()
-
-    # Get docstring if present
-    docstring = ast.get_docstring(node)
-    if docstring:
-        # Truncate long docstrings
-        if len(docstring) > 200:
-            docstring = docstring[:200] + "..."
-        return f"{sig}\n    \"\"\"{docstring}\"\"\""
-    return sig
-
-
-def _format_class_sig(node: ast.ClassDef, source: str) -> str | None:
-    """Format a class definition with its docstring and method signatures."""
-    lines = source.split("\n")
-    start = node.lineno - 1
-    class_line = lines[start].rstrip()
-
-    parts = [class_line]
-
-    # Get class docstring
-    docstring = ast.get_docstring(node)
-    if docstring:
-        if len(docstring) > 200:
-            docstring = docstring[:200] + "..."
-        parts.append(f'    """{docstring}"""')
-
-    # Get method signatures (just the def line, not bodies)
-    for item in node.body:
-        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            method_line = lines[item.lineno - 1].rstrip() if item.lineno - 1 < len(lines) else None
-            if method_line:
-                parts.append(f"    {method_line.strip()}")
-
-    return "\n".join(parts)
-
-
-def _extract_generic_signatures(lines: list[str]) -> str | None:
-    """Extract function-like signatures from non-Python source files."""
-    # Match common function declaration patterns
-    func_re = re.compile(
-        r"^\s*(?:export\s+)?(?:async\s+)?(?:pub\s+)?(?:fn|func|function|def)\s+\w+",
-    )
-    sig_lines: list[str] = []
-    for i, line in enumerate(lines):
-        if func_re.match(line):
-            # Take the function line and up to 2 lines of context
-            end = min(i + 3, len(lines))
-            sig_lines.extend(lines[i:end])
-            sig_lines.append("")
-
-    if not sig_lines:
-        return None
-    return "\n".join(sig_lines[:60])
