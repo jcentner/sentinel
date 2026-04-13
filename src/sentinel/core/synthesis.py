@@ -11,6 +11,7 @@ findings pass through unchanged.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -18,7 +19,7 @@ import time
 from dataclasses import dataclass, field
 
 from sentinel.core.clustering import cluster_by_pattern
-from sentinel.core.provider import ModelProvider
+from sentinel.core.provider import ModelProvider, agenerate
 from sentinel.models import Finding
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,157 @@ def synthesize_clusters(
         )
 
     return result_findings
+
+
+# Default max concurrency for async synthesis calls (ADR-017)
+_DEFAULT_MAX_CONCURRENT_SYNTHESIS = 4
+
+
+async def asynthesize_clusters(
+    findings: list[Finding],
+    *,
+    provider: ModelProvider,
+    conn: sqlite3.Connection | None = None,
+    run_id: int | None = None,
+    num_ctx: int = 2048,
+    min_cluster_size: int = 3,
+    max_concurrent: int = _DEFAULT_MAX_CONCURRENT_SYNTHESIS,
+) -> list[Finding]:
+    """Async version of synthesize_clusters with bounded concurrency (ADR-017).
+
+    Clusters are analyzed in parallel (up to *max_concurrent*) while
+    standalone findings pass through unchanged.
+    """
+    if not findings:
+        return findings
+
+    if not provider.check_health():
+        logger.warning("Provider not available for synthesis — skipping")
+        return findings
+
+    items = cluster_by_pattern(findings, min_size=min_cluster_size)
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    stats = {"clusters_processed": 0, "findings_synthesized": 0}
+    t_start = time.monotonic()
+
+    # Separate standalone findings from clusters
+    standalone: list[Finding] = []
+    cluster_tasks = []
+
+    for item in items:
+        if isinstance(item, Finding):
+            standalone.append(item)
+        else:
+            cluster_tasks.append(item)
+
+    async def _process_cluster(cluster):
+        cluster_findings_list = cluster.findings
+        prompt = _build_synthesis_prompt(cluster_findings_list, cluster.pattern_label)
+
+        async with semaphore:
+            try:
+                t0 = time.monotonic()
+                synthesis = await _asynthesize_single(
+                    cluster_findings_list, provider, prompt=prompt,
+                    conn=conn, run_id=run_id, num_ctx=num_ctx,
+                )
+                elapsed = time.monotonic() - t0
+                stats["clusters_processed"] += 1
+
+                redundant_set = set(synthesis.redundant_fingerprints)
+                for f in cluster_findings_list:
+                    if f.context is None:
+                        f.context = {}
+                    f.context["synthesis"] = {
+                        "root_cause": synthesis.root_cause,
+                        "recommended_action": synthesis.recommended_action,
+                        "cluster_label": cluster.pattern_label,
+                        "cluster_size": len(cluster_findings_list),
+                    }
+                    if f.fingerprint and f.fingerprint in redundant_set:
+                        f.context["synthesis"]["redundant"] = True
+                    stats["findings_synthesized"] += 1
+
+                logger.info(
+                    "Cluster %r: %d findings, %d redundant (%.1fs)",
+                    cluster.pattern_label[:50],
+                    len(cluster_findings_list),
+                    len(redundant_set),
+                    elapsed,
+                )
+            except Exception:
+                logger.warning(
+                    "Synthesis failed for cluster %r — passing through",
+                    cluster.pattern_label[:50], exc_info=True,
+                )
+
+        return cluster_findings_list
+
+    # Process clusters concurrently
+    cluster_results = await asyncio.gather(
+        *[_process_cluster(c) for c in cluster_tasks]
+    )
+
+    # Reassemble: standalone + cluster findings (preserving cluster order)
+    result_findings = list(standalone)
+    for cluster_findings_list in cluster_results:
+        result_findings.extend(cluster_findings_list)
+
+    total_time = time.monotonic() - t_start
+    if stats["clusters_processed"]:
+        logger.info(
+            "Synthesis complete: %d clusters, %d findings annotated (%.1fs total, async)",
+            stats["clusters_processed"], stats["findings_synthesized"], total_time,
+        )
+
+    return result_findings
+
+
+async def _asynthesize_single(
+    findings: list[Finding],
+    provider: ModelProvider,
+    *,
+    prompt: str,
+    conn: sqlite3.Connection | None = None,
+    run_id: int | None = None,
+    num_ctx: int = 2048,
+) -> SynthesisResult:
+    """Async version of _synthesize_single — uses agenerate() (ADR-017)."""
+    llm_resp = await agenerate(
+        provider,
+        prompt,
+        system=_SYSTEM_PROMPT,
+        temperature=0.2,
+        max_tokens=1024,
+        num_ctx=num_ctx,
+        json_output=True,
+    )
+
+    response_text = llm_resp.text
+    tokens = llm_resp.token_count or 0
+    gen_ms = llm_resp.duration_ms or 0.0
+
+    logger.debug(
+        "Synthesis response (%d tokens, %.0fms): %s",
+        tokens, gen_ms, response_text[:500],
+    )
+
+    if conn is not None and run_id is not None:
+        _log_synthesis(
+            conn, run_id, str(provider), findings,
+            prompt=prompt, response=response_text,
+            tokens=tokens, duration_ms=gen_ms,
+        )
+
+    result = _parse_synthesis(response_text)
+    if result is None:
+        logger.warning("Failed to parse synthesis response — using default")
+        return SynthesisResult(
+            root_cause="Unable to determine root cause",
+            recommended_action="Review findings individually",
+        )
+    return result
 
 
 def _build_synthesis_prompt(findings: list[Finding], label: str) -> str:

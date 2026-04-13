@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sqlite3
 import subprocess
@@ -303,7 +304,6 @@ def run_scan(
 
     # 7. LLM Judge (optional — async with bounded concurrency, ADR-017)
     if not skip_judge and provider is not None:
-        import asyncio
         deduped = asyncio.run(ajudge_findings(
             deduped, provider=provider,
             conn=conn, run_id=run.id, num_ctx=num_ctx,
@@ -311,15 +311,15 @@ def run_scan(
     else:
         logger.info("LLM judge skipped (--skip-judge or no provider)")
 
-    # 7b. Finding cluster synthesis (requires standard+ capability)
+    # 7b. Finding cluster synthesis (requires standard+ capability, async ADR-017)
     if not skip_judge and provider is not None:
         if _TIER_ORDER.get(model_cap, 0) >= _TIER_ORDER[CapabilityTier.STANDARD]:
-            from sentinel.core.synthesis import synthesize_clusters
+            from sentinel.core.synthesis import asynthesize_clusters
             logger.info("Running finding cluster synthesis (capability: %s)", model_cap.value)
-            deduped = synthesize_clusters(
+            deduped = asyncio.run(asynthesize_clusters(
                 deduped, provider=provider,
                 conn=conn, run_id=run.id, num_ctx=num_ctx,
-            )
+            ))
         else:
             logger.info("Cluster synthesis skipped (requires standard+ capability, have %s)", model_cap.value)
 
