@@ -119,7 +119,9 @@ class TestCoherenceDetector(Detector):
                 sig = context.risk_signals.get(rel)  # type: ignore[union-attr]
                 if sig is None:
                     return 0.0
-                return sig.get("churn_commits", 0) + (_FIX_HEAVY_BONUS if sig.get("churn_fix_ratio", 0) > _FIX_RATIO_THRESHOLD else 0.0)
+                churn: float = sig.get("churn_commits", 0)
+                fix_ratio: float = sig.get("churn_fix_ratio", 0)
+                return churn + (_FIX_HEAVY_BONUS if fix_ratio > _FIX_RATIO_THRESHOLD else 0.0)
             test_files.sort(key=_impl_risk, reverse=True)
             logger.debug("test-coherence: sorted %d test files by risk signals", len(test_files))
 

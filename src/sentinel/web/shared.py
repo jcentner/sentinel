@@ -24,7 +24,7 @@ def _format_ts(val: object) -> str:
     if isinstance(val, str):
         return val[:16].replace("T", " ")
     if hasattr(val, "strftime"):
-        return val.strftime("%Y-%m-%d %H:%M")  # type: ignore[union-attr]
+        return str(val.strftime("%Y-%m-%d %H:%M"))
     return str(val)
 
 

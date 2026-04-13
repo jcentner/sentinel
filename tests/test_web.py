@@ -189,7 +189,7 @@ class TestIndexRoute:
     def test_redirect_to_latest_run(
         self, seeded_app: tuple[TestClient, int, int]
     ) -> None:
-        client, run_id, _ = seeded_app
+        client, _run_id, _ = seeded_app
         resp = client.get("/", follow_redirects=False)
         assert resp.status_code == 302
         assert "/runs" in resp.headers["location"]
