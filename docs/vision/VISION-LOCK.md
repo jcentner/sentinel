@@ -136,5 +136,6 @@ Major version bump: vision expansion after all v5 goals completed.
 - Added 4 new phases (11–14): async pipeline, multi-language detectors, benchmark expansion, CLI/Web parity
 - Added success criteria #11 (scan performance) and #12 (JS/TS LLM detectors)
 - Added async migration and tree-sitter risks
+- Phase 11 completed: ADR-017, async provider/judge/synthesis, 4.5x speedup verified, SC#11 met
 
 Older changelog entries available in archived versions and git history.
