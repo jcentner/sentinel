@@ -1,8 +1,8 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 6.0
+> **Version**: 5.6
 > **Updated**: 2026-04-13
-> **Supersedes**: v5.6 ([archived](archive/VISION-LOCK-v5.md))
+> **Supersedes**: v4.9 ([archived](archive/VISION-LOCK-v4.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
 ## Problem Statement
@@ -72,8 +72,6 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 | 8 | Full triage in browser | **Met** |
 | 9 | CLI usable by AI agents | **Met** |
 | 10 | Surfaces unknown issues | **Partial** — cross-artifact detectors deliver; lint/todo overlap with existing tools |
-| 11 | Scan completes in <5 min for 100-finding repos | **Not met** — serial LLM is 7+ min (TD-016) |
-| 12 | LLM detectors work for JS/TS repos | **Not met** — Python-only AST extraction |
 
 ## Architecture Invariants
 
@@ -88,25 +86,18 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 Priority-ordered next investments. Each connects to a validated gap.
 
-### Phase 11: Async pipeline & parallel LLM
-**Gap**: TD-016 — serial LLM calls are the only medium-severity bottleneck. 100-finding repos take 7+ min for judging alone. TD-002 — sync detector interface blocks all parallelism.
-**What**: Async `ModelProvider` protocol. Concurrent judge calls (bounded concurrency). Async detector interface for LLM-calling detectors. Thread-pool execution for CPU-bound detectors.
-**Success**: 100-finding scan completes judge+synthesis in <2 min with cloud provider.
+### Web UI as first-class interaction surface — complete
+Settings page editable (ADR-015). Detectors page with inline model/toggle config, doctor health check page, LLM call log viewer, embedding index status page. All planned web pages shipped.
 
-### Phase 12: Multi-language LLM detectors
-**Gap**: All 4 LLM detectors are Python-only via `ast`. JS/TS repos get zero cross-artifact analysis despite being the largest user base after Python.
-**What**: Tree-sitter integration for language-agnostic AST extraction. Extend semantic-drift, test-coherence, inline-comment-drift to JS/TS. Language-specific extractors behind a common interface.
-**Success**: `sentinel scan` on a JS/TS repo produces LLM-assisted findings with same quality as Python repos.
+### Phase 10: Advanced detectors — complete
+New detectors requiring stronger models (benchmark data will guide minimum model recommendations):
+- ~~CI/CD config drift (basic)~~ — **shipped** (deterministic: stale paths in GitHub Actions, Dockerfiles)
+- ~~Inline comment drift (advanced)~~ — **shipped** (LLM-assisted: docstring accuracy vs adjacent code, Python)
+- ~~Intent comparison (advanced)~~ — **shipped** (LLM-assisted: multi-artifact triangulation, Python)
+- ~~Architecture drift~~ — **shipped** (deterministic: import graph vs `[sentinel.architecture]` layer rules)
 
-### Phase 13: Benchmark & ground truth expansion
-**Gap**: TD-045 — ground truth is 1 repo with 50 findings. Most model×detector combos are untested. New detectors (inline-comment-drift, intent-comparison) have zero benchmark data.
-**What**: Ground truth for 2-3 more repos. Benchmark all detectors on multiple models. `sentinel llm-log` CLI command. Benchmark results in LLM log for web drill-down (OQ-019).
-**Success**: ≥3 repos with annotated ground truth. All detectors benchmarked on ≥2 models.
-
-### Phase 14: CLI/Web parity & polish
-**Gap**: 5 CLI features not in web, 4 web features not in CLI. Low-severity tech debt accumulation.
-**What**: Web UI for benchmark runs. CLI `sentinel llm-log`, `sentinel compare`, bulk operations. Resolve TD-024 (JSON envelope), TD-041 (docs-drift FP), OQ-016 (message list protocol).
-**Success**: Every major workflow achievable from both CLI and web.
+### Cross-detector intelligence — shipped
+Two-phase execution (TD-043): heuristic detectors run first, `risk_signals` extracted from git-hotspots, LLM detectors sort files by risk. test-coherence prioritizes tests for high-churn implementation files.
 
 ## Out of Scope (permanent)
 
@@ -124,16 +115,19 @@ Priority-ordered next investments. Each connects to a validated gap.
 | test-coherence noisy at 4B | High | Binary signal + benchmark-driven quality warnings + per-detector model routing (ADR-016) |
 | FP rate erodes trust | High | 88% confirmation rate via iterative FP reduction |
 | Most detectors duplicate dev tooling | Medium | Focus investment on cross-artifact analysis |
-| Async migration breaks existing tests | Medium | Incremental: async provider first, sync shims for backward compat |
-| Tree-sitter adds native dependency | Medium | Optional dep, graceful degradation to regex extraction |
 
 ## Changelog
 
-### v6.0 (2026-04-13)
-Major version bump: vision expansion after all v5 goals completed.
-- Archived v5.6 to `archive/VISION-LOCK-v5.md`
-- Added 4 new phases (11–14): async pipeline, multi-language detectors, benchmark expansion, CLI/Web parity
-- Added success criteria #11 (scan performance) and #12 (JS/TS LLM detectors)
-- Added async migration and tree-sitter risks
+### v5.6 (2026-04-13)
+Phase 10 complete — intent-comparison detector shipped.
+- `intent-comparison`: LLM-assisted multi-artifact triangulation (code + docstring + tests + docs)
+- First ADVANCED-tier detector; requires frontier-class model
+- 18 detectors total, all Phase 10 items shipped
+
+### v5.5 (2026-04-13)
+Architecture drift detector + Phase 10 at 3/4 shipped.
+- `architecture-drift`: deterministic detector checking import graph against `[sentinel.architecture]` layer rules
+- Layer ordering, shared modules, forbidden imports
+- 17 detectors total
 
 Older changelog entries available in archived versions and git history.
