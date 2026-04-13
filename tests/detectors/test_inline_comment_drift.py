@@ -386,3 +386,181 @@ class TestFindingStructure:
         assert findings[0].confidence == 0.70
         assert findings[0].severity.value == "high"
         assert findings[0].context.get("enhanced") is True
+
+
+# ── JS/TS multi-language support ────────────────────────────────────
+
+
+class TestExtractDocstringPairsJS:
+    """JSDoc extraction via extract_docstring_pairs."""
+
+    def test_jsdoc_function(self):
+        source = (
+            "/**\n"
+            " * Format a user greeting with their full name and title.\n"
+            " * @param {string} name - The user's name\n"
+            " * @returns {string} Formatted greeting\n"
+            " */\n"
+            "function greet(name) {\n"
+            "    return `Goodbye, ${name}!`;\n"
+            "}\n"
+        )
+        pairs = extract_docstring_pairs(source, language="javascript")
+        assert len(pairs) == 1
+        assert pairs[0]["name"] == "greet"
+        assert "greeting" in pairs[0]["docstring"].lower()
+
+    def test_ts_function_with_jsdoc(self):
+        source = (
+            "/**\n"
+            " * Process records with validation and transformation.\n"
+            " * Applies strict schema checks on all input records.\n"
+            " */\n"
+            "export function processRecords(records: any[]): any {\n"
+            "    return records.filter(r => r.id);\n"
+            "}\n"
+        )
+        pairs = extract_docstring_pairs(source, language="typescript")
+        assert len(pairs) == 1
+        assert pairs[0]["name"] == "processRecords"
+
+    def test_no_jsdoc_js(self):
+        source = (
+            "function helper(x) {\n"
+            "    return x + 1;\n"
+            "}\n"
+        )
+        pairs = extract_docstring_pairs(source, language="javascript")
+        assert len(pairs) == 0
+
+
+class TestDetectorBehaviorJS:
+    def test_finding_when_drift_detected_js(self, detector, tmp_path, monkeypatch):
+        """LLM flagging a JSDoc produces a finding on a .js file."""
+        (tmp_path / "utils.js").write_text(
+            "/**\n"
+            " * Format a user greeting with their full name and title.\n"
+            " * @param {string} name - The user's name\n"
+            " * @returns {string} Formatted greeting\n"
+            " */\n"
+            "function greet(name) {\n"
+            "    return `Goodbye, ${name}!`;\n"
+            "}\n"
+        )
+
+        from sentinel.detectors import inline_comment_drift
+
+        monkeypatch.setattr(
+            inline_comment_drift.InlineCommentDrift,
+            "_llm_compare",
+            staticmethod(lambda *_args, **_kw: {
+                "needs_review": True,
+                "reason": "JSDoc says greeting but code says goodbye",
+            }),
+        )
+
+        from tests.mock_provider import MockProvider
+        provider = MockProvider(health=True)
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"provider": provider},
+        )
+        findings = detector.detect(ctx)
+
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.file_path == "utils.js"
+        assert "greet" in f.title
+
+    def test_incremental_scope_ts(self, detector, tmp_path, monkeypatch):
+        """Only changed .ts files are scanned in incremental mode."""
+        (tmp_path / "changed.ts").write_text(
+            "/**\n"
+            " * This function was changed recently and is long enough.\n"
+            " * It does some important processing for the application.\n"
+            " */\n"
+            "export function changedFunc(): number {\n"
+            "    return 42;\n"
+            "}\n"
+        )
+        (tmp_path / "unchanged.ts").write_text(
+            "/**\n"
+            " * This function was not changed and is also long enough.\n"
+            " * It handles other tasks in the system entirely.\n"
+            " */\n"
+            "export function unchangedFunc(): number {\n"
+            "    return 0;\n"
+            "}\n"
+        )
+
+        from sentinel.detectors import inline_comment_drift
+
+        calls: list[str] = []
+
+        def mock_compare(*args, **kwargs):
+            calls.append(args[2])  # file_path argument
+            return {"needs_review": False, "reason": ""}
+
+        monkeypatch.setattr(
+            inline_comment_drift.InlineCommentDrift,
+            "_llm_compare",
+            staticmethod(mock_compare),
+        )
+
+        from tests.mock_provider import MockProvider
+        provider = MockProvider(health=True)
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            scope=ScopeType.INCREMENTAL,
+            changed_files=["changed.ts"],
+            config={"provider": provider},
+        )
+        detector.detect(ctx)
+
+        assert "changed.ts" in calls
+        assert "unchanged.ts" not in calls
+
+    def test_mixed_language_repo(self, detector, tmp_path, monkeypatch):
+        """Both Python and JS files are discovered and scanned."""
+        (tmp_path / "mod.py").write_text(
+            "def greet(name):\n"
+            '    """Say hello to the given name. This has enough text."""\n'
+            '    return f"Hello, {name}!"\n'
+        )
+        (tmp_path / "utils.js").write_text(
+            "/**\n"
+            " * Format a user greeting with their full name and title.\n"
+            " * @param {string} name - The user's name\n"
+            " * @returns {string} Formatted greeting\n"
+            " */\n"
+            "function greet(name) {\n"
+            "    return `Hello, ${name}!`;\n"
+            "}\n"
+        )
+
+        from sentinel.detectors import inline_comment_drift
+
+        scanned_files: list[str] = []
+
+        def mock_compare(*args, **kwargs):
+            scanned_files.append(args[2])  # file_path argument
+            return {"needs_review": False, "reason": ""}
+
+        monkeypatch.setattr(
+            inline_comment_drift.InlineCommentDrift,
+            "_llm_compare",
+            staticmethod(mock_compare),
+        )
+
+        from tests.mock_provider import MockProvider
+        provider = MockProvider(health=True)
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"provider": provider},
+        )
+        detector.detect(ctx)
+
+        # Both file types should be scanned
+        extensions = {f.rsplit(".", 1)[-1] for f in scanned_files}
+        assert "py" in extensions
+        assert "js" in extensions

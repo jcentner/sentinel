@@ -683,3 +683,140 @@ class TestEnhancedSemanticDrift:
         f = findings[0]
         assert f.confidence == 0.6
         assert "enhanced" not in f.context
+
+
+# ── JS/TS multi-language support ─────────────────────────────────
+
+
+class TestExtractCodeExcerptJS:
+    def test_ts_file(self, tmp_path):
+        ts_file = tmp_path / "index.ts"
+        ts_file.write_text(
+            "export function hello(): string {\n"
+            "    return 'world';\n"
+            "}\n"
+            "\n"
+            "export function goodbye(): void {\n"
+            "    console.log('bye');\n"
+            "}\n"
+        )
+        excerpt = _extract_code_excerpt(ts_file)
+        assert excerpt is not None
+        assert "hello" in excerpt
+
+    def test_js_file(self, tmp_path):
+        js_file = tmp_path / "utils.js"
+        js_file.write_text(
+            "function validate(input) {\n"
+            "    return input.trim().length > 0;\n"
+            "}\n"
+            "\n"
+            "function format(str) {\n"
+            "    return str.toUpperCase();\n"
+            "}\n"
+        )
+        excerpt = _extract_code_excerpt(js_file)
+        assert excerpt is not None
+        assert "validate" in excerpt
+
+
+class TestMatchSymbolsToFilesJS:
+    def test_finds_js_function_definition(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "runner.js").write_text(
+            "function runScan() {\n"
+            "    return [];\n"
+            "}\n"
+        )
+        pairs = _match_symbols_to_files(["runScan"], tmp_path)
+        assert len(pairs) == 1
+        assert "runner.js" in pairs[0][0]
+
+    def test_finds_ts_function_definition(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "config.ts").write_text(
+            "export function loadConfig(): any {\n"
+            "    return {};\n"
+            "}\n"
+        )
+        pairs = _match_symbols_to_files(["loadConfig"], tmp_path)
+        assert len(pairs) == 1
+        assert "config.ts" in pairs[0][0]
+
+
+class TestDetectorIntegrationJS:
+    def test_produces_finding_on_drift_js(self, tmp_path, monkeypatch):
+        """Drift between markdown docs and JS/TS source file."""
+        from sentinel.detectors import semantic_drift
+        from tests.mock_provider import MockProvider
+
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "config.ts").write_text(
+            "export const defaultModel = 'qwen3.5:4b';\n"
+            "export const apiUrl = 'http://localhost:11434';\n"
+        )
+
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "# Configuration\n\n"
+            "Edit `src/config.ts` to change the default model.\n"
+            "The default model is gpt-4 and requires an OpenAI API key.\n"
+        )
+
+        monkeypatch.setattr(
+            semantic_drift.SemanticDriftDetector,
+            "_llm_compare",
+            staticmethod(lambda *_args, **_kw: {
+                "needs_review": True,
+                "reason": "README says gpt-4 but code uses qwen3.5",
+            }),
+        )
+
+        d = SemanticDriftDetector()
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"provider": MockProvider(health=True)},
+        )
+        findings = d.detect(ctx)
+        drift = [f for f in findings if f.category == "docs-drift"]
+        assert len(drift) >= 1
+
+    def test_no_finding_when_consistent_js(self, tmp_path, monkeypatch):
+        """Well-documented JS/TS codebase produces no findings."""
+        from sentinel.detectors import semantic_drift
+        from tests.mock_provider import MockProvider
+
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "utils.ts").write_text(
+            "export function validate(input: string): boolean {\n"
+            "    return input.trim().length > 0;\n"
+            "}\n"
+        )
+
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "# Utils\n\n"
+            "The `validate()` function checks that the input\n"
+            "is non-empty after trimming whitespace.\n"
+        )
+
+        monkeypatch.setattr(
+            semantic_drift.SemanticDriftDetector,
+            "_llm_compare",
+            staticmethod(lambda *_args, **_kw: {
+                "needs_review": False,
+                "reason": "",
+            }),
+        )
+
+        d = SemanticDriftDetector()
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"provider": MockProvider(health=True)},
+        )
+        findings = d.detect(ctx)
+        assert len(findings) == 0

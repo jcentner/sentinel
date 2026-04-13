@@ -627,3 +627,262 @@ class TestEnhancedMode:
         assert f.confidence == 0.6  # Basic confidence
         assert f.severity.value == "medium"  # Default severity
         assert "enhanced" not in f.context
+
+
+# ── JS/TS multi-language support ──────────────────────────────────
+
+
+class TestFindTestFilesJS:
+    def test_finds_js_test_files(self, tmp_path):
+        (tmp_path / "config.test.js").write_text("test('x', () => {});\n")
+        (tmp_path / "config.spec.js").write_text("test('y', () => {});\n")
+        (tmp_path / "config.js").write_text("module.exports = {};\n")
+
+        found = find_test_files(tmp_path)
+        names = [f.name for f in found]
+        assert "config.test.js" in names
+        assert "config.spec.js" in names
+        assert "config.js" not in names
+
+    def test_finds_ts_test_files(self, tmp_path):
+        (tmp_path / "utils.test.ts").write_text("test('x', () => {});\n")
+        (tmp_path / "utils.ts").write_text("export function foo() {}\n")
+
+        found = find_test_files(tmp_path)
+        names = [f.name for f in found]
+        assert "utils.test.ts" in names
+        assert "utils.ts" not in names
+
+
+class TestImplNameFromTestJS:
+    def test_js_test_suffix(self):
+        assert impl_name_from_test("config.test.js", "javascript") == "config.js"
+
+    def test_js_spec_suffix(self):
+        assert impl_name_from_test("config.spec.js", "javascript") == "config.js"
+
+    def test_ts_test_suffix(self):
+        assert impl_name_from_test("utils.test.ts", "typescript") == "utils.ts"
+
+    def test_ts_spec_suffix(self):
+        assert impl_name_from_test("utils.spec.ts", "typescript") == "utils.ts"
+
+
+class TestFindImplementationFileJS:
+    def test_finds_js_impl_from_naming(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "config.js").write_text("function load() {}\n")
+
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        test_f = tests / "config.test.js"
+        test_f.write_text("const { load } = require('../src/config');\n")
+
+        result = find_implementation_file(test_f, tmp_path)
+        assert result is not None
+        assert result.name == "config.js"
+
+    def test_finds_ts_impl_from_naming(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "utils.ts").write_text("export function foo() {}\n")
+
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        test_f = tests / "utils.test.ts"
+        test_f.write_text("import { foo } from '../src/utils';\n")
+
+        result = find_implementation_file(test_f, tmp_path)
+        assert result is not None
+        assert result.name == "utils.ts"
+
+
+class TestExtractFunctionPairsJS:
+    def test_js_function_pairing(self, tmp_path):
+        impl = tmp_path / "calculator.js"
+        impl.write_text(
+            "/** Add two numbers together and return the sum. */\n"
+            "function add(a, b) {\n"
+            "    const result = a + b;\n"
+            "    return result;\n"
+            "}\n"
+        )
+
+        test_file = tmp_path / "calculator.test.js"
+        test_file.write_text(
+            "function test_add() {\n"
+            "    expect(add(1, 2)).toBe(3);\n"
+            "    expect(add(0, 0)).toBe(0);\n"
+            "    expect(add(-1, 1)).toBe(0);\n"
+            "}\n"
+        )
+
+        pairs = extract_function_pairs(test_file, impl)
+        assert len(pairs) >= 1
+        impl_names = [p[2] for p in pairs]
+        assert "add" in impl_names
+
+    def test_ts_function_pairing(self, tmp_path):
+        impl = tmp_path / "processor.ts"
+        impl.write_text(
+            "export function process(data: string): string {\n"
+            "    const trimmed = data.trim();\n"
+            "    const upper = trimmed.toUpperCase();\n"
+            "    return upper;\n"
+            "}\n"
+        )
+
+        test_file = tmp_path / "processor.test.ts"
+        test_file.write_text(
+            "function test_process() {\n"
+            "    const result = process('  hello  ');\n"
+            "    expect(result).toBe('HELLO');\n"
+            "    expect(typeof result).toBe('string');\n"
+            "}\n"
+        )
+
+        pairs = extract_function_pairs(test_file, impl)
+        assert len(pairs) >= 1
+        impl_names = [p[2] for p in pairs]
+        assert "process" in impl_names
+
+
+class TestDetectorIntegrationJS:
+    def _make_js_repo(self, tmp_path):
+        """Create a minimal JS repo with test + impl files."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "core.js").write_text(
+            "/** Process input data and return results. */\n"
+            "function process(data) {\n"
+            "    const cleaned = data.trim();\n"
+            "    const result = cleaned.toUpperCase();\n"
+            "    return result;\n"
+            "}\n"
+            "module.exports = { process };\n"
+        )
+
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        (tests / "core.test.js").write_text(
+            "const { process } = require('../src/core');\n\n"
+            "function test_process() {\n"
+            "    const result = process('  hello  ');\n"
+            "    expect(result).toBe('HELLO');\n"
+            "    expect(typeof result).toBe('string');\n"
+            "}\n"
+        )
+        return tmp_path
+
+    def test_produces_finding_on_drift_js(self, tmp_path, monkeypatch):
+        from sentinel.detectors import test_coherence
+        from tests.mock_provider import MockProvider
+
+        repo = self._make_js_repo(tmp_path)
+        d = TestCoherenceDetector()
+
+        monkeypatch.setattr(
+            test_coherence.TestCoherenceDetector,
+            "_llm_compare",
+            staticmethod(lambda *_args, **_kw: {
+                "needs_review": True,
+                "reason": "Test checks type only, not behavior",
+            }),
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(repo),
+            config={"provider": MockProvider(health=True)},
+        )
+        findings = d.detect(ctx)
+        coherence = [f for f in findings if f.category == "test-coherence"]
+        assert len(coherence) >= 1
+        assert coherence[0].file_path.endswith(".js")
+
+    def test_no_finding_when_coherent_js(self, tmp_path, monkeypatch):
+        from sentinel.detectors import test_coherence
+        from tests.mock_provider import MockProvider
+
+        repo = self._make_js_repo(tmp_path)
+        d = TestCoherenceDetector()
+
+        monkeypatch.setattr(
+            test_coherence.TestCoherenceDetector,
+            "_llm_compare",
+            staticmethod(lambda *_args, **_kw: {
+                "needs_review": False,
+                "reason": "",
+            }),
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(repo),
+            config={"provider": MockProvider(health=True)},
+        )
+        findings = d.detect(ctx)
+        assert len(findings) == 0
+
+    def test_mixed_language_repo(self, tmp_path, monkeypatch):
+        """Repo with both Python and JS files discovers both."""
+        from sentinel.detectors import test_coherence
+        from tests.mock_provider import MockProvider
+
+        # Python files
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "core.py").write_text(
+            "def process(data):\n"
+            "    '''Process input data.'''\n"
+            "    cleaned = data.strip()\n"
+            "    result = cleaned.upper()\n"
+            "    return result\n"
+        )
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        (tests / "test_core.py").write_text(
+            "def test_process():\n"
+            "    result = process('  hello  ')\n"
+            "    assert result == 'HELLO'\n"
+            "    assert isinstance(result, str)\n"
+        )
+
+        # JS files
+        (src / "utils.js").write_text(
+            "function validate(input) {\n"
+            "    const cleaned = input.trim();\n"
+            "    const valid = cleaned.length > 0;\n"
+            "    return valid;\n"
+            "}\n"
+            "module.exports = { validate };\n"
+        )
+        (tests / "utils.test.js").write_text(
+            "function test_validate() {\n"
+            "    expect(validate('hello')).toBe(true);\n"
+            "    expect(validate('')).toBe(false);\n"
+            "    expect(validate('  ')).toBe(false);\n"
+            "}\n"
+        )
+
+        # Track which files get scanned
+        scanned_files: list[str] = []
+
+        def mock_compare(*args, **kwargs):
+            scanned_files.append(kwargs.get("test_name", args[0] if args else ""))
+            return {"needs_review": False, "reason": ""}
+
+        monkeypatch.setattr(
+            test_coherence.TestCoherenceDetector,
+            "_llm_compare",
+            staticmethod(mock_compare),
+        )
+
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"provider": MockProvider(health=True)},
+        )
+        TestCoherenceDetector().detect(ctx)
+
+        # Both Python and JS test functions should be scanned
+        assert any("process" in s for s in scanned_files), "Python test not scanned"
+        assert any("validate" in s for s in scanned_files), "JS test not scanned"

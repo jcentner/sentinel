@@ -1020,3 +1020,188 @@ class TestSortByRisk:
         signals = {"b.py": {"churn_commits": 10, "churn_fix_ratio": 0.1}}
         result = _sort_by_risk([a, b], tmp_path, signals)
         assert result[0] == b
+
+
+# ── JS/TS multi-language support ──────────────────────────────────
+
+
+class TestExtractSymbolsJS:
+    def test_js_function_with_jsdoc(self) -> None:
+        source = (
+            "/**\n"
+            " * Return a personalized greeting message for the given user.\n"
+            " * @param {string} name - The user's display name\n"
+            " */\n"
+            "function greet(name) {\n"
+            '    const prefix = "Hello";\n'
+            '    const msg = `${prefix}, ${name}`;\n'
+            '    const suffix = "!";\n'
+            "    return msg + suffix;\n"
+            "}\n"
+        )
+        result = _extract_symbols(source, language="javascript")
+        assert len(result) == 1
+        assert result[0]["name"] == "greet"
+        assert "docstring" in result[0]
+
+    def test_ts_function_with_jsdoc(self) -> None:
+        source = (
+            "/**\n"
+            " * Process records with validation and transformation.\n"
+            " * Applies strict schema checks on all input records.\n"
+            " */\n"
+            "export function processRecords(records: any[]): any {\n"
+            "    const results = [];\n"
+            "    for (const r of records) {\n"
+            "        results.push(r);\n"
+            "    }\n"
+            "    return results;\n"
+            "}\n"
+        )
+        result = _extract_symbols(source, language="typescript")
+        assert len(result) == 1
+        assert result[0]["name"] == "processRecords"
+        assert "docstring" in result[0]
+
+    def test_js_function_no_jsdoc(self) -> None:
+        source = (
+            "function helper(x) {\n"
+            "    const a = x + 1;\n"
+            "    const b = a * 2;\n"
+            "    const c = b - 1;\n"
+            "    return c;\n"
+            "}\n"
+        )
+        result = _extract_symbols(source, language="javascript")
+        assert len(result) == 1
+        assert "docstring" not in result[0]
+
+
+class TestBuildTestLookupJS:
+    def test_finds_js_test_functions(self, tmp_path: Path) -> None:
+        test_file = tmp_path / "utils.test.js"
+        test_file.write_text(
+            "function test_validate() {\n"
+            "    const result = validate('hello');\n"
+            "    expect(result).toBe(true);\n"
+            "    expect(typeof result).toBe('boolean');\n"
+            "}\n"
+        )
+        lookup = _build_test_lookup(tmp_path)
+        assert "validate" in lookup
+
+    def test_finds_ts_test_functions(self, tmp_path: Path) -> None:
+        test_file = tmp_path / "core.test.ts"
+        test_file.write_text(
+            "function test_process() {\n"
+            "    const result = process('data');\n"
+            "    expect(result).toBeDefined();\n"
+            "    expect(typeof result).toBe('string');\n"
+            "}\n"
+        )
+        lookup = _build_test_lookup(tmp_path)
+        assert "process" in lookup
+
+    def test_skips_non_test_js_files(self, tmp_path: Path) -> None:
+        (tmp_path / "helper.js").write_text(
+            "function test_something() {\n"
+            "    return true;\n"
+            "    return true;\n"
+            "    return true;\n"
+            "}\n"
+        )
+        lookup = _build_test_lookup(tmp_path)
+        assert len(lookup) == 0
+
+
+class TestIntentComparisonDetectorJS:
+    def _make_provider(self, response_text: str) -> MagicMock:
+        provider = MagicMock()
+        provider.model = "test-model"
+        resp = MagicMock()
+        resp.text = response_text
+        resp.token_count = 42
+        resp.duration_ms = 100.0
+        provider.generate.return_value = resp
+        return provider
+
+    def test_triangulates_js_three_artifacts(
+        self, tmp_path: Path,
+    ) -> None:
+        """JS function with code + JSDoc + test triggers LLM."""
+        (tmp_path / "mod.js").write_text(
+            "/**\n"
+            " * Multiply the input by two and return the doubled value.\n"
+            " * @param {number} x - Value to double\n"
+            " * @returns {number} The doubled value\n"
+            " */\n"
+            "function compute(x) {\n"
+            "    const result = x * 2;\n"
+            "    const processed = result + 0;\n"
+            "    const validated = processed;\n"
+            "    return validated;\n"
+            "}\n"
+        )
+        (tmp_path / "mod.test.js").write_text(
+            "function test_compute() {\n"
+            "    const result = compute(5);\n"
+            "    expect(result).toBe(10);\n"
+            "    expect(typeof result).toBe('number');\n"
+            "}\n"
+        )
+
+        provider = self._make_provider(json.dumps({
+            "contradictions": [{
+                "description": "Test drift detected in JS code",
+                "confidence": 0.8,
+            }],
+        }))
+
+        d = IntentComparisonDetector()
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"provider": provider},
+        )
+        findings = d.detect(ctx)
+
+        assert provider.generate.called
+        cross = [f for f in findings if f.category == "cross-artifact"]
+        assert len(cross) >= 1
+        assert cross[0].file_path.endswith(".js")
+
+    def test_no_finding_when_consistent_js(
+        self, tmp_path: Path,
+    ) -> None:
+        """Consistent JS code produces no findings."""
+        (tmp_path / "mod.js").write_text(
+            "/**\n"
+            " * Add two numbers together and return the sum total.\n"
+            " * @param {number} a - First number\n"
+            " * @param {number} b - Second number\n"
+            " */\n"
+            "function add(a, b) {\n"
+            "    const result = a + b;\n"
+            "    const validated = result;\n"
+            "    const checked = validated;\n"
+            "    return checked;\n"
+            "}\n"
+        )
+        (tmp_path / "mod.test.js").write_text(
+            "function test_add() {\n"
+            "    const result = add(1, 2);\n"
+            "    expect(result).toBe(3);\n"
+            "    expect(typeof result).toBe('number');\n"
+            "}\n"
+        )
+
+        provider = self._make_provider(json.dumps({
+            "contradictions": [],
+        }))
+
+        d = IntentComparisonDetector()
+        ctx = DetectorContext(
+            repo_root=str(tmp_path),
+            config={"provider": provider},
+        )
+        findings = d.detect(ctx)
+        assert len(findings) == 0
