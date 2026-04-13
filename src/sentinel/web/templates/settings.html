@@ -63,7 +63,7 @@
           <option value="{{ c }}" {{ 'selected' if config.model_capability == c }}>{{ c }}</option>
           {% endfor %}
         </select>
-        <p class="form-hint">Determines which detectors are eligible to run. See <a href="/detectors">Detectors</a> for quality ratings.</p>
+        <p class="form-hint">Hint for prompt strategy selection. Benchmark data (when available) takes precedence. See <a href="/detectors">Detectors</a> for details.</p>
       </div>
       <div class="form-group">
         <label class="form-label" for="num_ctx">Context Window</label>
@@ -95,14 +95,14 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="embed_model">Embedding Model</label>
-        <input type="text" id="embed_model" name="embed_model" class="form-input" value="{{ config.embed_model }}" placeholder="(uses main model if empty)" list="embed-model-suggestions">
+        <input type="text" id="embed_model" name="embed_model" class="form-input" value="{{ config.embed_model }}" placeholder="nomic-embed-text" list="embed-model-suggestions">
         <datalist id="embed-model-suggestions">
           <option value="nomic-embed-text">
           <option value="mxbai-embed-large">
           <option value="all-minilm">
           <option value="snowflake-arctic-embed">
         </datalist>
-        <p class="form-hint">For semantic context enrichment. Local Ollama embedding models are fast and sufficient — no cloud needed.</p>
+        <p class="form-hint">Optional. Enables semantic context enrichment for findings. Leave empty to disable. Recommended: <code>nomic-embed-text</code> via Ollama (fast, local, free).</p>
       </div>
       <div class="form-group">
         <label class="form-label" for="embed_chunk_size">Chunk Size</label>

@@ -119,7 +119,7 @@ Persistent state across runs. Tracks:
 - Finding persistence (occurrence counts across runs)
 - LLM interaction log (prompts, responses, tokens, timing, verdicts for every LLM call)
 
-Schema version is tracked with an ordered migration framework. Current schema: v7.
+Schema version is tracked with an ordered migration framework. Current schema: v10.
 
 This is a Phase 1 design decision, not a later addition. Deduplication is a trust feature.
 

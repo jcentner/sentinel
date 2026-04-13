@@ -25,6 +25,7 @@ These detectors **use the model directly** to analyze code. Model quality direct
 |----------|----------|----------|------------|-------------|----------------|
 | **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | ❓ Untested | ❓ Untested |
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | ❓ Untested | ❓ Untested |
+| **inline-comment-drift** | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested |
 | **intent-comparison** | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested |
 | **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 

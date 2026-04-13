@@ -100,7 +100,7 @@ See the [wiki](https://github.com/jcentner/sentinel/wiki) for full configuration
 
 ```bash
 pip install -e ".[dev]"
-pytest                         # 1284 tests
+pytest                         # 1290 tests
 ruff check src/ tests/         # lint
 mypy src/sentinel/             # type check
 ```

@@ -149,6 +149,26 @@ DETECTOR_INFO = {
         "description": "Checks whether tests meaningfully validate their implementations",
         "language": "Python",
     },
+    "cicd-drift": {
+        "tier": "deterministic", "capability": "none",
+        "description": "Detects stale path references in GitHub Actions and Dockerfiles",
+        "language": "Any",
+    },
+    "architecture-drift": {
+        "tier": "deterministic", "capability": "none",
+        "description": "Enforces import-graph layer boundaries from architecture config",
+        "language": "Python",
+    },
+    "inline-comment-drift": {
+        "tier": "llm-assisted", "capability": "basic",
+        "description": "Detects docstrings that no longer match their function code",
+        "language": "Python",
+    },
+    "intent-comparison": {
+        "tier": "llm-assisted", "capability": "advanced",
+        "description": "Multi-artifact triangulation: code vs docstring vs tests vs docs",
+        "language": "Python",
+    },
 }
 
 
@@ -229,6 +249,32 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "Enhanced mode not yet benchmarked"),
     _e("test-coherence", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode not yet benchmarked"),
+
+    # ── inline-comment-drift (LLM-assisted, basic tier) ──────────
+    _e("inline-comment-drift", "4b-local", "basic", QualityRating.UNTESTED, "?",
+       "Expected to work well for clear factual inaccuracies. Not yet benchmarked.",
+       "2026-04-13"),
+    _e("inline-comment-drift", "9b-local", "basic", QualityRating.UNTESTED, "?",
+       "Not yet benchmarked"),
+    _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.UNTESTED, "?",
+       "Not yet benchmarked"),
+    _e("inline-comment-drift", "cloud-small", "standard", QualityRating.UNTESTED, "?",
+       "Not yet benchmarked"),
+    _e("inline-comment-drift", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
+       "Not yet benchmarked"),
+
+    # ── intent-comparison (LLM-assisted, advanced tier) ──────────
+    _e("intent-comparison", "4b-local", "advanced", QualityRating.UNTESTED, "?",
+       "Requires advanced model. Not expected to work well at 4B.",
+       "2026-04-13"),
+    _e("intent-comparison", "9b-local", "advanced", QualityRating.UNTESTED, "?",
+       "Requires advanced model. Not expected to work well at 9B."),
+    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.UNTESTED, "?",
+       "May work at cloud-nano but not yet benchmarked. Frontier models recommended."),
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
+       "Frontier-class model, should handle multi-artifact analysis. Not yet benchmarked."),
+    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
+       "Recommended model class. Not yet benchmarked."),
 ]
 
 

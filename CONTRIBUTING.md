@@ -77,7 +77,11 @@ src/sentinel/
 │   ├── stale_env.py        # .env.example drift detection
 │   ├── test_coherence.py   # Test-code coherence (LLM, basic+ tier)
 │   ├── todo_scanner.py     # TODO/FIXME scanner
-│   └── unused_deps.py      # Unused declared dependencies
+│   ├── unused_deps.py      # Unused declared dependencies
+│   ├── cicd_drift.py       # CI/CD config drift (deterministic)
+│   ├── architecture_drift.py # Import-graph layer boundary enforcement
+│   ├── inline_comment_drift.py # Docstring-code drift (LLM, basic+ tier)
+│   └── intent_comparison.py # Multi-artifact triangulation (LLM, advanced)
 ├── store/
 │   ├── db.py               # SQLite connection + migrations
 │   ├── findings.py         # Finding CRUD

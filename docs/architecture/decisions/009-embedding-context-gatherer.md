@@ -18,7 +18,7 @@ Implement an opt-in embedding-based context gatherer with the following architec
 
 ### Embedding model
 
-Use Ollama's `/api/embed` endpoint with a configurable model. Default: `nomic-embed-text` (137M params, 768 dimensions, fits easily in 8 GB VRAM alongside Qwen3.5:4b). The model is configurable via `embed_model` in `sentinel.toml`.
+Use Ollama's `/api/embed` endpoint with a configurable model. Recommended: `nomic-embed-text` (137M params, 768 dimensions, fits easily in 8 GB VRAM alongside Qwen3.5:4b). The model is configurable via `embed_model` in `sentinel.toml`. Default is empty (embeddings disabled) — users opt in by setting the model name. This avoids requiring a model pull before first scan.
 
 ### Vector storage
 
