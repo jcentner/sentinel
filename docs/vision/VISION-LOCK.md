@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016). Two-phase execution: heuristic detectors run first (parallel via thread pool), building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Async LLM pipeline: concurrent judge (8) and synthesis (4) via ADR-017, giving 4.5x speedup on cloud providers. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1314 tests. Published on PyPI as `repo-sentinel`.
+18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016) and multi-language support via tree-sitter (Python, JavaScript, TypeScript with regex fallback). Two-phase execution: heuristic detectors run first (parallel via thread pool), building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Async LLM pipeline: concurrent judge (8) and synthesis (4) via ADR-017, giving 4.5x speedup on cloud providers. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (13 commands, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1376 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -73,7 +73,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 | 9 | CLI usable by AI agents | **Met** |
 | 10 | Surfaces unknown issues | **Partial** — cross-artifact detectors deliver; lint/todo overlap with existing tools |
 | 11 | Scan completes in <5 min for 100-finding repos | **Met** — 42 findings in 38s (4.5x speedup), 100-finding estimated <2 min |
-| 12 | LLM detectors work for JS/TS repos | **Not met** — Python-only AST extraction |
+| 12 | LLM detectors work for JS/TS repos | **Met** — tree-sitter extraction, all 4 detectors extended, 33 JS/TS tests |
 
 ## Architecture Invariants
 
@@ -94,10 +94,11 @@ Priority-ordered next investments. Each connects to a validated gap.
 **Success**: 100-finding scan completes judge+synthesis in <2 min with cloud provider.
 **Result**: ADR-017. Async provider on all 4 providers, async judge (concurrency 8), async synthesis (concurrency 4), parallel Phase 1 detectors via thread pool. 4.5x speedup verified with Azure gpt-5.4-nano. TD-016 resolved.
 
-### Phase 12: Multi-language LLM detectors
+### Phase 12: Multi-language LLM detectors ✓
 **Gap**: All 4 LLM detectors are Python-only via `ast`. JS/TS repos get zero cross-artifact analysis despite being the largest user base after Python.
 **What**: Tree-sitter integration for language-agnostic AST extraction. Extend semantic-drift, test-coherence, inline-comment-drift to JS/TS. Language-specific extractors behind a common interface.
 **Success**: `sentinel scan` on a JS/TS repo produces LLM-assisted findings with same quality as Python repos.
+**Result**: Common extractors module (`sentinel.core.extractors`) with Python AST, tree-sitter (JS/TS), and regex fallback backends. All 4 detectors refactored to use shared extractors. Dynamic code fence labels. 33 JS/TS-specific tests. Tree-sitter stack skill. `multilang` optional dependency group.
 
 ### Phase 13: Benchmark & ground truth expansion
 **Gap**: TD-045 — ground truth is 1 repo with 50 findings. Most model×detector combos are untested. New detectors (inline-comment-drift, intent-comparison) have zero benchmark data.

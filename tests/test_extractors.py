@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 from sentinel.core.extractors import (
-    ClassInfo,
-    DocstringPair,
-    FunctionInfo,
-    ImportInfo,
     detect_language,
     extract_classes,
     extract_docstring_pairs,

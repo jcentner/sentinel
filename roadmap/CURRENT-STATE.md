@@ -1,86 +1,72 @@
 # Current State — Sentinel
 
-> Last updated: Session 43 — Phase 11 complete
+> Last updated: Session 44 — Phase 12 complete
 
-**Phase Status**: Complete: Phase 11 (Async pipeline & parallel LLM)
+**Phase Status**: Complete: Phase 12 (Multi-language LLM detectors)
 
 ## Latest Session Summary
 
 ### Current Objective
-Phase 11: Async pipeline & parallel LLM — eliminate serial LLM bottleneck (TD-016).
+Phase 12: Multi-language LLM detectors — tree-sitter integration for JS/TS support in all 4 LLM-assisted detectors.
 
 ### What Was Accomplished
 
-#### Vision expansion (Session 43)
-- Human approved all 5 proposed directions from Session 42's expansion proposal
-- Archived VISION-LOCK v5.6 → `docs/vision/archive/VISION-LOCK-v5.md`
-- Wrote VISION-LOCK v6.0 with 4 new phases (11–14)
+#### Slice 1: Common extractors module
+- Created `src/sentinel/core/extractors.py` (~750 lines) — unified extraction interface
+- Three backends: Python AST (`_py_*`), tree-sitter (`_ts_*` for JS/TS), regex fallback (`_regex_*`)
+- Dataclasses: `FunctionInfo`, `ClassInfo`, `DocstringPair`, `ImportInfo`
+- Exports: `detect_language()`, `extract_functions()`, `extract_classes()`, `extract_signatures()`, `extract_docstring_pairs()`, `extract_imports()`, `is_test_file()`, `impl_name_from_test()`, `has_tree_sitter()`, `SOURCE_EXTENSIONS`, `TEST_FILE_PATTERNS`
+- tree-sitter guarded by `try/except ImportError` — graceful degradation to regex
+- Added `multilang` optional dependency group in pyproject.toml
+- Created tree-sitter stack skill (`.github/skills/tree-sitter/SKILL.md`)
+- 29 new tests in `tests/test_extractors.py`
 
-#### Phase 11: Async pipeline — 3 slices shipped
+#### Slice 2: Detector refactoring
+- Refactored all 4 LLM detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) to use `sentinel.core.extractors`
+- Removed per-detector AST parsing code (~64 net lines removed)
+- Replaced hardcoded `*.py` globs with `SOURCE_EXTENSIONS`
+- Replaced per-detector `_TEST_FILE_RE` with `is_test_file()/impl_name_from_test()`
+- Threaded `language` param through all LLM prompt methods for dynamic code fence labels
+- test-coherence: JS/TS relative import resolution with extension probing
+- Reviewer-identified fixes: removed dead code, added `.egg-info` filter, moved computation
+- Updated 2 test files for new signatures
 
-**Slice 1: Async provider protocol (ADR-017)**
-- Added `agenerate()` and `aembed()` helper functions with duck-typed dispatch
-- Native `agenerate()` on all 4 providers: OpenAI-compat, Azure, Ollama, Replay/Recording
-- Azure: token refresh via `asyncio.to_thread()` to avoid blocking event loop
-- `iscoroutinefunction()` check for robustness
-- 7 new tests
-
-**Slice 2: Async judge with bounded concurrency**
-- `ajudge_findings()` with `asyncio.Semaphore(max_concurrent=8)`
-- Refactored `_judge_single` into shared `_apply_judgment` helper
-- Runner uses `asyncio.run(ajudge_findings(...))`
-- 10 new tests (concurrency bounds, order preservation, error handling, SQLite logging)
-
-**Slice 3: Async synthesis**
-- `asynthesize_clusters()` with `asyncio.Semaphore(max_concurrent=4)`
-- Runner uses `asyncio.run(asynthesize_clusters(...))`
-- 7 new tests
-
-**Verified performance with Azure gpt-5.4-nano:**
-- 8 findings: 6.2s total (was ~32s serial) — **5x speedup**
-- 42 findings: 38.2s total (was ~168s serial) — **4.5x speedup**
-- Judge quality unchanged: 35 confirmed, 7 FP
-- Synthesis working with standard capability
+#### Slice 3: JS/TS test coverage
+- 33 new test methods across all 4 detector test suites
+- test-coherence: file discovery, impl name derivation, function pairing, integration (drift + coherent), mixed-language repo
+- inline-comment-drift: JSDoc extraction, finding generation, incremental mode, mixed-language
+- intent-comparison: symbol extraction, test lookup, full triangulation integration
+- semantic-drift: code excerpt extraction, symbol matching, integration (drift + coherent)
+- Reviewer review done + fixes applied (strengthened assertions, added symmetric test)
 
 #### Files modified (11)
-- `docs/architecture/decisions/017-async-model-provider.md` — new ADR
-- `docs/architecture/decisions/README.md` — ADR index updated
-- `.github/copilot-instructions.md` — ADR-017 listed
-- `docs/reference/tech-debt.md` — TD-016 resolved, removed from active
-- `docs/reference/tech-debt-resolved.md` — TD-016 added
-- `src/sentinel/core/provider.py` — `agenerate()`, `aembed()` helpers
-- `src/sentinel/core/providers/openai_compat.py` — native `agenerate()`
-- `src/sentinel/core/providers/azure.py` — native `agenerate()`
-- `src/sentinel/core/providers/ollama.py` — native `agenerate()`
-- `src/sentinel/core/providers/replay.py` — `agenerate()` on both providers
-- `src/sentinel/core/judge.py` — `ajudge_findings()`, `_ajudge_single()`, `_apply_judgment()`
-- `src/sentinel/core/synthesis.py` — `asynthesize_clusters()`, `_asynthesize_single()`
-- `src/sentinel/core/runner.py` — async judge/synthesis, parallel Phase 1 detectors via thread pool
-- `tests/mock_provider.py` — `agenerate()` on MockProvider
-- `tests/test_async_provider.py` — 7 tests
-- `tests/test_async_judge.py` — 10 tests
-- `tests/test_async_synthesis.py` — 7 tests
-- `docs/vision/VISION-LOCK.md` — Phase 11 complete, SC#11 met, test count updated
+- `src/sentinel/core/extractors.py` — new common extraction module
+- `src/sentinel/detectors/semantic_drift.py` — refactored to extractors
+- `src/sentinel/detectors/test_coherence.py` — refactored to extractors
+- `src/sentinel/detectors/inline_comment_drift.py` — refactored to extractors
+- `src/sentinel/detectors/intent_comparison.py` — refactored to extractors
+- `tests/test_extractors.py` — new, 29 tests
+- `tests/detectors/test_semantic_drift.py` — updated + JS/TS tests
+- `tests/detectors/test_test_coherence.py` — updated + JS/TS tests
+- `tests/detectors/test_inline_comment_drift.py` — JS/TS tests
+- `tests/detectors/test_intent_comparison.py` — JS/TS tests
+- `pyproject.toml` — `multilang` optional dependency group
+- `.github/skills/tree-sitter/SKILL.md` — new stack skill
+- `docs/vision/VISION-LOCK.md` — Phase 12 complete, SC#12 met
 
 ### Repository State
-- **Tests**: 1314 passing, 3 skipped (was 1290)
-- **VISION-LOCK**: v6.0
-- **Tech debt items**: 9 active (TD-016 resolved, TD-002 partially resolved)
+- **Tests**: 1376 passing, 3 skipped (was 1314)
+- **VISION-LOCK**: v6.0 (updated in place)
+- **Tech debt items**: 9 active (unchanged)
 - **ADRs**: 17
 - **Detectors**: 18
-- **Commits this session**: 5
+- **Commits this session**: 4
 
 ### What Remains / Next Priority
-Phase 11 is complete. All success criteria met:
-- Success criterion #11 (scan <5 min for 100 findings): **Met** — 42 findings in 38s, estimated <2 min for 100
-- TD-016 (serial LLM judge bottleneck): **Resolved**
-- TD-002 (sync interface): **Partially resolved** — async provider + parallel Phase 1 shipped
+Phase 12 is complete. All success criteria met:
+- Success criterion #12 (LLM detectors work for JS/TS repos): **Met** — tree-sitter extraction, all 4 detectors extended, 33 JS/TS tests
 
-Optional deferred items (not blocking phase completion):
-1. Async LLM detectors (Phase 2 detectors calling `agenerate()` directly) — incremental improvement
-2. Connection pooling for `httpx.AsyncClient` — reviewer flagged, improves perf further
-
-Next session should move to Phase 12 (multi-language) or Phase 13 (benchmark expansion).
+Next session should move to Phase 13 (benchmark & ground truth expansion) or Phase 14 (CLI/web parity).
 
 ## Previous Sessions (Archived)
 
