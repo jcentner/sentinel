@@ -111,8 +111,8 @@ async def agenerate(
     directly.  All others are wrapped in ``asyncio.to_thread()`` so the
     event loop isn't blocked.
     """
-    if hasattr(provider, "agenerate") and asyncio.iscoroutinefunction(provider.agenerate):  # type: ignore[union-attr]
-        return await provider.agenerate(  # type: ignore[union-attr]
+    if hasattr(provider, "agenerate") and asyncio.iscoroutinefunction(getattr(provider, "agenerate")):
+        result: LLMResponse = await provider.agenerate(
             prompt,
             system=system,
             temperature=temperature,
@@ -120,6 +120,7 @@ async def agenerate(
             num_ctx=num_ctx,
             json_output=json_output,
         )
+        return result
     return await asyncio.to_thread(
         provider.generate,
         prompt,
@@ -136,8 +137,9 @@ async def aembed(
     texts: list[str],
 ) -> list[list[float]] | None:
     """Async embed — uses native ``aembed`` if available, else thread pool."""
-    if hasattr(provider, "aembed") and asyncio.iscoroutinefunction(provider.aembed):  # type: ignore[union-attr]
-        return await provider.aembed(texts)  # type: ignore[union-attr]
+    if hasattr(provider, "aembed") and asyncio.iscoroutinefunction(getattr(provider, "aembed")):
+        embed_result: list[list[float]] | None = await provider.aembed(texts)
+        return embed_result
     return await asyncio.to_thread(provider.embed, texts)
 
 

@@ -5,10 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-import pytest
-
 from sentinel.core.synthesis import (
-    SynthesisResult,
     _DEFAULT_MAX_CONCURRENT_SYNTHESIS,
     asynthesize_clusters,
 )
@@ -131,7 +128,7 @@ class TestAsynthesizeClusters:
                     detector=f"det-{cluster_idx}",
                     fingerprint=f"fp-{cluster_idx}-{i}",
                 ))
-        result = _run(asynthesize_clusters(
+        _run(asynthesize_clusters(
             findings, provider=provider, min_cluster_size=3, max_concurrent=2,
         ))
         assert active["max_seen"] <= 2

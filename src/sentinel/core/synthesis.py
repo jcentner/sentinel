@@ -18,7 +18,7 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 
-from sentinel.core.clustering import cluster_by_pattern
+from sentinel.core.clustering import FindingCluster, cluster_by_pattern
 from sentinel.core.provider import ModelProvider, agenerate
 from sentinel.models import Finding
 
@@ -175,7 +175,7 @@ async def asynthesize_clusters(
         else:
             cluster_tasks.append(item)
 
-    async def _process_cluster(cluster):
+    async def _process_cluster(cluster: FindingCluster) -> list[Finding]:
         cluster_findings_list = cluster.findings
         prompt = _build_synthesis_prompt(cluster_findings_list, cluster.pattern_label)
 

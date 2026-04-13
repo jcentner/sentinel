@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from sentinel.core.context import gather_context
 from sentinel.core.dedup import assign_fingerprints, deduplicate
-from sentinel.core.judge import ajudge_findings, judge_findings
+from sentinel.core.judge import ajudge_findings
 from sentinel.core.provider import ModelProvider
 from sentinel.core.report import generate_report
 from sentinel.detectors.base import Detector, get_all_detectors
@@ -246,17 +246,17 @@ def run_scan(
 
     # Phase 1: Heuristic + deterministic detectors (parallel via thread pool, ADR-017)
     if len(phase1) > 1:
-        async def _run_phase1():
+        async def _run_phase1() -> list[Finding]:
             tasks = []
             for det in phase1:
                 tasks.append(asyncio.to_thread(_run_detector, det, ctx))
             results = await asyncio.gather(*tasks, return_exceptions=True)
             findings: list[Finding] = []
-            for det, result in zip(phase1, results):
-                if isinstance(result, Exception):
-                    logger.exception("Detector %s failed — skipping", det.name, exc_info=result)
+            for det, det_result in zip(phase1, results, strict=True):
+                if isinstance(det_result, BaseException):
+                    logger.exception("Detector %s failed — skipping", det.name, exc_info=det_result)
                 else:
-                    findings.extend(result)
+                    findings.extend(det_result)
             return findings
         all_findings.extend(asyncio.run(_run_phase1()))
     else:

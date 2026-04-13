@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sqlite3
 
-import pytest
-
-from sentinel.core.judge import ajudge_findings, _DEFAULT_MAX_CONCURRENT
+from sentinel.core.judge import _DEFAULT_MAX_CONCURRENT, ajudge_findings
 from sentinel.models import Evidence, EvidenceType, Finding, Severity
 from tests.mock_provider import MockProvider, make_judge_provider
 
@@ -127,9 +124,9 @@ class TestAjudgeFindings:
 
     def test_with_sqlite_logging(self, tmp_path):
         """Judge should log to SQLite when conn is provided."""
+        from sentinel.models import ScopeType
         from sentinel.store.db import get_connection
         from sentinel.store.runs import create_run
-        from sentinel.models import ScopeType
 
         conn = get_connection(tmp_path / "test.db")
         run = create_run(conn, "/tmp/test-repo", ScopeType.FULL)
