@@ -74,7 +74,7 @@ MODEL_CLASSES = [
     {"id": "cloud-frontier", "name": "Cloud Frontier", "example": "gpt-5.4, Claude Sonnet 4.6",
      "vram": "n/a", "speed": "varies",
      "tier": "advanced",
-     "notes": "Frontier models. Benchmarked on sample-repo (87% precision, 97% recall)"},
+     "notes": "Frontier models. Limited data — only ~12 API calls on tiny fixture repo"},
 ]
 
 # Detector metadata for the matrix
@@ -199,6 +199,8 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     # ── Judge quality per model class ────────────────────────────
     # These rate how well the model performs as a *judge* of findings
     # from deterministic detectors.
+    # NOTE: Judge quality measured from `sentinel scan` verdict distributions,
+    # NOT from `sentinel benchmark` (which skips the judge entirely).
     _e("(judge)", "4b-local", "basic", QualityRating.GOOD, "~15%",
        "Confirms most TPs correctly. Occasionally rejects valid complexity findings.",
        "2026-04-11"),
@@ -208,13 +210,11 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     _e("(judge)", "cloud-nano", "standard", QualityRating.GOOD, "~10%",
        "Selective and fast. Good balance of confirmation and filtering.",
        "2026-04-11"),
-    _e("(judge)", "cloud-small", "advanced", QualityRating.EXCELLENT, "<5%",
-       "92% precision on sample-repo (36 findings). Best judge quality tested.",
-       "2026-04-13"),
-    _e("(judge)", "cloud-frontier", "advanced", QualityRating.GOOD, "~13%",
-       "87% precision on sample-repo (38 findings). Confirms more aggressively — "
-       "2 extra inline-comment-drift findings vs mini may be marginal.",
-       "2026-04-13"),
+    _e("(judge)", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
+       "Not yet benchmarked as judge (benchmark skips judge). "
+       "Detector-level precision on sample-repo was 92% but that is raw detector output."),
+    _e("(judge)", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
+       "Not yet benchmarked as judge (benchmark skips judge)."),
 
     # ── semantic-drift (LLM-assisted, basic tier) ────────────────
     _e("semantic-drift", "4b-local", "basic", QualityRating.GOOD, "<15%",
@@ -226,11 +226,14 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     _e("semantic-drift", "cloud-nano", "basic", QualityRating.EXCELLENT, "<10%",
        "Fastest and most precise. Finds the same issues with fewer false signals.",
        "2026-04-11"),
+    # ── semantic-drift: cloud models ────
+    # All three cloud models produce identical findings on sample-repo (1 each).
+    # The signal is binary and robust — model choice doesn't matter for this detector.
     _e("semantic-drift", "cloud-small", "basic", QualityRating.GOOD, "<15%",
-       "Same finding pattern as nano (1 on sample-repo, 4 on pip-tools). Consistent.",
+       "Same 1 finding as nano on sample-repo. No measurable quality difference.",
        "2026-04-13"),
     _e("semantic-drift", "cloud-frontier", "basic", QualityRating.GOOD, "<15%",
-       "Same finding pattern (1 on sample-repo). Consistent across all model classes.",
+       "Same 1 finding as nano on sample-repo. No measurable quality difference.",
        "2026-04-13"),
     _e("semantic-drift", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode (structured explanations) not yet benchmarked with cloud-nano"),
@@ -252,11 +255,17 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "Significantly more precise. Correctly handles CLI runners, mocks, and simple tests. "
        "Minimum recommended model for this detector.",
        "2026-04-11"),
+    # ── test-coherence: cloud models ────
+    # nano=2 findings, mini=1, gpt-5.4=1 on sample-repo. nano is slightly more
+    # aggressive. All produce the same core signal (test_main_returns_data).
+    # Rated identically — sample size too small to differentiate.
     _e("test-coherence", "cloud-small", "basic", QualityRating.GOOD, "~15%",
-       "1 finding on sample-repo (same as nano), 4 on pip-tools. Consistent quality.",
+       "1 finding on sample-repo (same core signal as nano). "
+       "Sample size too small to distinguish from nano.",
        "2026-04-13"),
     _e("test-coherence", "cloud-frontier", "basic", QualityRating.GOOD, "~15%",
-       "1 finding on sample-repo. Consistent with lower model classes.",
+       "1 finding on sample-repo. Same as mini. "
+       "Sample size too small to distinguish from nano.",
        "2026-04-13"),
     _e("test-coherence", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
        "Enhanced mode (structured gap analysis) not yet benchmarked"),
@@ -266,37 +275,50 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "Enhanced mode not yet benchmarked"),
 
     # ── inline-comment-drift (LLM-assisted, basic tier) ──────────
+    # sample-repo results: nano=5, mini=2, gpt-5.4=4 findings.
+    # Nano is most aggressive. Sample is tiny (3 source files) —
+    # variation is within noise, not statistically meaningful.
     _e("inline-comment-drift", "4b-local", "basic", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked (requires dGPU).",
+       "Not yet benchmarked with local models.",
        "2026-04-13"),
     _e("inline-comment-drift", "9b-local", "basic", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked (requires dGPU)."),
-    _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked with full detector set."),
-    _e("inline-comment-drift", "cloud-small", "basic", QualityRating.GOOD, "<15%",
-       "2 findings on sample-repo (within 92% overall precision), "
-       "6 on pip-tools. Finds real docstring-code drift. Very slow (~336s on pip-tools).",
+       "Not yet benchmarked with local models."),
+    _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.GOOD, "~15% (est)",
+       "5 findings on sample-repo (most aggressive of cloud models). "
+       "Very slow (~42s on 3-file fixture). Based on human review of ≤5 findings.",
        "2026-04-13"),
-    _e("inline-comment-drift", "cloud-frontier", "basic", QualityRating.GOOD, "~15%",
-       "4 findings on sample-repo (2 more than mini — possibly marginal). "
-       "Overall 87% precision. Quality close to mini.",
+    _e("inline-comment-drift", "cloud-small", "basic", QualityRating.GOOD, "~15% (est)",
+       "2 findings on sample-repo (most selective), 6 on pip-tools. "
+       "Very slow (~336s on pip-tools due to serial per-function LLM calls).",
+       "2026-04-13"),
+    _e("inline-comment-drift", "cloud-frontier", "basic", QualityRating.GOOD, "~15% (est)",
+       "4 findings on sample-repo. Between nano and mini. "
+       "Based on tiny sample — differences not statistically meaningful.",
        "2026-04-13"),
 
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
+    # Design issue: detector runs even with model_capability=basic despite
+    # declaring advanced requirement (warning-only gate). No post-LLM
+    # filtering — every hallucinated contradiction becomes a finding.
+    # Result: 0 findings on sample-repo (too few multi-artifact symbols),
+    # 35 findings on pip-tools with mini (all likely FP). Detector needs
+    # redesign before ratings are meaningful.
     _e("intent-comparison", "4b-local", "advanced", QualityRating.UNTESTED, "?",
-       "Requires advanced model. Not expected to work well at 4B.",
+       "Not expected to work at 4B. Detector has design issues (see TD-057).",
        "2026-04-13"),
     _e("intent-comparison", "9b-local", "advanced", QualityRating.UNTESTED, "?",
-       "Requires advanced model. Not expected to work well at 9B."),
+       "Not expected to work at 9B."),
     _e("intent-comparison", "cloud-nano", "advanced", QualityRating.UNTESTED, "?",
-       "Not benchmarked with full detector set on nano."),
-    _e("intent-comparison", "cloud-small", "advanced", QualityRating.FAIR, "~50% (est)",
-       "0 findings on sample-repo (small repo). 35 findings on pip-tools — "
-       "very noisy, likely high FP rate. Per-detector precision unknown. "
-       "Slow (~75s on pip-tools). Use with caution.",
+       "0 findings on sample-repo (too few 3-artifact symbols). "
+       "Not yet tested on a repo with sufficient multi-artifact coverage.",
+       "2026-04-13"),
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.POOR, ">90% (est)",
+       "0 findings on sample-repo, 35 findings on pip-tools (all likely FP). "
+       "Detector lacks post-LLM filtering and runs at basic prompt despite needing "
+       "advanced. Prompt has no FP examples. Needs redesign.",
        "2026-04-13"),
     _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
-       "0 findings on sample-repo. Not yet benchmarked on larger repo.",
+       "0 findings on sample-repo. Not yet tested on larger repo.",
        "2026-04-13"),
 ]
 

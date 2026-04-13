@@ -4,6 +4,12 @@ Archived resolved tech debt items. Active items are in [tech-debt.md](tech-debt.
 
 ## Resolved
 
+### TD-045: Ground truth too small for statistical confidence
+**Status**: Resolved (Session 45)
+**Severity**: Low
+**Introduced**: Session 29 (multi-repo validation analysis)
+**Resolution**: Expanded to 3 repos with annotated ground truth: sample-repo (30 seeded TPs, 5 models), pip-tools (38 annotated findings), sentinel self-scan (57 annotated + 120 assumed TP). All 18 detectors benchmarked on ≥2 models. Compatibility matrix updated with 10 new rated entries. Remaining gaps: pip-tools LLM detector annotations, local model benchmarks for ICD/IC.
+
 ### TD-016: Serial LLM judge bottleneck
 **Status**: Resolved (ADR-017, Session 43)
 **Severity**: Medium → Resolved

@@ -24,12 +24,6 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Impact**: Minor setup friction.
 **Proposed resolution**: Won't implement token editing (security). May add owner/repo to sentinel.toml in future if demand emerges.
 
-### TD-045: Ground truth too small for statistical confidence
-**Status**: Resolved (Session 45)
-**Severity**: Low
-**Introduced**: Session 29 (multi-repo validation analysis)
-**Resolution**: Expanded to 3 repos with annotated ground truth: sample-repo (30 seeded TPs, 5 models), pip-tools (38 annotated findings), sentinel self-scan (57 annotated + 120 assumed TP). All 18 detectors benchmarked on ≥2 models. Compatibility matrix updated with 10 new rated entries. Still below the aspirational "50 labeled findings per detector" target but sufficient for Phase 13 success criteria. Remaining gaps: pip-tools LLM detector annotations, local model benchmarks for ICD/IC (need dGPU).
-
 ### TD-009: VR-002 built-in scheduling not implemented
 **Status**: Active
 **Severity**: Low
@@ -75,4 +69,26 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Severity**: Low (reduced from Medium)
 **Introduced**: Session 27 (pip-tools real-world validation)
 **Resolution**: Added `_is_example_context()` helper that checks for "e.g.", "for example", "such as", "like" phrases in the 30-char window before backtick-wrapped paths. Eliminated 1/3 pip-tools FPs (the "e.g. `release/v3.4.0`" case). Two edge cases remain: feature descriptions in CHANGELOG and example filenames without explicit example-context phrases.
+
+### TD-057: intent-comparison detector produces >90% false positives
+**Status**: Active
+**Severity**: High
+**Introduced**: Session 45 (benchmark audit)
+**Description**: The intent-comparison detector has fundamental design issues that make it unreliable:
+1. Runs even with `model_capability=basic` despite declaring `advanced` requirement (warning-only gate in `runner.py`)
+2. No post-LLM filtering — every LLM-reported contradiction becomes a finding regardless of confidence or plausibility
+3. Prompt lacks concrete false-positive examples to calibrate the model
+4. Hardcoded confidence thresholds (0.55 basic, 0.70 enhanced) with no validation
+5. 50-call budget (`_MAX_PER_SCAN`) with no quality check or early stop
+Results: 0 findings on sample-repo (too few 3-artifact symbols), 35 findings on pip-tools (all likely FP). Rated POOR (>90% estimated FP) for cloud-small.
+**Impact**: Users who enable this detector get a flood of false positives, damaging trust in the system. The detector is the noisiest component by a large margin.
+**Proposed resolution**: Redesign needed — add hard capability gate (skip if model < advanced), add post-LLM filtering (reject low-confidence or vague contradictions), add concrete FP examples to prompt, test on multiple repos before re-rating. Consider disabling by default until redesign is complete.
+
+### TD-058: Benchmark precision conflates deterministic and LLM detectors
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 45 (benchmark audit)
+**Description**: `sentinel benchmark` reports a single headline precision/recall that combines all 18 detectors. On sample-repo, 27 of 36–40 findings (varies by model) come from deterministic detectors that are identical regardless of model. This makes the headline numbers misleading for model comparison — "92% precision (mini)" vs "85% precision (nano)" is mostly about 2-3 extra LLM-detector findings, not meaningful quality difference.
+**Impact**: Published compatibility matrix entries may overstate or understate model quality. Users comparing models can't tell what's signal vs noise.
+**Proposed resolution**: Add per-category precision (deterministic vs LLM-assisted) to benchmark output. Report LLM-detector precision separately so model comparisons are meaningful. The `benchmark.toml` files already capture per-detector counts — the aggregation logic needs refinement.
 

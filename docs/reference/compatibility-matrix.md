@@ -25,11 +25,13 @@ These detectors **use the model directly** to analyze code. Model quality direct
 |----------|----------|----------|------------|-------------|----------------|
 | **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) |
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) |
-| **inline-comment-drift** | ❓ Untested | ❓ Untested | ❓ Untested | 🔵 Good (<15% FP) | 🔵 Good (~15% FP) |
-| **intent-comparison** | ❓ Untested | ❓ Untested | ❓ Untested | 🟡 Fair (~50% FP) | ❓ Untested |
-| **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | 🟢 Excellent (~8% FP) | 🔵 Good (~13% FP) |
+| **inline-comment-drift** | ❓ Untested | ❓ Untested | 🔵 Good (~15% FP est) | 🔵 Good (~15% FP est) | 🔵 Good (~15% FP est) |
+| **intent-comparison** | ❓ Untested | ❓ Untested | ❓ Untested | 🔴 Poor (>90% FP est) | ❓ Untested |
+| **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
+
+**Judge caveat**: `sentinel benchmark` does NOT run the judge — it measures raw detector output only. Judge ratings for 4B, 9B, and cloud-nano come from `sentinel scan` verdict distributions. Cloud-small and cloud-frontier judge quality has not been measured.
 
 ### Deterministic Detectors (no model needed for detection)
 
@@ -54,13 +56,20 @@ The 4B model cannot reliably distinguish between:
 
 **Recommendation**: Use `gpt-5.4-nano` or equivalent for test-coherence. If privacy requires local-only, either accept the noise or skip this detector with 4B.
 
-### inline-comment-drift — benchmarked on gpt-5.4-mini and gpt-5.4
+### inline-comment-drift — slow but effective
 
-Finds real docstring-code drift. 2 findings on sample-repo with gpt-5.4-mini (within 92% overall precision), 4 with gpt-5.4. On pip-tools: 6 findings. **Very slow**: ~336s on pip-tools due to serial per-function LLM calls. Local models and cloud-nano not yet benchmarked.
+Finds real docstring-code drift. Results on sample-repo: nano=5, mini=2, gpt-5.4=4 findings. Nano is most aggressive; variation is within noise on a 3-file fixture. On pip-tools: 6 findings with mini. FP rate estimated at ~15% from human review of ≤5 findings (no automated ground truth). **Very slow**: ~336s on pip-tools due to serial per-function LLM calls. Local models not yet benchmarked.
 
-### intent-comparison — noisy on large repos
+### intent-comparison — broken, needs redesign
 
-0 findings on sample-repo (small repo may lack cross-artifact signal). 35 findings on pip-tools with gpt-5.4-mini — likely very high FP rate. Multi-artifact prompts are expensive and slow (~75s on pip-tools). **Use with caution** until per-detector precision data is available.
+0 findings on sample-repo (small repo lacks multi-artifact symbols). 35 findings on pip-tools with gpt-5.4-mini — **all likely false positives**. The detector has fundamental design issues:
+
+- Runs even with `model_capability=basic` despite declaring `advanced` requirement (warning-only gate)
+- No post-LLM filtering — every hallucinated contradiction becomes a finding
+- Prompt lacks concrete false-positive examples
+- 50-call budget with no quality check
+
+**Do not rely on this detector** until it is redesigned. Consider disabling it in `sentinel.toml`.
 
 Configure per-detector model in `sentinel.toml`:
 
@@ -114,17 +123,21 @@ Our reference benchmarks cover these models. For all other models, run `sentinel
 | **qwen3.5:4b** | Local | ~3.4 GB | ~53 tok/s | Best value for 8 GB VRAM. Default recommendation. |
 | **qwen3.5:9b-q4_K_M** | Local | ~6.6 GB | ~19 tok/s | Marginal improvement over 4B at 2–3× slower. Not recommended on 8 GB. |
 | **gpt-5.4-nano** | Cloud | Low cost | ~100 tok/s | Substantially stronger. Best tested model for test-coherence. |
-| **gpt-5.4-mini** | Cloud | Low cost | ~100 tok/s | 92% precision on sample-repo as judge. Good for all LLM detectors. |
-| **gpt-5.4** | Cloud | Medium cost | ~100 tok/s | 87% precision on sample-repo. Slightly more aggressive than mini. |
+| **gpt-5.4-mini** | Cloud | Low cost | ~100 tok/s | Strong for all LLM detectors. Best pip-tools data. |
+| **gpt-5.4** | Cloud | Medium cost | ~100 tok/s | Limited data — ~12 API calls on tiny fixture repo. Not meaningfully differentiated from mini. |
 
 Models like Claude Haiku 4.5, larger local models (14B, 30B, 70B), and other providers are not yet benchmarked. Quality is unknown until measured — the system defaults to conservative (binary) prompts for untested models.
 
 ## How These Numbers Were Measured
 
-All ratings come from running Sentinel against real repos:
+**Important**: `sentinel benchmark` measures **raw detector output** against ground truth — it does NOT run the judge or synthesis pipeline. Precision/recall numbers reflect detector quality, not end-to-end scan quality. Judge quality ratings (4B, 9B, nano) were measured separately from `sentinel scan` verdict distributions.
 
-- **Sample-repo fixture**: 30 seeded findings, ground truth annotated (benchmarked on 5 models)
-- **pip-tools**: Real-world Python project, 38 annotated findings (benchmarked on 2 models)
+Headline precision (e.g., "85% precision") is dominated by deterministic detectors, which produce identical results regardless of model. Model quality only affects the 4–5 LLM-assisted detectors. On the 3-file sample-repo fixture, 27 of 36–40 findings (varies by model) come from deterministic detectors — variation between models is small and not statistically significant.
+
+Benchmark repos:
+
+- **Sample-repo fixture**: 30 seeded findings, ground truth annotated (benchmarked on 5 models). 3 source files — too small for meaningful model differentiation on LLM detectors.
+- **pip-tools**: Real-world Python project, 38 annotated findings (benchmarked on 2 models). Larger corpus, better signal for LLM detectors.
 - **Sentinel self-scan**: Python project, 226 deterministic findings, 61 annotated
 
 Each run records findings, FP rates, and timing. See [model-benchmarks.md](model-benchmarks.md) for raw benchmark data.
