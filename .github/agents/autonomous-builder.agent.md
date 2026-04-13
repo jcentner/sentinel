@@ -9,6 +9,7 @@ hooks:
   Stop:
     - type: command
       command: "python3 .github/hooks/scripts/slice-gate.py"
+      timeout: 120
 ---
 
 # Autonomous Build Loop
@@ -67,11 +68,12 @@ Execute slices until the current phase is complete.
 2. Optionally invoke **tester** subagent to write tests from spec (before you implement)
 3. Implement the change
 4. Run tests — **do not proceed if tests fail.** If tests fail, see [Error recovery](#error-recovery)
-5. Run [post-implementation checks](#post-implementation-checks) on changed files
-6. Invoke **reviewer** subagent on changed files (required for 3+ files changed; recommended for all)
-7. Fix all Critical and Major findings
-8. `git commit` with format `type(scope): description`
-9. Update `roadmap/CURRENT-STATE.md` with what was done and what's next
+5. Run `ruff check src/ tests/` and `mypy src/sentinel/ --strict` — **fix all errors before committing.** The Stop hook enforces this.
+6. Run [post-implementation checks](#post-implementation-checks) on changed files
+7. Invoke **reviewer** subagent on changed files (required for 3+ files changed; recommended for all)
+8. Fix all Critical and Major findings
+9. `git commit` with format `type(scope): description`
+10. Update `roadmap/CURRENT-STATE.md` with what was done and what's next
 
 **When adopting a new technology or framework** (new dependency, cloud service, etc.):
 - Create a stack skill for it in `.github/skills/<technology-name>/SKILL.md` before writing implementation code
