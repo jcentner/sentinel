@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Sentinel — Finding #{{ finding.id }}{% endblock %}
 {% block content %}
-<a href="javascript:history.back()" class="back-link">&larr; Back</a>
+<a href="/runs/{{ finding.run_id }}" class="back-link">&larr; Back to Run #{{ finding.run_id }}</a>
 
 <div class="page-header">
   <h1>{{ finding.title }}</h1>
@@ -71,6 +71,7 @@
               hx-post="/findings/{{ finding.id }}/annotations/{{ a.id }}/delete"
               hx-target="#annotations-list" hx-swap="innerHTML"
               style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
           <button type="submit" class="btn btn-sm btn-danger">Delete</button>
         </form>
       </div>
@@ -81,6 +82,7 @@
         hx-post="/findings/{{ finding.id }}/annotations"
         hx-target="#annotations-list" hx-swap="innerHTML"
         class="annotation-form mt-1">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
     <textarea name="content" placeholder="Add a note..." rows="2" class="form-input" required></textarea>
     <button type="submit" class="btn btn-sm mt-05">Add Note</button>
   </form>
@@ -93,12 +95,14 @@
     <form method="post" action="/findings/{{ finding.id }}/action"
           hx-post="/findings/{{ finding.id }}/action" hx-target="#status-badge" hx-swap="innerHTML">
       <input type="hidden" name="action" value="approve">
+      <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
       <button type="submit" class="btn btn-success btn-sm">Approve for Issue</button>
     </form>
     <form method="post" action="/findings/{{ finding.id }}/action"
           hx-post="/findings/{{ finding.id }}/action" hx-target="#status-badge" hx-swap="innerHTML"
           style="display:flex;align-items:end;gap:0.5rem;">
       <input type="hidden" name="action" value="suppress">
+      <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
       <div>
         <input class="form-input" type="text" name="reason" placeholder="Reason (optional)" style="width:220px;font-size:0.82rem;padding:0.3rem 0.6rem;">
       </div>

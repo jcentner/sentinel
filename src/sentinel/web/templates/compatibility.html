@@ -6,12 +6,22 @@
   <p class="subtitle">Quality ratings, configuration, and model compatibility</p>
 </div>
 
+<nav class="toc" style="margin-bottom:1.5rem; font-size:0.88rem;">
+  <a href="#llm-detectors">LLM Detectors</a> &middot;
+  <a href="#judge">Judge</a> &middot;
+  <a href="#other">Other Detectors</a> &middot;
+  <a href="#configs">Configurations</a> &middot;
+  <a href="#detector-config">Detector Config</a> &middot;
+  <a href="#recommendations">Recommendations</a> &middot;
+  <a href="#models">Models</a>
+</nav>
+
 {% if saved is defined and saved %}
 <div class="toast toast-success" style="position: static; margin-bottom: 1rem;">Detector configuration saved to sentinel.toml</div>
 {% endif %}
 
 <div class="card mb-2">
-  <h2 class="mb-1">LLM-Assisted Detectors</h2>
+  <h2 id="llm-detectors" class="mb-1">LLM-Assisted Detectors</h2>
   <p class="text-muted mb-1">Quality ratings from empirical benchmarks — which models work well with which detectors.
     Models without benchmark data use conservative (binary) prompts by default.
     Run <code>sentinel benchmark --model &lt;name&gt;</code> to test your own model.
@@ -62,7 +72,7 @@
 </div>
 
 <div class="card mb-2">
-  <h2 class="mb-1">LLM Judge</h2>
+  <h2 id="judge" class="mb-1">LLM Judge</h2>
   <p class="text-muted mb-1">The judge evaluates findings from <em>all</em> detectors — it confirms or rejects each finding after detection.</p>
   <div class="table-wrap">
     <table class="table">
@@ -103,7 +113,7 @@
 </div>
 
 <div class="card mb-2">
-  <h2 class="mb-1">Other Detectors</h2>
+  <h2 id="other" class="mb-1">Other Detectors</h2>
   <p class="text-muted mb-1">
     {{ det_rows | length }} detectors run without any model — they use structural analysis
     (AST parsing, link checking, dependency scanning, etc.).
@@ -138,7 +148,7 @@
 </div>
 
 <div class="card mb-2">
-  <h2 class="mb-1">Recommended Configurations</h2>
+  <h2 id="configs" class="mb-1">Recommended Configurations</h2>
 
   <h3 style="font-size:0.88rem; margin-bottom:0.5rem;">Privacy-first (all local)</h3>
   <div class="code-block mb-1">
@@ -177,7 +187,7 @@ skip_llm = true
 
 {% if detector_states is defined and detector_states %}
 <div class="card mb-2">
-  <h2 class="mb-1">Detector Configuration</h2>
+  <h2 id="detector-config" class="mb-1">Detector Configuration</h2>
   {% if repo_path %}
   <p class="text-muted mb-1">Toggle detectors on/off and set per-detector overrides.
     Per-detector settings override the defaults from <a href="/settings">Settings</a>.</p>
@@ -248,7 +258,7 @@ skip_llm = true
 {% endif %}
 
 <div class="card">
-  <h2 class="mb-1">Recommendations by Situation</h2>
+  <h2 id="recommendations" class="mb-1">Recommendations by Situation</h2>
   <p class="text-muted mb-1" style="font-size:0.85rem;">
     Practical advice based on our benchmarks. For untested models, run <code>sentinel benchmark --model &lt;name&gt;</code> to verify quality.
     The <code>model_capability</code> setting is a hint for prompt strategy — when benchmark data exists, it takes precedence (<a href="https://github.com/jakcentner/sentinel/blob/main/docs/architecture/decisions/016-benchmark-driven-model-quality.md">ADR-016</a>).
@@ -292,7 +302,7 @@ skip_llm = true
 </div>
 
 <div class="card">
-  <h2 class="mb-1">Benchmarked Models</h2>
+  <h2 id="models" class="mb-1">Benchmarked Models</h2>
   <p class="text-muted mb-1" style="font-size:0.85rem;">
     Reference data from our testing. For all other models, quality is unknown until measured.
   </p>

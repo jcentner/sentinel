@@ -7,7 +7,9 @@
 </div>
 
 <div class="card">
-  <form method="post" action="/scan" id="scan-form">
+  <form method="post" action="/scan" id="scan-form"
+        hx-post="/scan" hx-target="#scan-result" hx-swap="innerHTML" hx-indicator="#scan-spinner">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
     <div class="form-group">
       <label class="form-label" for="repo_path">Repository Path</label>
       <input class="form-input" type="text" name="repo_path" id="repo_path"
@@ -151,8 +153,10 @@
 
     <div class="actions-bar">
       <button type="submit" class="btn btn-accent">Start Scan</button>
+      <span id="scan-spinner" class="htmx-indicator text-muted" style="font-size:0.85rem;">Scanning — this may take a minute…</span>
       <span id="scan-status" class="text-muted" style="font-size:0.85rem;"></span>
     </div>
+    <div id="scan-result" style="margin-top:1rem;"></div>
   </form>
 </div>
 

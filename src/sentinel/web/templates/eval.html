@@ -11,6 +11,7 @@
     <span class="card-title">Run Evaluation</span>
   </div>
   <form method="post" action="/eval">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
     <div class="form-group">
       <label class="form-label" for="repo_path">Repository Path</label>
       <input type="text" id="repo_path" name="repo_path" class="form-input"

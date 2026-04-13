@@ -49,6 +49,21 @@ def _verify_token(secret: str, token: str) -> bool:
     return hmac.compare_digest(sig, expected)
 
 
+_CSRF_ERROR_HTML = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Sentinel — CSRF Error</title>
+<style>body{{font-family:system-ui,sans-serif;background:#1a1917;color:#e8e6df;display:flex;justify-content:center;padding:4rem 1rem}}
+.box{{max-width:28rem;text-align:center}}
+h2{{color:#f59e0b}}a{{color:#f59e0b}}
+</style></head><body><div class="box">
+<h2>CSRF Verification Failed</h2>
+<p>{detail} Please go back and try again.</p>
+<p style="margin-top:1.5rem"><a href="javascript:history.back()">&larr; Go back</a>
+&nbsp;&middot;&nbsp;<a href="/">Home</a></p>
+</div></body></html>
+"""
+
+
 class CSRFMiddleware:
     """ASGI middleware that enforces CSRF tokens on state-mutating requests.
 
@@ -74,7 +89,11 @@ class CSRFMiddleware:
         if method in _UNSAFE_METHODS:
             # Validate: cookie must exist and be validly signed
             if not _verify_token(self._secret, cookie_token):
-                response = Response("CSRF validation failed", status_code=403)
+                response = Response(
+                    _CSRF_ERROR_HTML.format(detail="Session expired or missing."),
+                    status_code=403,
+                    media_type="text/html",
+                )
                 await response(scope, receive, send)
                 return
 
@@ -95,7 +114,11 @@ class CSRFMiddleware:
                     receive = new_receive
 
             if not submitted or not hmac.compare_digest(submitted, cookie_token):
-                response = Response("CSRF token mismatch", status_code=403)
+                response = Response(
+                    _CSRF_ERROR_HTML.format(detail="Form token did not match."),
+                    status_code=403,
+                    media_type="text/html",
+                )
                 await response(scope, receive, send)
                 return
 

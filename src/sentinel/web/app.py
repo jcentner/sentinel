@@ -41,11 +41,11 @@ _STATIC_DIR = Path(__file__).parent / "static"
 
 
 async def index(request: Request) -> Response:
-    """Redirect to latest run or show empty state."""
+    """Redirect to runs list or show empty state."""
     conn = _get_conn(request.app)
     runs = get_run_history(conn, limit=1)
     if runs:
-        return RedirectResponse(url=f"/runs/{runs[0].id}", status_code=302)
+        return RedirectResponse(url="/runs", status_code=302)
     return templates.TemplateResponse(request, "index.html", {"runs": []})
 
 

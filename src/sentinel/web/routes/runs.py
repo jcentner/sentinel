@@ -40,6 +40,10 @@ async def run_detail(request: Request) -> Response:
     all_detectors = sorted({f.detector for f in findings})
     all_statuses = sorted({f.status.value for f in findings})
 
+    # Compute unfiltered severity counts for stat cards
+    from collections import Counter
+    total_counts = Counter(f.severity.value for f in findings)
+
     # Apply filters
     if filter_severity:
         findings = [f for f in findings if f.severity.value == filter_severity]
@@ -71,6 +75,7 @@ async def run_detail(request: Request) -> Response:
         "findings": findings,
         "grouped": grouped,
         "clustered": clustered,
+        "total_counts": dict(total_counts),
         "filter_severity": filter_severity,
         "filter_status": filter_status,
         "filter_detector": filter_detector,

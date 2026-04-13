@@ -57,13 +57,13 @@
 /* ── Light mode overrides ──────────────────────────────────────────── */
 
 [data-theme="light"] {
-  --bg: #f8f7f4;
-  --bg-raised: #f0efec;
-  --bg-overlay: #e6e5e0;
+  --bg: #f5f3ef;
+  --bg-raised: #ebe9e4;
+  --bg-overlay: #e0ddd7;
   --surface: #ffffff;
-  --surface-hover: #f5f4f1;
-  --border: #dddbd6;
-  --border-vivid: #c8c5be;
+  --surface-hover: #f8f7f4;
+  --border: #d0ccc4;
+  --border-vivid: #b8b3aa;
 
   --text: #1a1916;
   --text-dim: #5c5a52;
@@ -948,3 +948,14 @@ dd { font-size: 0.9rem; }
 [data-theme="light"] .compat-fair { background: #fef9c3; color: #854d0e; }
 [data-theme="light"] .compat-poor { background: #fee2e2; color: #991b1b; }
 [data-theme="light"] .compat-warning { background: #fffbeb; border-color: #f59e0b; color: #92400e; }
+
+/* ── htmx indicator ────────────────────────────────────────────────── */
+
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: inline; }
+.htmx-request button[type="submit"] { opacity: 0.6; pointer-events: none; }
+
+/* ── TOC navigation ────────────────────────────────────────────────── */
+
+.toc a { color: var(--amber); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }

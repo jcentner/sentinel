@@ -14,30 +14,30 @@
   </p>
 </div>
 
-{% set counts = {'critical': grouped['critical']|length, 'high': grouped['high']|length, 'medium': grouped['medium']|length, 'low': grouped['low']|length} %}
+{% set counts = total_counts %}
 <div class="stat-grid">
   <div class="stat-card">
     <div class="stat-label">Critical</div>
-    <div class="stat-value critical">{{ counts.critical }}</div>
+    <div class="stat-value critical">{{ counts.get('critical', 0) }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">High</div>
-    <div class="stat-value high">{{ counts.high }}</div>
+    <div class="stat-value high">{{ counts.get('high', 0) }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Medium</div>
-    <div class="stat-value amber">{{ counts.medium }}</div>
+    <div class="stat-value amber">{{ counts.get('medium', 0) }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Low</div>
-    <div class="stat-value">{{ counts.low }}</div>
+    <div class="stat-value">{{ counts.get('low', 0) }}</div>
   </div>
 </div>
 
 <div class="card mb-2">
   <form method="get" action="/runs/{{ run.id }}" class="filter-bar">
     <label>Severity
-      <select name="severity">
+      <select name="severity" onchange="this.form.submit()">
         <option value="">All</option>
         {% for s in ['critical', 'high', 'medium', 'low'] %}
         <option value="{{ s }}" {{ 'selected' if filter_severity == s else '' }}>{{ s }}</option>
@@ -45,7 +45,7 @@
       </select>
     </label>
     <label>Status
-      <select name="status">
+      <select name="status" onchange="this.form.submit()">
         <option value="">All</option>
         {% for s in all_statuses %}
         <option value="{{ s }}" {{ 'selected' if filter_status == s else '' }}>{{ s }}</option>
@@ -53,7 +53,7 @@
       </select>
     </label>
     <label>Detector
-      <select name="detector">
+      <select name="detector" onchange="this.form.submit()">
         <option value="">All</option>
         {% for d in all_detectors %}
         <option value="{{ d }}" {{ 'selected' if filter_detector == d else '' }}>{{ d }}</option>
@@ -101,6 +101,7 @@
       hx-target="#toast-container"
       hx-swap="beforeend">
   <input type="hidden" name="action" id="bulk-action-input" value="">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
 
 {% for severity in ['critical', 'high', 'medium', 'low'] %}
 {% if grouped[severity] %}
@@ -124,7 +125,7 @@
       <span class="cluster-label">{{ item.findings|length }} related: {{ item.pattern_label }}</span>
       {% else %}
       <span class="cluster-icon">📁</span>
-      <span class="cluster-label">{{ item.findings|length }} findings in <code>{{ item.common_path }}</code></span>
+      <span class="cluster-label">{{ item.findings|length }} findings in <code>{{ item.common_path if item.common_path != '.' else '(repo root)' }}</code></span>
       {% endif %}
     </summary>
     <div class="cluster-body">

@@ -201,6 +201,7 @@ def _row_to_finding(row: sqlite3.Row) -> Finding:
         status=FindingStatus(row["status"]),
         timestamp=timestamp,
         id=row["id"],
+        run_id=row["run_id"],
     )
 
 

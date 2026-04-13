@@ -9,7 +9,7 @@
 <div class="card mb-2">
   <form method="get" action="/llm-log" class="filter-bar">
     <label>Detector
-      <select name="detector">
+      <select name="detector" onchange="this.form.submit()">
         <option value="">All</option>
         {% for d in filters.detectors %}
         <option value="{{ d }}" {{ 'selected' if filter_detector == d else '' }}>{{ d }}</option>
@@ -17,7 +17,7 @@
       </select>
     </label>
     <label>Model
-      <select name="model">
+      <select name="model" onchange="this.form.submit()">
         <option value="">All</option>
         {% for m in filters.models %}
         <option value="{{ m }}" {{ 'selected' if filter_model == m else '' }}>{{ m }}</option>
@@ -25,7 +25,7 @@
       </select>
     </label>
     <label>Verdict
-      <select name="verdict">
+      <select name="verdict" onchange="this.form.submit()">
         <option value="">All</option>
         {% for v in filters.verdicts %}
         <option value="{{ v }}" {{ 'selected' if filter_verdict == v else '' }}>{{ v }}</option>
@@ -63,7 +63,7 @@
     </div>
     <div class="text-muted" style="font-size: 0.82rem; text-align: right;">
       {% if entry.run_id %}<a href="/runs/{{ entry.run_id }}">Run #{{ entry.run_id }}</a> &middot; {% endif %}
-      {{ entry.timestamp[:19] if entry.timestamp else '' }}
+      {{ entry.timestamp | ts }}
       {% if entry.generation_ms %} &middot; {{ '%.0f' | format(entry.generation_ms) }}ms{% endif %}
       {% if entry.tokens_generated %} &middot; {{ entry.tokens_generated }} tok{% endif %}
     </div>

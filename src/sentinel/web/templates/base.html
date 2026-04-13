@@ -27,7 +27,7 @@
       </a>
       <nav class="nav-links">
         <a href="/runs" class="nav-link {{ 'active' if request.url.path.startswith('/runs') }}">Runs</a>
-        <a href="/github" class="nav-link {{ 'active' if request.url.path.startswith('/github') }}">Issues</a>
+        <a href="/github" class="nav-link {{ 'active' if request.url.path.startswith('/github') }}">GitHub</a>
         <a href="/eval" class="nav-link {{ 'active' if request.url.path.startswith('/eval') }}">Eval</a>
         <a href="/detectors" class="nav-link {{ 'active' if request.url.path in ('/detectors', '/compatibility') }}">Detectors</a>
         <a href="/llm-log" class="nav-link {{ 'active' if request.url.path == '/llm-log' }}">LLM Log</a>
@@ -37,7 +37,7 @@
       <div class="header-actions">
         {% set _rp = request.app.state.repo_path %}
         {% if _rp %}
-        <span class="repo-indicator" title="{{ _rp }}">{{ _rp.split('/')[-1] if '/' in _rp else _rp }}</span>
+        <span class="repo-indicator" title="Active repository: {{ _rp }}">{{ _rp.split('/')[-1] if '/' in _rp else _rp }}</span>
         {% endif %}
         <a href="/scan" class="btn btn-accent btn-sm">New Scan</a>
         <button class="btn-icon" onclick="toggleTheme()" title="Toggle theme">

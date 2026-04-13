@@ -192,7 +192,7 @@ class TestIndexRoute:
         client, run_id, _ = seeded_app
         resp = client.get("/", follow_redirects=False)
         assert resp.status_code == 302
-        assert f"/runs/{run_id}" in resp.headers["location"]
+        assert "/runs" in resp.headers["location"]
 
 
 class TestRunsList:

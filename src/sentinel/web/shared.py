@@ -17,6 +17,20 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
+def _format_ts(val: object) -> str:
+    """Format a timestamp consistently across all templates."""
+    if not val:
+        return ""
+    if isinstance(val, str):
+        return val[:16].replace("T", " ")
+    if hasattr(val, "strftime"):
+        return val.strftime("%Y-%m-%d %H:%M")  # type: ignore[union-attr]
+    return str(val)
+
+
+templates.env.filters["ts"] = _format_ts
+
+
 def _get_conn(app: Starlette) -> sqlite3.Connection:
     """Get a DB connection — per-request if db_path is set, shared otherwise.
 
