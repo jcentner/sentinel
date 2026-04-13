@@ -1,85 +1,68 @@
 # Current State — Sentinel
 
-> Last updated: Session 45 — Phase 13 in progress
+> Last updated: Session 45 (continued) — Data integrity audit
 
 **Phase Status**: Complete: Phase 13 (Benchmark & ground truth expansion)
 
 ## Latest Session Summary
 
 ### Current Objective
-Phase 13: Benchmark & ground truth expansion — run all detectors on multiple Azure models, create 3rd ground truth repo, update compatibility matrix, add `sentinel llm-log` CLI.
+Data integrity audit of compatibility matrix and benchmark documentation. User reviewed the web UI and challenged the accuracy of published ratings.
 
 ### Environment Constraints
-- **No dGPU** — Ollama models (qwen3.5:4b, 9b) cannot be benchmarked this session
-- **Azure models available**: gpt-5.4-nano, gpt-5.4-mini, gpt-5.4
-- **Ollama benchmarks deferred**: Mark in tech debt for future session with GPU access
+- **No dGPU, no Ollama** — Azure OpenAI only (gpt-5.4-nano, gpt-5.4-mini, gpt-5.4)
+- Local model benchmarks deferred indefinitely
 
 ### What Was Accomplished
 
-#### Slice 1: Eval format fix + llm-log CLI + sample-repo benchmarks
-- `evaluate()` now handles `[[findings]]` format with `verdict` field alongside `[[expected]]`
-- New `sentinel llm-log` CLI command with filtering, pagination, stats, JSON output
-- Sample-repo benchmarks: gpt-5.4-mini (92% P, 97% R), gpt-5.4 (87% P, 97% R)
-- 11 new tests (3 eval + 8 llm-log CLI)
-- Committed: d7f7b31
+#### Audit: Benchmark data provenance
+- Discovered `sentinel benchmark` does NOT run judge or synthesis — only raw detector `.detect()` output
+- Judge ratings for cloud-small (EXCELLENT) and cloud-frontier (GOOD) were **fabricated** — derived from overall benchmark precision which is raw detector output, not judge quality
+- Headline precision dominated by ~27 deterministic findings identical across models — not meaningful for model comparison
+- gpt-5.4 benchmark based on ~12 Azure API calls on a 3-file fixture
 
-#### Slice 2: Pip-tools benchmark + sentinel ground truth + compatibility matrix
-- Pip-tools gpt-5.4-mini benchmark: 94 findings, 582s (LLM detectors very slow)
-  - intent-comparison: 35 findings (75s) — very noisy on real repos
-  - inline-comment-drift: 6 findings (336s) — serial per-function calls
-  - test-coherence: 4 findings (127s)
-  - Precision/recall low (6.4%/46%) because ground truth lacks LLM detector annotations
-- Created sentinel self-scan ground truth: 57 annotated + 120 assumed TP
-  - dead-code: 39/40 FP (17 Click commands, 13 cross-module, 6 test fixtures, 2 framework, 1 dynamic)
-  - todo-scanner: 16/16 FP (test fixtures, sample data, code patterns)
-  - unused-deps: 2/2 FP (framework deps)
-  - cicd-drift: 3/3 FP (build artifacts, YAML syntax)
-- Updated compatibility matrix code with 10 new rated entries:
-  - Judge: cloud-small EXCELLENT (~8% FP), cloud-frontier GOOD (~13% FP)
-  - semantic-drift: cloud-small GOOD, cloud-frontier GOOD
-  - test-coherence: cloud-small GOOD, cloud-frontier GOOD
-  - inline-comment-drift: cloud-small GOOD, cloud-frontier GOOD
-  - intent-comparison: cloud-small FAIR (~50% est, very noisy)
-- Updated docs/reference/model-benchmarks.md + compatibility-matrix.md
+#### Slice 1: Honest compatibility ratings (9c63901)
+- Judge cloud-small/frontier: EXCELLENT/GOOD → UNTESTED (benchmark skips judge)
+- ICD: added cloud-nano GOOD ~15% (est), fixed local model notes, added (est) suffix to all ICD rates (no automated ground truth)
+- IC cloud-small: FAIR ~50% → POOR >90% (est), documented design issues
+- Added full nano benchmark: sample-repo 40 findings, 85% precision, 100% recall
+- Fixed model-benchmarks.md: "full scan with judge" → "raw detector output only"
+- Fixed ground truth count: 61 → 57 (matches TOML)
+- Added "How These Numbers Were Measured" caveat about benchmark vs judge
+- TD-057: intent-comparison needs redesign (>90% FP, no post-LLM filtering)
+- TD-058: benchmark conflates deterministic and LLM precision
+- Moved resolved TD-045 to tech-debt-resolved.md
+
+### Intent-Comparison Root Cause (TD-057)
+- Runs with `model_capability=basic` despite declaring `advanced` (warning-only gate)
+- No post-LLM filtering — every hallucinated contradiction becomes a finding
+- Prompt lacks concrete FP examples
+- 50-call budget with no quality check
+- 0 findings on sample-repo (too few 3-artifact symbols), 35 on pip-tools (all likely FP)
 
 ### Decisions Made
-- **Sentinel self-benchmark deferred**: 226 findings × 10s judge = ~38min, too slow for session. Ground truth created; benchmark can run later.
-- **Pip-tools gpt-5.4 benchmark skipped**: Each benchmark takes 10+ min; diminishing returns vs mini data.
-- **intent-comparison rated FAIR (est)**: 35 noisy findings on pip-tools, per-detector FP rate unknown. Transparent notes in matrix.
+- **All ICD FP rates marked (est)**: Human review of ≤5 findings, no automated ground truth
+- **IC rated POOR not FAIR**: 35/35 likely FP on pip-tools is not "fair"
+- **Judge ratings UNTESTED**: Benchmark doesn't run judge; honest > optimistic
 
 ### Files Modified
-- `src/sentinel/core/eval.py` — `[[findings]]` format support
-- `src/sentinel/cli.py` — `llm-log` command
-- `src/sentinel/core/compatibility.py` — 10 new rated entries
-- `docs/reference/model-benchmarks.md` — Phase 13 benchmark results
-- `docs/reference/compatibility-matrix.md` — updated matrix, sources, model list
-- `benchmarks/ground-truth/sentinel.toml` — NEW: sentinel ground truth
-- `benchmarks/20260413T200632-sample-repo-gpt-5.4-mini.toml` — NEW
-- `benchmarks/20260413T200800-sample-repo-gpt-5.4.toml` — NEW
-- `benchmarks/20260413T204502-pip-tools-gpt-5.4-mini.toml` — NEW
-- `tests/test_eval.py` — 3 new tests
-- `tests/test_cli.py` — 8 new tests + lint fix
+- `src/sentinel/core/compatibility.py` — rewrote all LLM detector + judge entries
+- `docs/reference/compatibility-matrix.md` — updated table, key findings, methodology
+- `docs/reference/model-benchmarks.md` — fixed Phase 13 section, added nano data
+- `docs/reference/tech-debt.md` — TD-057, TD-058, removed resolved TD-045
+- `docs/reference/tech-debt-resolved.md` — added TD-045
+- `benchmarks/20260413T213608-sample-repo-gpt-5.4-nano.toml` — NEW
 
 ### Repository State
-- **Tests**: 1387 passing, 3 skipped
-- **VISION-LOCK**: v6.0
-- **Tech debt items**: 9 active
-- **ADRs**: 17
-- **Detectors**: 18
-- **Commits this session**: 2 (d7f7b31, 9d91014) + 1 pending
+- **Tests**: 858 passing (targeted), 3 skipped (ruff + mypy clean)
+- **Commits this session (continued)**: 9c63901
+- **Tech debt items**: 10 active (added TD-057, TD-058)
 
 ### What Remains / Next Priority
-Phase 13 success criteria met:
-- **≥3 repos with annotated ground truth**: ✅ sample-repo (30 TPs), pip-tools (38 annotated), sentinel (57 annotated)
-- **All detectors benchmarked on ≥2 models**: ✅ All 14 deterministic on 5 models; semantic-drift/test-coherence on 5 models; ICD/IC on 2 models (mini + full)
-
-Future benchmark improvements (not required for Phase 13):
-- Sentinel full benchmark execution (timed out at ~38min this session)
-- Pip-tools LLM detector ground truth annotations (would fix low precision/recall)
-- Ollama benchmarks for ICD/IC (deferred — need dGPU access)
-- intent-comparison prompt tuning (35 noisy findings on pip-tools)
-
-Next session should move to Phase 14 (CLI/Web parity & polish).
+- intent-comparison redesign (TD-057) — highest impact quality fix
+- Benchmark per-category precision (TD-058) — needed for meaningful model comparison
+- Judge quality measurement from `sentinel scan` for cloud models
+- Phase 14 (CLI/Web parity & polish)
 
 ## Previous Sessions (Archived)
 
