@@ -206,8 +206,101 @@ Per-detector LLM findings on pip-tools:
 
 | Repo | Annotated Findings | LLM GT | Models Benchmarked |
 |------|-------------------|---------|--------------------|
-| sample-repo | 37 (incl. 3 ICD, 2 TC, 1 SD) | ✅ Yes | nano, mini |
+| sample-repo | 37 (incl. 3 ICD, 2 TC, 1 SD) | ✅ Yes | nano, mini, 4b, 9b |
 | pip-tools | 38 (deterministic only) | ❌ No | nano, mini |
-| sentinel | 57 (annotated) + 120 (assumed TP) | ❌ No | not re-benchmarked |
+| sentinel | 57 (annotated) + 120 (assumed TP) | ❌ No | 4b (full suite) |
 
 **Priority**: Add LLM detector ground truth to pip-tools (manual review of ~48 LLM findings). This would convert the 0% LLM precision into real per-detector ratings on a meaningful codebase.
+
+---
+
+## Phase 13+ Benchmarks: Local Ollama Models — Full Suite (2026-04-14)
+
+Benchmarks comparing local Ollama models (qwen3.5:4b, qwen3.5:9b-q4_K_M) against previous cloud
+results, running all 18 detectors with ground-truth evaluation.
+
+### Test Setup
+
+- **Repos**: `tests/fixtures/sample-repo/` (seeded fixture, 37 TPs), Sentinel self-scan (~4500+ LOC, 40+ modules)
+- **Models**: qwen3.5:4b (Ollama, full GPU), qwen3.5:9b-q4_K_M (Ollama, partial GPU ~72%)
+- **Mode**: `sentinel benchmark --skip-judge` — raw detector output, no judge or synthesis
+- **Hardware**: Windows 11 + WSL 2 Ubuntu, 8 GB VRAM GPU
+- **Date**: 2026-04-14
+
+### Sample Repo Results (All 18 Detectors)
+
+| Metric | qwen3.5:4b | qwen3.5:9b | gpt-5.4-nano | gpt-5.4-mini |
+|--------|-----------|-----------|-------------|-------------|
+| Total findings | 34 | 36 | 40 | 36 |
+| **Headline precision** | 94% | 94% | 92% | 97% |
+| **Headline recall** | 91% | 97% | 100% | 95% |
+| Deterministic precision | 100% | 100% | 96.3% | 96.3% |
+| **LLM precision** | **80%** | **83%** | **84.6%** | **100%** |
+| LLM findings | 10 | 12 | 13 | 9 |
+| Duration | 14.8s | 36.1s | ~60s | ~60s |
+
+**Key observations**:
+- Local models achieve surprisingly competitive LLM precision (80–83%) vs cloud (85–100%)
+- 4b is 2.4× faster than 9b on the same hardware (full GPU vs partial offload)
+- Both local models have 100% deterministic precision (vs 96.3% for cloud — likely due to minor repo changes between runs)
+- 9b has better recall (97%) than 4b (91%) — the 4b model misses more LLM findings
+
+Per-detector LLM findings on sample-repo:
+
+| Detector | qwen3.5:4b | qwen3.5:9b | gpt-5.4-nano | gpt-5.4-mini |
+|----------|-----------|-----------|-------------|-------------|
+| inline-comment-drift | 2 (0%P, 0/3 TP) | 5 (60%P, 3/3 TP) | 5 (60%P, 3/3 TP) | 2 (100%P, 2/3 TP) |
+| intent-comparison | 0 | 0 | 0 | 0 |
+| semantic-drift | 1 (100%P) | 1 (100%P) | 1 (100%P) | 1 (100%P) |
+| test-coherence | 2 (100%P, 2/2 TP) | 1 (100%P, 1/2 TP) | 2 (100%P, 2/2 TP) | 1 (100%P, 1/2 TP) |
+| docs-drift | 5 (100%P) | 5 (100%P) | 5 (100%P) | 5 (100%P) |
+
+**Notable per-detector patterns**:
+- **inline-comment-drift**: 9b achieves same results as gpt-5.4-nano (5 findings, 60%P, 3/3 recall). 4b falls behind — finds only 2 but none match ground truth.
+- **test-coherence**: 4b matches nano (2 findings, 100%P, 2/2 recall). 9b is more conservative, matching mini.
+- **semantic-drift**: All four models produce identical results. The constrained binary prompt is robust across model sizes.
+- **intent-comparison**: No findings on sample-repo for any model — too few multi-artifact symbols to trigger triangulation.
+
+### Sentinel Self-Scan Results (qwen3.5:4b)
+
+Full 18-detector scan of Sentinel's own codebase:
+
+| Detector | qwen3.5:4b | gpt-5.4-nano (Phase 13) |
+|----------|-----------|------------------------|
+| docs-drift | 176 | ~150 (prior run) |
+| complexity | 119 | ~115 |
+| dead-code | 42 | ~40 |
+| todo-scanner | 20 | ~20 |
+| semantic-drift | 15 | 15 |
+| git-hotspots | 10 | ~10 |
+| test-coherence | 7 | 6 |
+| **intent-comparison** | **5** | 0 (not enabled) |
+| cicd-drift | 2 | ~2 |
+| inline-comment-drift | 0 | ~0 |
+| **Total** | **398** | ~360 |
+| Duration | ~150s | ~49s (cloud) |
+
+**Intent-comparison on self-scan**: The 4b model produced 5 ICD findings (42s). These need manual review to determine TP/FP rate. Given ICD's known >90% FP rate on cloud models, local 4b results are expected to be worse — this provides a baseline for v2 improvements.
+
+### Analysis: Local vs Cloud for LLM Detectors
+
+| Factor | qwen3.5:4b | qwen3.5:9b | gpt-5.4-nano | gpt-5.4-mini |
+|--------|-----------|-----------|-------------|-------------|
+| LLM precision (sample) | 80% | 83% | 85% | 100% |
+| Speed (sample) | 14.8s | 36.1s | ~60s | ~60s |
+| Speed (self-scan) | ~150s | not tested | ~49s | ~50s |
+| Cost | Free | Free | ~$0.002 | ~$0.01 |
+| Privacy | Full local | Full local | Cloud | Cloud |
+| ICD viability | Needs v2 | Needs v2 | Needs v2 | Needs v2 |
+
+### Updated Recommendations
+
+1. **qwen3.5:4b remains the best default** — free, local, 80% LLM precision is acceptable for morning triage. The 3× speed advantage over 9b on 8GB hardware is substantial.
+
+2. **qwen3.5:9b has a niche** — slightly better LLM precision (83% vs 80%) and better recall for inline-comment-drift. Worth considering on 10GB+ VRAM hardware where it can fit fully in GPU.
+
+3. **Cloud-nano remains the quality/speed leader** — 85% LLM precision with the fastest wall-clock on self-scan (cloud parallelism). Recommended when privacy allows.
+
+4. **Cloud-mini is precision king** — 100% LLM precision on sample-repo, but at higher cost and similar speed to nano.
+
+5. **Intent-comparison needs v2 across ALL models** — no model produces reliable ICD results. The detector is disabled by default (TD-057) and the v2 redesign with post-LLM filtering is the path to re-enablement.
