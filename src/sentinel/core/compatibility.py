@@ -299,28 +299,30 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "2026-04-13"),
 
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
-    # Design issue: detector runs even with model_capability=basic despite
-    # declaring advanced requirement (warning-only gate). No post-LLM
-    # filtering — every hallucinated contradiction becomes a finding.
-    # Result: 0 findings on sample-repo (too few multi-artifact symbols),
-    # 35 findings on pip-tools with mini (all likely FP). Detector needs
-    # redesign before ratings are meaningful.
-    _e("intent-comparison", "4b-local", "advanced", QualityRating.UNTESTED, "?",
-       "Not expected to work at 4B. Detector has design issues (see TD-057).",
-       "2026-04-13"),
-    _e("intent-comparison", "9b-local", "advanced", QualityRating.UNTESTED, "?",
-       "Not expected to work at 9B."),
-    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.POOR, ">90% (est)",
-       "0 findings on sample-repo, 20 on pip-tools (all likely FP, no ground truth). "
-       "Detector has design issues (see TD-057).",
-       "2026-04-13"),
-    _e("intent-comparison", "cloud-small", "advanced", QualityRating.POOR, ">90% (est)",
-       "0 findings on sample-repo, 31 on pip-tools (all likely FP, no ground truth). "
-       "Noisier than nano. Detector needs redesign (TD-057).",
-       "2026-04-13"),
+    # ICD v2 (Phase 15, commit 3f5654b) added post-LLM filtering with
+    # 3 gates: structural validity, specificity/vagueness, evidence quotes.
+    # sample-repo: 1 TP found by both 4B and 9B (100% precision, 100% recall).
+    # v2 reduces findings by 85-94% vs v1 on larger repos.
+    # Cloud models not yet re-benchmarked with v2 — v1 ratings stale.
+    _e("intent-comparison", "4b-local", "advanced", QualityRating.GOOD, "<25% (est)",
+       "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
+       "3 findings on pip-tools (85% reduction vs v1), 15 on sentinel self-scan. "
+       "FP rate on larger repos unvalidated — ground truth needed.",
+       "2026-04-14"),
+    _e("intent-comparison", "9b-local", "advanced", QualityRating.GOOD, "<25% (est)",
+       "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
+       "2 findings on pip-tools (94% reduction vs v1), 6 on sentinel self-scan. "
+       "Fewer findings than 4B — better signal-to-noise ratio.",
+       "2026-04-14"),
+    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.UNTESTED, "?",
+       "v1 rated Poor (>90% FP). Not yet re-benchmarked with ICD v2 post-LLM filtering.",
+       "2026-04-14"),
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
+       "v1 rated Poor (>90% FP). Not yet re-benchmarked with ICD v2 post-LLM filtering.",
+       "2026-04-14"),
     _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked on a repo with sufficient coverage.",
-       "2026-04-13"),
+       "Not yet benchmarked with ICD v2.",
+       "2026-04-14"),
 ]
 
 
