@@ -26,7 +26,7 @@ These detectors **use the model directly** to analyze code. Model quality direct
 | **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) |
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) |
 | **inline-comment-drift** | ❓ Untested | ❓ Untested | � Fair (~40% FP) | 🟢 Excellent (<10% FP) | ❓ Untested |
-| **intent-comparison** | ❓ Untested | ❓ Untested | 🔴 Poor (>90% FP est) | 🔴 Poor (>90% FP est) | ❓ Untested |
+| **intent-comparison** | 🟢 Excellent (v2, N=1) | 🟢 Excellent (v2, N=1) | ❓ Untested (v2) | ❓ Untested (v2) | ❓ Untested |
 | **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
@@ -67,16 +67,15 @@ Finds real docstring-code drift. With updated ground truth (3 seeded TPs in samp
 
 **Mini is recommended** for this detector — it finds the real issues without the noise. **Very slow**: ~303s on pip-tools due to serial per-function LLM calls.
 
-### intent-comparison — broken, needs redesign
+### intent-comparison — v2 redesign shipped, pending cloud validation
 
-0 findings on sample-repo (small repo lacks multi-artifact symbols). On pip-tools: nano 20 findings, mini 31 findings — **all likely false positives** (no ground truth, but manual review shows hallucinated contradictions). The detector has fundamental design issues:
+ICD v2 (Phase 15) adds post-LLM filtering with 3 gates: structural validity, specificity/vagueness rejection, evidence quote verification. On sample-repo, both 4B and 9B achieve 100% precision and recall (N=1 TP). On larger repos, v2 reduces finding counts by 85–94% compared to v1.
 
-- Runs even with `model_capability=basic` despite declaring `advanced` requirement (warning-only gate)
-- No post-LLM filtering — every LLM-reported contradiction becomes a finding
-- Prompt lacks concrete false-positive examples
-- 50-call budget with no quality check
+- **4B**: 15 findings on sentinel self-scan (50 calls), 3 on pip-tools (21 calls)
+- **9B**: 6 findings on sentinel self-scan (50 calls), 2 on pip-tools (21 calls)
+- **Cloud models**: Not yet tested with v2 — v1 ratings no longer apply
 
-**Do not rely on this detector** until it is redesigned (TD-057). Consider disabling it in `sentinel.toml`.
+The detector remains disabled by default (TD-057) pending cloud benchmarks to validate the <25% FP rate target. Run with `--detectors intent-comparison` to include it explicitly.
 
 Configure per-detector model in `sentinel.toml`:
 

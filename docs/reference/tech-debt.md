@@ -70,13 +70,13 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Introduced**: Session 27 (pip-tools real-world validation)
 **Resolution**: Added `_is_example_context()` helper that checks for "e.g.", "for example", "such as", "like" phrases in the 30-char window before backtick-wrapped paths. Eliminated 1/3 pip-tools FPs (the "e.g. `release/v3.4.0`" case). Two edge cases remain: feature descriptions in CHANGELOG and example filenames without explicit example-context phrases.
 
-### TD-057: intent-comparison detector produces >90% false positives
-**Status**: Mitigated (Session 46) — disabled by default
+### TD-057: intent-comparison detector — pending cloud benchmark validation
+**Status**: Partially resolved (Session 47) — v2 redesign shipped, disabled by default pending cloud benchmarks
 **Severity**: High → Low (mitigated)
 **Introduced**: Session 45 (benchmark audit)
-**Description**: The intent-comparison detector has fundamental design issues. Now disabled by default (`enabled_by_default = False`). Users can opt in via `enabled_detectors = ["intent-comparison"]` in sentinel.toml.
-**Impact**: No longer impacts default scan quality. FP rate still >90% when explicitly enabled.
-**Proposed resolution**: Full redesign needed for re-enablement — add post-LLM filtering, FP examples in prompt, hard capability gate.
+**Description**: ICD v2 (commit `3f5654b`) adds post-LLM filtering with 3 gates (structural validity, specificity, evidence quotes), improved prompt with FP examples, and required quote fields. v2 reduces finding counts by 85–94% vs v1 on pip-tools. Local models achieve 100% precision on sample-repo ground truth (N=1). Still disabled by default pending cloud benchmarks to validate <25% FP rate.
+**Impact**: No longer impacts default scan quality. v2 substantially reduces FPs when explicitly enabled.
+**Remaining**: Run cloud model (nano/mini) benchmarks with v2 to validate FP rate target. Expand ICD ground truth beyond N=1.
 
 ### TD-058: Benchmark precision conflates deterministic and LLM detectors
 **Status**: Resolved (Session 45)

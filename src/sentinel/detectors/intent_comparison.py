@@ -144,7 +144,7 @@ class IntentComparisonDetector(Detector):
 
     @property
     def enabled_by_default(self) -> bool:
-        return False  # TD-057: >90% FP rate, needs redesign
+        return False  # TD-057: pending cloud benchmark validation before re-enable
 
     def detect(self, context: DetectorContext) -> list[Finding]:
         try:
@@ -912,11 +912,11 @@ def _filter_contradictions(
         has_quotes = bool(quote_a and len(quote_a) > 5 and quote_b and len(quote_b) > 5)
 
         if not has_quotes and len(reason) < _MIN_REASON_CHARS * 2:
-                logger.debug(
-                    "ICD filter: dropped (no quotes + short reason): %s",
-                    reason,
-                )
-                continue
+            logger.debug(
+                "ICD filter: dropped (no quotes + short reason): %s",
+                reason,
+            )
+            continue
 
         kept.append(c)
 

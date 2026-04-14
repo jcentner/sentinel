@@ -280,7 +280,7 @@ Full 18-detector scan of Sentinel's own codebase:
 | **Total** | **398** | ~360 |
 | Duration | ~150s | ~49s (cloud) |
 
-**Intent-comparison on self-scan**: The 4b model produced 5 ICD findings (42s). These need manual review to determine TP/FP rate. Given ICD's known >90% FP rate on cloud models, local 4b results are expected to be worse — this provides a baseline for v2 improvements.
+**Intent-comparison on self-scan**: The 4b model produced 5 ICD findings (42s). These were pre-v2 baseline findings. See Phase 15 section below for v2 results with post-LLM filtering.
 
 ### Analysis: Local vs Cloud for LLM Detectors
 
@@ -303,7 +303,7 @@ Full 18-detector scan of Sentinel's own codebase:
 
 4. **Cloud-mini is precision king** — 100% LLM precision on sample-repo, but at higher cost and similar speed to nano.
 
-5. **Intent-comparison needs v2 across ALL models** — no model produces reliable ICD results. The detector is disabled by default (TD-057) and the v2 redesign with post-LLM filtering is the path to re-enablement.
+5. **Intent-comparison v2 shipped** — see Phase 15 benchmarks below for post-redesign results. The detector remains disabled by default pending cloud model validation.
 
 ---
 
