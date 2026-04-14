@@ -99,6 +99,23 @@ _VAGUE_PHRASES = frozenset({
     "debatable",
 })
 
+# Phrases that indicate the LLM concluded there's no contradiction
+# despite emitting a finding (self-negating response)
+_SELF_NEGATING_PHRASES = (
+    "no contradiction",
+    "no direct contradiction",
+    "no clear contradiction",
+    "not a contradiction",
+    "there is no contradiction",
+    "does not contradict",
+    "does not actually contradict",
+    "does not directly contradict",
+    "are compatible",
+    "is compatible",
+    "are consistent",
+    "is consistent",
+)
+
 # Risk signal thresholds (same as other LLM detectors)
 _FIX_HEAVY_BONUS = 10.0
 _FIX_RATIO_THRESHOLD = 0.3
@@ -461,6 +478,14 @@ def _build_test_lookup(
                 continue
             if any(part.endswith(".egg-info") for part in src_file.parts):
                 continue
+            # Skip fixture/sample directories (intentionally broken code)
+            try:
+                rel_parts = src_file.relative_to(repo_root).parts
+            except ValueError:
+                continue
+            if any(part in ("fixtures", "fixture", "samples")
+                   for part in rel_parts):
+                continue
             if not is_test_file(src_file):
                 continue
 
@@ -579,12 +604,22 @@ def _build_doc_lookup(repo_root: Path) -> dict[str, list[dict[str, Any]]]:
     """
     lookup: dict[str, list[dict[str, Any]]] = {}
 
+    # Directories to skip for doc lookup (non-spec content)
+    _doc_skip_dirs = frozenset({"archive", "samples", "fixtures"})
+
     for doc_file in sorted(repo_root.rglob("*")):
         if doc_file.suffix.lower() not in _DOC_EXTENSIONS:
             continue
         if any(part in COMMON_SKIP_DIRS for part in doc_file.parts):
             continue
         if any(part.endswith(".egg-info") for part in doc_file.parts):
+            continue
+        # Skip archived/non-spec docs (relative to repo root)
+        try:
+            rel_parts = doc_file.relative_to(repo_root).parts
+        except ValueError:
+            continue
+        if any(part in _doc_skip_dirs for part in rel_parts):
             continue
 
         try:
@@ -910,10 +945,11 @@ def _filter_contradictions(
 ) -> list[dict[str, Any]]:
     """Filter LLM-reported contradictions to remove likely false positives.
 
-    Applies three filters:
+    Applies four filters:
     1. Structural: valid 'between' pair referencing known artifacts
-    2. Specificity: reason must be long enough and not vague
-    3. Evidence quotes: require quote_a and quote_b (non-trivial)
+    2. Self-negating: reason must not conclude there's no contradiction
+    3. Specificity: reason must be long enough and not vague
+    4. Evidence quotes: require quote_a and quote_b (non-trivial)
     """
     valid_names = set(artifact_names)
     kept: list[dict[str, Any]] = []
@@ -939,7 +975,15 @@ def _filter_contradictions(
             logger.debug("ICD filter: dropped (unknown artifact): %s", pair)
             continue
 
-        # Filter 2: specificity — reason must be substantive
+        # Filter 2: self-negating — LLM concludes no contradiction
+        reason_lower = reason.lower()
+        if any(phrase in reason_lower for phrase in _SELF_NEGATING_PHRASES):
+            logger.debug(
+                "ICD filter: dropped (self-negating reason): %s", reason,
+            )
+            continue
+
+        # Filter 3: specificity — reason must be substantive
         if len(reason) < _MIN_REASON_CHARS:
             logger.debug(
                 "ICD filter: dropped (short reason %d chars): %s",
@@ -947,14 +991,13 @@ def _filter_contradictions(
             )
             continue
 
-        reason_lower = reason.lower()
         if any(phrase in reason_lower for phrase in _VAGUE_PHRASES):
             logger.debug(
                 "ICD filter: dropped (vague language): %s", reason,
             )
             continue
 
-        # Filter 3: evidence quotes — prefer responses with concrete quotes
+        # Filter 4: evidence quotes — prefer responses with concrete quotes
         quote_a = c.get("quote_a", "")
         quote_b = c.get("quote_b", "")
         has_quotes = bool(quote_a and len(quote_a) > 5 and quote_b and len(quote_b) > 5)
