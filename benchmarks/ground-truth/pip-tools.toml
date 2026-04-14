@@ -267,3 +267,26 @@ fp_pattern = "plugin-entry-point"
 #   example-text-as-path (3): docs-drift treats example text as file paths
 #   plugin-entry-point (2): unused-deps misses plugin/entry-point loading
 #   build-backend-dep (1): unused-deps misses build-time-only deps
+
+# ── intent-comparison (ICD v2+fixes) ────────────────────────────────
+# Annotated from gpt-5.4 scan (best model) + verified mini/nano overlaps.
+# 1 confirmed TP out of 2 findings (gpt-5.4), 1/8 (mini), 1/20 (nano).
+# The same 1 TP (dependency_tree) was found by all 3 models.
+
+[[findings]]
+id = 26
+detector = "intent-comparison"
+file = "piptools/sync.py"
+symbol = "dependency_tree"
+verdict = "tp"
+reason = "Docstring says 'Uses a DFS traversal algorithm' but code uses collections.deque with popleft() = BFS (FIFO). Algorithm label is factually wrong."
+models_flagged = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4"]
+
+[[findings]]
+id = 27
+detector = "intent-comparison"
+file = "piptools/repositories/pypi.py"
+symbol = "get_dependencies"
+verdict = "fp"
+reason = "LLM claims test asserts == [] but no test_get_dependencies exists in pip-tools test suite. Return type is set[InstallRequirement] matching code."
+models_flagged = ["gpt-5.4-nano", "gpt-5.4"]

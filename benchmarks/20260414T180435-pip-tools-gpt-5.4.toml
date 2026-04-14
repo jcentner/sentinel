@@ -1,0 +1,18 @@
+# Sentinel Benchmark Results (ICD v2+fixes)
+# Generated: 20260414T180435Z
+
+[benchmark]
+repo_path = "/home/jacobcentner/sentinel-test-repos/pip-tools"
+model = "gpt-5.4"
+provider = "azure"
+detector = "intent-comparison"
+finding_count = 2
+
+[[findings]]
+title = "Intent mismatch (docstring vs test): get_dependencies in piptools/repositories/pypi.py"
+severity = "medium"
+
+[[findings]]
+title = "Intent mismatch (code vs docstring): dependency_tree in piptools/sync.py"
+severity = "medium"
+

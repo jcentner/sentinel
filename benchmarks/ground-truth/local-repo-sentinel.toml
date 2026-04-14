@@ -548,3 +548,63 @@ reason = "Genuine unused variable."
 #   data-file-content (1): todo-scanner matches TOML data
 #   sample-output (1): todo-scanner matches sample report content
 #   yaml-syntax (1): cicd-drift misparses YAML multiline indicator
+
+# ── intent-comparison (ICD v2+fixes, sentinel self-scan) ───────────
+# Annotated from gpt-5.4 scan (best model, 5 findings).
+# 2 TP, 3 FP = 40% precision.
+# Mini: 0/16 TP (0%). Nano: ~0/39 (0%).
+
+[[findings]]
+id = 58
+detector = "intent-comparison"
+file = "src/sentinel/core/runner.py"
+symbol = "prepare_incremental"
+verdict = "tp"
+reason = "Docstring said 'Otherwise: FULL + None' but code returns INCREMENTAL + [] when HEAD unchanged. Docstring was missing the HEAD-unchanged case. Fixed in this session."
+models_flagged = ["gpt-5.4"]
+
+[[findings]]
+id = 59
+detector = "intent-comparison"
+file = "src/sentinel/core/providers/openai_compat.py"
+symbol = "check_health"
+verdict = "tp"
+reason = "Docstring said 'Sends a minimal completions request, falls back to GET' but code only does GET. No completions request anywhere. Fixed in this session."
+models_flagged = ["gpt-5.4"]
+
+[[findings]]
+id = 60
+detector = "intent-comparison"
+file = "src/sentinel/core/providers/ollama.py"
+symbol = "OllamaProvider"
+verdict = "fp"
+reason = "LLM claims docstring wrong about /api/embed but embed() method exists at line ~135 and calls /api/embed. LLM only read partial class body."
+models_flagged = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"]
+
+[[findings]]
+id = 61
+detector = "intent-comparison"
+file = "src/sentinel/core/extractors.py"
+symbol = "is_test_file"
+verdict = "fp"
+reason = "LLM cites model-benchmarks.md table as behavioral spec for is_test_file. The cited doc doesn't describe is_test_file behavior."
+models_flagged = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"]
+
+[[findings]]
+id = 62
+detector = "intent-comparison"
+file = "src/sentinel/cli.py"
+symbol = "main"
+verdict = "fp"
+reason = "LLM confuses tests/fixtures/sample-repo/tests/test_main.py (intentionally drifted fixture for myapp.main) with real sentinel.cli.main tests."
+models_flagged = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"]
+
+[[findings]]
+id = 63
+detector = "intent-comparison"
+file = "src/sentinel/core/ollama.py"
+symbol = "embed_texts"
+verdict = "tp"
+reason = "Docstring said 'returns list or None on failure' but code returns [] for empty input. Docstring didn't document empty-input case. Fixed in this session."
+models_flagged = ["gpt-5.4"]
+note = "TP found in initial round but docstring was fixed before final benchmark run, so not counted in final precision."

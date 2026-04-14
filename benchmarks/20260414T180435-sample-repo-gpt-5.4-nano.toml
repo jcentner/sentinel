@@ -1,0 +1,14 @@
+# Sentinel Benchmark Results (ICD v2+fixes)
+# Generated: 20260414T180435Z
+
+[benchmark]
+repo_path = "tests/fixtures/sample-repo"
+model = "gpt-5.4-nano"
+provider = "azure"
+detector = "intent-comparison"
+finding_count = 1
+
+[[findings]]
+title = "Intent mismatch (documentation vs code): process_records in src/myapp/processing.py"
+severity = "high"
+

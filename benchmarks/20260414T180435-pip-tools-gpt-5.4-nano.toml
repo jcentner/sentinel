@@ -1,0 +1,90 @@
+# Sentinel Benchmark Results (ICD v2+fixes)
+# Generated: 20260414T180435Z
+
+[benchmark]
+repo_path = "/home/jacobcentner/sentinel-test-repos/pip-tools"
+model = "gpt-5.4-nano"
+provider = "azure"
+detector = "intent-comparison"
+finding_count = 20
+
+[[findings]]
+title = "Intent mismatch (code vs test): postprocess_cli_options in piptools/_internal/_pip_api/cli_options.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): copy_install_requirement in piptools/_internal/_pip_api/install_requirements.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): run_python_snippet in piptools/_internal/_subprocess.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs docstring): build_project_metadata in piptools/build.py"
+severity = "medium"
+
+[[findings]]
+title = "Intent mismatch (docstring vs code): reverse_dependencies in piptools/cache.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): find_best_match in piptools/repositories/pypi.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs docstring): get_dependencies in piptools/repositories/pypi.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (test vs docstring): get_dependencies in piptools/repositories/pypi.py"
+severity = "medium"
+
+[[findings]]
+title = "Intent mismatch (code vs test): get_hashes in piptools/repositories/pypi.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): combine_install_requirements in piptools/resolver.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): cli in piptools/scripts/compile.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): cli in piptools/scripts/sync.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs docstring): dependency_tree in piptools/sync.py"
+severity = "medium"
+
+[[findings]]
+title = "Intent mismatch (test vs code): diff in piptools/sync.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): key_from_ireq in piptools/utils.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (docstring vs code): key_from_req in piptools/utils.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): is_url_requirement in piptools/utils.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): format_requirement in piptools/utils.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): format_specifier in piptools/utils.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs test): as_tuple in piptools/utils.py"
+severity = "high"
+

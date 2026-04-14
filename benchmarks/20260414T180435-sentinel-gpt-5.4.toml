@@ -1,0 +1,30 @@
+# Sentinel Benchmark Results (ICD v2+fixes)
+# Generated: 20260414T180435Z
+
+[benchmark]
+repo_path = "."
+model = "gpt-5.4"
+provider = "azure"
+detector = "intent-comparison"
+finding_count = 5
+
+[[findings]]
+title = "Intent mismatch (code vs documentation): is_test_file in src/sentinel/core/extractors.py"
+severity = "high"
+
+[[findings]]
+title = "Intent mismatch (code vs docstring): OllamaProvider in src/sentinel/core/providers/ollama.py"
+severity = "medium"
+
+[[findings]]
+title = "Intent mismatch (code vs documentation): OllamaProvider in src/sentinel/core/providers/ollama.py"
+severity = "medium"
+
+[[findings]]
+title = "Intent mismatch (code vs docstring): prepare_incremental in src/sentinel/core/runner.py"
+severity = "medium"
+
+[[findings]]
+title = "Intent mismatch (docstring vs test): prepare_incremental in src/sentinel/core/runner.py"
+severity = "medium"
+
