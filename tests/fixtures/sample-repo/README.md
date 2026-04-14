@@ -33,6 +33,15 @@ See [GitHub](https://github.com/example/myapp) — external, should be ignored.
 
 See [section below](#installation) — anchor, should be ignored.
 
+## Data Processing
+
+Use `process_records()` to validate incoming JSON payloads against the
+strict schema before storage. The function returns a tuple of
+`(valid_records, errors)` making it easy to handle failures separately.
+
+Records that fail validation are silently dropped — no error list is
+returned. Use strict mode for XML-based payload validation.
+
 ## Code Examples
 
 Here's how to reference files in markdown code blocks — these should

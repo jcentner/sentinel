@@ -219,6 +219,21 @@ detector = "inline-comment-drift"
 file_path = "src/myapp/processing.py"
 title = "long_report_generator"
 
+# intent-comparison: multi-artifact contradictions (code + docstring + test + docs)
+# process_records: docs claim tuple return + XML validation, code returns dict, no XML
+[[expected]]
+detector = "intent-comparison"
+file_path = "src/myapp/processing.py"
+title = "process_records"
+
+# intent-comparison FPs: pairwise-level contradictions that ICD should NOT flag
+# (these are already covered by test-coherence or inline-comment-drift)
+[[false_positives]]
+detector = "intent-comparison"
+file_path = "src/myapp/main.py"
+title = "main"
+fp_pattern = "pairwise-overlap"
+
 # ── Known false positive patterns (should NOT appear) ────────────
 
 # Code block content should not be flagged
