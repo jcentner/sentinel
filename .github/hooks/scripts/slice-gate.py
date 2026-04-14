@@ -43,23 +43,24 @@ def _find_python(cwd: str) -> str:
 
 
 def _run_ci_checks(cwd: str) -> str | None:
-    """Run ruff and mypy. Returns failure message or None if all pass."""
+    """Run ruff, mypy, and pytest. Returns failure message or None if all pass."""
     python = _find_python(cwd)
     checks = [
-        ([python, "-m", "ruff", "check", "src/", "tests/"], "ruff"),
-        ([python, "-m", "mypy", "src/sentinel/", "--strict"], "mypy"),
+        ([python, "-m", "ruff", "check", "src/", "tests/"], "ruff", 90),
+        ([python, "-m", "mypy", "src/sentinel/", "--strict"], "mypy", 90),
+        ([python, "-m", "pytest", "--tb=short", "-q"], "pytest", 300),
     ]
     failures: list[str] = []
-    for cmd, name in checks:
+    for cmd, name, timeout in checks:
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, cwd=cwd, timeout=90,
+                cmd, capture_output=True, text=True, cwd=cwd, timeout=timeout,
             )
         except FileNotFoundError:
             # Tool not installed — skip rather than block
             continue
         except subprocess.TimeoutExpired:
-            failures.append(f"{name}: timed out after 90s")
+            failures.append(f"{name}: timed out after {timeout}s")
             continue
         if result.returncode != 0:
             output = (result.stdout + result.stderr).strip()
@@ -73,7 +74,7 @@ def _run_ci_checks(cwd: str) -> str | None:
 
     if failures:
         return (
-            "CI lint checks failed. Fix these before concluding:\n\n"
+            "CI checks failed. Fix these before concluding:\n\n"
             + "\n\n".join(failures)
         )
     return None
