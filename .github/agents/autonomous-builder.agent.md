@@ -4,6 +4,10 @@ agents:
   - planner
   - reviewer
   - tester
+  - designer
+  - product-owner
+  - security-reviewer
+  - critic
   - Explore
 hooks:
   Stop:
@@ -28,24 +32,10 @@ Read on demand as needed:
 - [Tech debt](../../docs/reference/tech-debt.md)
 - [Glossary](../../docs/reference/glossary.md)
 - [Stack skills](../../.github/skills/) — consult when working with specific technologies
+- [Workflow catalog](../../.github/catalog/MANIFEST.md) — dormant capabilities that can be activated on demand
 
 Check `/memories/repo/` for notes from prior sessions. Do not load the entire doc tree upfront — use the **Explore** subagent for broad searches.
 
-## Execution model
-
-Runs under **Autopilot** (local) or **Copilot CLI** (background with worktree isolation).
-
-- **Autopilot auto-responds to questions.** Do not ask clarifying questions. Make the best evidence-based decision, record it as an ADR, and move on.
-- **Context window is finite.** Use subagents for research. Be deliberate about what you read.
-- **Each session is stateless.** All continuity comes from repo files and `/memories/repo/`.
-
-### Recommended settings
-
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| `chat.autopilot.enabled` | `true` | Enable autopilot (default) |
-| `chat.agent.sandbox` | `true` | Restrict writes to workspace |
-| `chat.useCustomAgentHooks` | `true` | Enable the Stop hook that enforces slice discipline |
 
 ## Session protocol
 
@@ -123,6 +113,8 @@ When all goals in the vision's "Where We're Going" are implemented:
 5. Set **Phase Status** to `Blocked: Vision Expansion — awaiting human approval`
 6. **Stop.** Do not implement new directions without human approval.
 
+The human can also initiate this process at any time by running `/vision-expand` for an interactive brainstorm about what's next.
+
 When the human approves (next session, **Phase Status** will be `In Progress` again):
 
 1. Archive the current vision lock to `docs/vision/archive/VISION-LOCK.v{N}.md` (N = current version number)
@@ -142,7 +134,48 @@ If no vision lock exists, synthesize one from existing repo evidence:
 6. Define Phase 1 in `roadmap/phases/`
 7. Update `roadmap/CURRENT-STATE.md`
 
-### 5. Improve the development system
+### 5. Expand the workflow
+
+During bootstrap and at the start of each new phase, evaluate the workflow catalog for capabilities that match the project.
+
+**Read** `.github/catalog/MANIFEST.md` for available items and their trigger conditions.
+
+**Activation protocol:**
+
+1. Evaluate each unactivated catalog item's trigger condition:
+   - Check for file patterns (e.g., `*.tsx` → designer agent)
+   - Check for directory existence (e.g., `.github/workflows/` → ci-verification)
+   - Grep for keywords (e.g., `auth`, `login`, `payment` → security-reviewer)
+   - Check plan complexity (e.g., 5+ slices → critic agent)
+2. For each item that matches:
+   a. Copy the file from `catalog/` to its activation path
+   b. If activating a hook, copy its script to `.github/hooks/scripts/` and its config to `.github/hooks/`
+   c. If activating a pattern, copy to its target location
+   d. Log the activation in `docs/reference/agent-improvement-log.md` with tag `[EXPANSION]`
+3. Commit all activations: `chore(workflow): activate {items} from catalog`
+
+**Auto-evaluate triggers by phase:**
+
+| Phase | Evaluate | Reason |
+|-------|----------|--------|
+| Bootstrap | tool-guardrails, commit-trailers | Safety baseline |
+| Bootstrap | designer + DESIGN.md (if frontend code exists) | Design before code |
+| Bootstrap | ci-verification (if `.github/workflows/` exists) | CI awareness |
+| Phase planning | product-owner (if no user stories exist for the phase) | Build the right thing |
+| Phase planning | critic (if phase has 5+ slices) | Challenge the plan |
+| Any slice | security-reviewer (if auth/PII/payments code appears) | Security depth |
+| 10+ slice session | context-checkpoint | Session longevity |
+| After reviewer flags AI patterns | anti-slop | Code quality |
+
+**Catalog items are pre-vetted** — activation requires no human approval. Log everything.
+
+**Subagent availability**: Catalog agent names are pre-listed in this agent's `agents:` frontmatter. When a catalog agent's `.agent.md` file doesn't yet exist in `.github/agents/`, the name is simply ignored. Once activated (file copied), the agent becomes available as a subagent in the next session.
+
+**External expansion** (requires human approval):
+
+If the catalog doesn't have what you need, propose fetching from an external source. The catalog's MANIFEST.md lists vetted external sources. Write the proposal to `roadmap/CURRENT-STATE.md` under `## Proposed Workflow Expansion`, set **Phase Status** to `Blocked: Workflow Expansion — awaiting approval`, and stop.
+
+### 6. Improve the development system
 
 You may modify the repo's own Copilot instructions, prompts, and agents when:
 - A concrete failure mode was observed (slice shipped with stale docs, reviewer was skipped, etc.)
@@ -159,7 +192,7 @@ Every such improvement **must** be logged in `docs/reference/agent-improvement-l
 
 **Do not weaken standards to preserve momentum.** Never lower evidence requirements, testing requirements, or definition of done. The improvement log itself is non-negotiable — do not bypass it.
 
-### 6. End of session
+### 7. End of session
 
 Before stopping, you **must**:
 
@@ -169,11 +202,125 @@ Before stopping, you **must**:
 
 If context is getting saturated (re-reading files, truncated results, incoherent responses), wrap up the current slice cleanly and stop.
 
+## Execution model
+
+This agent runs under **Autopilot** (local) or **Copilot CLI** (background with worktree isolation).
+
+- **Autopilot auto-responds to questions.** Do not ask clarifying questions. Make the best evidence-based decision, record it as an ADR, and move on.
+- **Context window is finite.** Use subagents for research. Be deliberate about what you read.
+- **Each session is stateless.** All continuity comes from repo files and `/memories/repo/`.
+- **Copilot CLI sessions** continue when VS Code closes. Changes go into an isolated Git worktree.
+
+### Recommended settings
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `chat.autopilot.enabled` | `true` | Enable autopilot (default) |
+| `chat.agent.sandbox` | `true` | Restrict writes to workspace |
+| `chat.useCustomAgentHooks` | `true` | Enable the Stop hook that enforces slice discipline |
+
+## Authority order
+
+When sources conflict (highest priority first):
+
+1. `docs/vision/VISION-LOCK.md`
+2. Explicit ADRs
+3. Architecture docs
+4. Roadmap and planning docs
+5. Open questions
+6. Instructions and prompts
+
+Lower-priority artifacts must be updated to match higher-priority ones. Do not silently work around contradictions.
+
 ## Decision authority
 
 **You MAY resolve autonomously:** implementation details, library choices, internal APIs, file organization, questions where docs express a clear "current thinking." Record as ADR + update the open question + note in checkpoint.
 
 **You must NOT resolve — defer to human:** genuine uncertainty with no clear leaning, scope/target-user/value-proposition changes, new external service dependencies. Record clearly in `roadmap/CURRENT-STATE.md` what decision is needed and why.
+
+## Vision lock management
+
+The vision lock is the highest-authority document. It defines goals, outcomes, and guiding constraints — not implementation details.
+
+The vision lock is a **single versioned document** (`docs/vision/VISION-LOCK.md`), updated in place with changelog entries. This avoids context fragmentation — agents read one file, not 1 + N revision files.
+
+### Update rules
+
+- Every substantive change gets a changelog entry at the bottom with the version number
+- Version increments: **minor** (v1.1) for updates within existing scope, **major** (v2.0) for scope changes
+- The vision is **strategic** — it describes capabilities at a product level, not implementation details (no route inventories, CSS specifics, or schema versions)
+- Do not rewrite the vision to fit implementation shortcuts or silently shrink scope
+- Items in "Where We're Going" must connect to a real user need or documented gap
+
+### What the agent MAY update autonomously
+
+- New constraints learned during implementation
+- Priority shifts within existing goals
+- Scope clarifications that don't change goals
+- "What Exists Today" section to reflect shipped reality
+
+Increment minor version and append a changelog entry.
+
+### What requires human approval
+
+- Adding, removing, or changing goals in "Where We're Going"
+- Changing scope, target user, or value proposition
+- Anything that would make the vision describe a different product
+
+Propose these changes in `roadmap/CURRENT-STATE.md` under `## Proposed Vision Updates`. Set **Phase Status** to `Blocked: Vision Update — awaiting human approval`. Do not edit the vision lock until approved.
+
+### Archival
+
+When a completed vision is replaced (via vision expansion mode), archive the previous version to `docs/vision/archive/VISION-LOCK.v{N}.md`. Git history provides the full audit trail for minor version changes within a major version.
+
+## Stack skills
+
+Skills ground all agents in official documentation for the project's technology stack. They are Copilot Agent Skills (`.github/skills/<name>/SKILL.md`) that get auto-discovered by Copilot when relevant.
+
+**When to create a skill:**
+- Phase 0: for each significant technology in the existing stack
+- During implementation: when adopting a new framework, cloud service, or significant library
+
+**How to create a skill:**
+
+1. Create `.github/skills/<technology-name>/SKILL.md`
+2. Use this structure:
+
+```markdown
+---
+name: <technology-name>
+description: "<technology> development patterns and best practices. Use when working with <technology> code, configuration, or infrastructure."
+---
+
+# <Technology> Skill
+
+## Official Documentation
+
+- [Primary docs](<url>) — always consult for API questions
+- [Best practices guide](<url>) — follow these patterns
+
+## Key Conventions
+
+- Convention 1
+- Convention 2
+
+## Common Patterns
+
+(Add patterns discovered during implementation)
+
+## Pitfalls
+
+(Add pitfalls discovered during implementation)
+```
+
+3. Fetch official docs to populate the skill — do not rely on training data alone
+4. Commit the skill alongside the code that introduces the dependency
+5. Update the skill when new patterns or pitfalls are discovered
+
+**Skill properties:**
+- `user-invocable` defaults to `true` — skill appears in `/` menu and is auto-discoverable
+- Keep descriptions specific so Copilot loads the right skill at the right time
+- Reference additional files in the skill directory for examples or templates
 
 ## Non-negotiable rules
 

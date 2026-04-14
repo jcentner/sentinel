@@ -11,6 +11,7 @@ A local, evidence-backed repository issue triage system for overnight code healt
 - **Open questions**: Track uncertainty in `docs/reference/open-questions.md`
 - **Tech debt**: Track compromises in `docs/reference/tech-debt.md`
 - **Stack skills**: `.github/skills/` — technology-specific skills that ground agents in official docs
+- **Workflow catalog**: `.github/catalog/` — dormant agents, skills, hooks, and patterns activated on demand
 
 ## Development Workflow
 

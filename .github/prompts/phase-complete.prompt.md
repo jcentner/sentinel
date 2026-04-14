@@ -53,13 +53,18 @@ Work through each step:
 - Specifically check: README, architecture overview, detector interface
 - Fix any docs-drift introduced during implementation
 
-### 8. Record Lessons Learned
+### 8. Vision Lock Updates
+- Did any learnings during this phase affect the vision goals, constraints, or priorities?
+- If within-scope (new constraint, priority shift, scope clarification) — update the vision lock in place, increment minor version, append changelog entry
+- If scope/goal changes are needed — propose them in `roadmap/CURRENT-STATE.md` under `## Proposed Vision Updates` (do NOT edit the vision lock for these)
+
+### 9. Record Lessons Learned
 - What went well?
 - What was harder than expected?
 - What would we do differently next time?
 - Add a "Lessons Learned" section to the phase plan
 
-### 9. Update Roadmap
+### 10. Update Roadmap
 - Update `roadmap/README.md` to reflect the completed phase
 - Note any scope changes that affect future phases
 

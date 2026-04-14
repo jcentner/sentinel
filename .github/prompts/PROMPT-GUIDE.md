@@ -1,80 +1,104 @@
-# Sentinel Prompt Files — Usage Guide
+# Sentinel — Prompt & Agent Guide
 
-Reusable prompt files for the Sentinel development workflow via GitHub Copilot Chat in VS Code.
+## Primary Workflow: Autonomous Builder
 
-## Quick Start
-
-1. Open Copilot Chat (Ctrl+Shift+I or the Chat sidebar)
-2. Type `/` to see available prompts
-3. Select a prompt (e.g., `/phase-plan Phase 1 MVP`)
-4. Optionally add context after the prompt name
-5. Review output → approve changes → agent applies them
-
-## Development Cycle
-
-These prompts codify the Sentinel development workflow. Run them in order for each phase:
+The **autonomous-builder** agent is the primary development workflow. Select it in the Chat agent picker or run it as a Copilot CLI session.
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                      Sentinel Dev Cycle                              │
-│                                                                      │
-│  /phase-plan ──→ /implementation-plan ──→ /implementation-plan-review│
-│       │                  │                         │                 │
-│   (resolve open     (create file-by-file     (expert critical       │
-│    questions)        checklist)                analysis of plan)     │
-│                                                    │                 │
-│                                              /implement              │
-│                                                    │                 │
-│                                              (write code,           │
-│                                               ask when ambiguous)    │
-│                                                    │                 │
-│  /phase-complete ←── /security-audit ←──── /code-review             │
-│       │                                                              │
-│   (update docs,                                                      │
-│    record lessons,                                                   │
-│    record ADRs)                                                      │
-└──────────────────────────────────────────────────────────────────────┘
+VS Code Chat → Agent picker → autonomous-builder → describe your goal
 ```
 
-| Step | Prompt | What It Does |
-|------|--------|--------------|
-| 1 | `/phase-plan` | Create a phase planning doc with features, dependencies, acceptance criteria, open questions |
-| 2 | `/implementation-plan` | Create a file-by-file implementation checklist from a phase doc |
-| 3 | `/implementation-plan-review` | Expert critical analysis of the implementation plan — find gaps, inefficiencies, problems |
-| 4 | `/implement` | Execute the plan section-by-section — write code, run tests, ask when ambiguous |
-| 5 | `/code-review` | Review code against Sentinel conventions, patterns, and quality standards |
-| 6 | `/security-audit` | Security audit across the codebase |
-| 7 | `/phase-complete` | Update docs, record lessons learned, record ADRs, mark phase complete |
+Or with Copilot CLI (background, worktree-isolated):
 
-## All Prompts
+```
+VS Code Chat → Session Target → Copilot CLI → select autonomous-builder agent → describe your goal
+```
 
-### Development Cycle
+The builder reads `roadmap/CURRENT-STATE.md`, picks up where it left off, and runs a continuous loop: plan → implement → test → review → commit → checkpoint. It uses subagents for research (planner), testing (tester), and review (reviewer).
 
-| Prompt | What It Does | When to Run |
+### Autopilot settings
+
+For fully autonomous sessions, enable these VS Code settings:
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `chat.autopilot.enabled` | `true` | Auto-approve + auto-respond |
+| `chat.agent.sandbox` | `true` | Restrict writes to workspace |
+| `chat.useCustomAgentHooks` | `true` | Enable Stop hook (prevents premature stopping) |
+
+## Manual Override Prompts
+
+These prompts are available for human-driven sessions when you want direct control over a specific step. Type `/` in Chat to invoke them.
+
+| Prompt | What It Does | When to Use |
 |--------|--------------|-------------|
-| `/phase-plan` | Create a phase planning doc with features, dependencies, criteria, open questions | Starting a new phase |
-| `/implementation-plan` | Create a file-by-file implementation checklist from a phase doc | After phase plan open questions resolved |
+| `/vision-expand` | Interactive brainstorm for what's next after current vision is fulfilled | Vision complete, planning next directions |
+| `/phase-plan` | Create a phase planning doc with features, dependencies, acceptance criteria | Starting a new phase manually |
+| `/implementation-plan` | Create a file-by-file implementation checklist from a phase doc | Detailed planning before coding |
 | `/implementation-plan-review` | Critically analyze the implementation plan for gaps, inefficiencies, problems | After implementation plan is drafted |
-| `/implement` | Execute the implementation plan — write code, ask questions, run tests | After implementation plan review approved |
-| `/code-review` | Review code against Sentinel conventions, quality standards | After implementing a feature or phase |
-| `/security-audit` | Security audit: dependency check, input validation, secrets, API surface | After major changes or periodically |
-| `/phase-complete` | Update docs, record ADRs, record lessons, mark phase complete | After code review + security audit pass |
+| `/implement` | Execute an implementation plan step-by-step | Implementing from an approved plan |
+| `/code-review` | Review code for quality, architecture, and security | After changes, before merging |
+| `/security-audit` | Security audit across the codebase | After major changes or periodically |
+| `/phase-complete` | Update docs, record ADRs and lessons, mark phase done | Wrapping up a phase |
+| `/vision-update` | Review and update the vision lock to reflect shipped reality | After completing a phase or shifting direction |
 
-### Strategy & Vision
+## Custom Agents
 
-| Prompt | What It Does | When to Run |
-|--------|--------------|-------------|
-| `/vision-update` | Review and update the vision lock to reflect shipped reality and forward direction | After completing a phase, shipping significant features, or shifting project direction |
-| `/phase-complete` | Update docs, record ADRs, record lessons, mark phase complete | After code review + security audit pass |
+| Agent | Role | Tools | Used As |
+|-------|------|-------|---------|
+| `autonomous-builder` | Continuous build loop | All tools + Stop hook | Primary agent |
+| `planner` | Research and analysis | Read-only (search, web, codebase) | Subagent of builder |
+| `reviewer` | Code review + security | Read-only + terminal output | Subagent of builder |
+| `tester` | Write tests from specs | All tools (hidden from picker) | Subagent of builder |
 
-## How These Work
+### Catalog Agents (activated on demand)
 
-- **Prompt files** (`.prompt.md`) are invoked manually via `/` commands in Chat. They're task-specific.
-- **Instruction files** (`.instructions.md` in `.github/instructions/`) are applied automatically when Copilot works on matching files.
-- **Custom agents** (`.agent.md` in `.github/agents/`) define specialized roles with tool restrictions and handoffs.
-- The prompt's `agent: agent` frontmatter runs it in agent mode with full tool access.
-- **Markdown links** in the prompt body attach referenced files as context automatically.
-- Prompts link to `copilot-instructions.md` for project context rather than repeating it.
+These agents live in `.github/catalog/agents/` and are activated by the builder when project characteristics match their trigger conditions. See `.github/catalog/MANIFEST.md` for triggers and details.
+
+| Agent | Role | Trigger |
+|-------|------|---------|
+| `designer` | Visual design system via DESIGN.md | Project has frontend/UI code |
+| `product-owner` | User stories + acceptance criteria | Phase planning with missing user stories |
+| `security-reviewer` | OWASP, secrets, auth/authz audit | Project handles auth, payments, or PII |
+| `critic` | Challenges plans before coding | Phase has 5+ slices |
+
+Agents support **handoffs** — the planner has a button to hand off to implementation, the reviewer has a button to hand off to fix issues.
+
+## How It All Fits Together
+
+```
+┌─────────────────────────────────────────────────┐
+│  autonomous-builder (Autopilot / Copilot CLI)   │
+│                                                 │
+│  ┌─────────┐  ┌──────────┐  ┌────────────────┐ │
+│  │ planner  │  │  tester  │  │    reviewer    │ │
+│  │ (research│  │ (tests   │  │ (code review + │ │
+│  │  only)   │  │  from    │  │  security)     │ │
+│  │          │  │  spec)   │  │                │ │
+│  └─────────┘  └──────────┘  └────────────────┘ │
+│                                                 │
+│  Catalog agents (activated on demand):          │
+│  designer · product-owner · security-reviewer   │
+│  critic                                         │
+│                                                 │
+│  Stop hook: slice-gate.py                       │
+│  (enforces review + prevents premature stop)    │
+└─────────────────────────────────────────────────┘
+
+Manual overrides: /vision-expand  /phase-plan  /implementation-plan  /implement  /code-review  /phase-complete
+```
+
+## How Prompts & Agents Work
+
+- **Prompt files** (`.prompt.md`) — invoked via `/` commands in Chat. Task-specific, human-triggered.
+- **Custom agents** (`.agent.md`) — persistent personas with tool restrictions and handoffs. Selected in agent picker.
+- **Instruction files** (`.instructions.md`) — applied automatically when Copilot works on matching files.
+- **Hooks** (`.github/hooks/`) — deterministic shell commands at agent lifecycle points (e.g., Stop hook blocks premature stopping).
+- **Skills** (`.github/skills/`) — technology-specific knowledge that Copilot auto-loads when relevant.
+- **Workflow catalog** (`.github/catalog/`) — dormant agents, skills, hooks, and patterns that the builder activates when project characteristics match trigger conditions. See `MANIFEST.md` for the full index.
+- **AGENTS.md** — cross-agent instructions recognized by Copilot, Claude Code, and other AI agents.
+- Markdown links in prompt/agent bodies **auto-attach referenced files as context**.
+- Prompts link to `copilot-instructions.md` for shared project context.
 
 ## Design Principles
 
@@ -88,18 +112,11 @@ Based on [VS Code prompt file best practices](https://code.visualstudio.com/docs
 6. **No duplicated instructions** — Prompts link to `copilot-instructions.md` for shared context.
 7. **Doc verification before fixes** — Prompts cite authoritative docs before proposing changes.
 
-## Custom Agents
-
-| Agent | What It Does | Tools |
-|-------|-------------|-------|
-| `planner` | Research and planning — read-only analysis, no code changes | Read-only tools only |
-| `reviewer` | Code review with Sentinel conventions | Read-only + terminal (for tests) |
-
-Agents support **handoffs** — after planning, a button appears to hand off to implementation.
-
 ## Troubleshooting
 
 - **Prompt doesn't appear in `/` menu?** — Check file is in `.github/prompts/` with `.prompt.md` extension.
 - **Agent can't find files?** — Don't add a `tools` field unless restricting. Default agent has full access.
+- **Stop hook not firing?** — Enable `chat.useCustomAgentHooks: true` in VS Code settings.
+- **Agent stops prematurely?** — The Stop hook should block this. Check that `slice-gate.py` exists and is executable.
 - **Prompt not picking up context?** — Verify Markdown links use correct relative paths from the prompt file's location.
 - **Diagnostics** — Right-click in Chat view → Diagnostics to see all loaded prompts and errors.
