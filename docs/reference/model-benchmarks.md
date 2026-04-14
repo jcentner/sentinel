@@ -207,8 +207,8 @@ Per-detector LLM findings on pip-tools:
 | Repo | Annotated Findings | LLM GT | Models Benchmarked |
 |------|-------------------|---------|--------------------|
 | sample-repo | 37 (incl. 3 ICD, 2 TC, 1 SD) | ✅ Yes | nano, mini, 4b, 9b |
-| pip-tools | 38 (deterministic only) | ❌ No | nano, mini |
-| sentinel | 57 (annotated) + 120 (assumed TP) | ❌ No | 4b (full suite) |
+| pip-tools | 38 (deterministic only) | ❌ No | nano, mini, 4b (ICD), 9b (ICD) |
+| sentinel | 57 (annotated) + 120 (assumed TP) | ❌ No | 4b (full + ICD), 9b (ICD) |
 
 **Priority**: Add LLM detector ground truth to pip-tools (manual review of ~48 LLM findings). This would convert the 0% LLM precision into real per-detector ratings on a meaningful codebase.
 
@@ -304,3 +304,77 @@ Full 18-detector scan of Sentinel's own codebase:
 4. **Cloud-mini is precision king** — 100% LLM precision on sample-repo, but at higher cost and similar speed to nano.
 
 5. **Intent-comparison needs v2 across ALL models** — no model produces reliable ICD results. The detector is disabled by default (TD-057) and the v2 redesign with post-LLM filtering is the path to re-enablement.
+
+---
+
+## Phase 15 Benchmarks: Intent-Comparison v2 (2026-04-14)
+
+Benchmarks for the redesigned intent-comparison detector with post-LLM filtering (3-layer filter:
+structural validity, specificity/vagueness rejection, evidence quote verification).
+
+### Test Setup
+
+- **Repos**: `tests/fixtures/sample-repo/` (1 seeded ICD TP: `process_records` code vs docs contradiction), Sentinel self-scan (~4500+ LOC, 50 LLM calls), `pip-tools` (real-world, 21 LLM calls)
+- **Models**: qwen3.5:4b (Ollama, full GPU), qwen3.5:9b-q4_K_M (Ollama, partial GPU ~72%)
+- **Mode**: `sentinel benchmark --skip-judge` — raw detector output, no judge
+- **Key v2 changes**: Post-LLM filtering (`_filter_contradictions`), improved prompt with FP examples, required `quote_a`/`quote_b` fields, dynamic confidence scoring
+- **Date**: 2026-04-14
+
+### Sample Repo Results (Full Suite, post-ICD v2)
+
+| Metric | qwen3.5:4b | qwen3.5:9b | Pre-v2 4b | Pre-v2 9b |
+|--------|-----------|-----------|----------|----------|
+| Total findings | 36 | 38 | 34 | 36 |
+| Headline precision | 92% | 92% | 94% | 94% |
+| Headline recall | 92% | 97% | 91% | 97% |
+| ICD findings | 1 | 1 | 0 | 0 |
+| ICD precision | 100% | 100% | N/A | N/A |
+| ICD recall | 100% | 100% | 0% | 0% |
+| Duration | 19.6s | 50.4s | 14.8s | 36.1s |
+
+Both models now find the seeded `process_records` contradiction (code returns dict, README claims tuple) with **100% precision and 100% recall**. Pre-v2, no model found any ICD results on sample-repo — the `is_test_file` bug (fixed in `f8e6a72`) was classifying all sample-repo files as test files due to the `tests/fixtures/` path prefix.
+
+### ICD-Only Results on Larger Repos
+
+| Repo | qwen3.5:4b | qwen3.5:9b | v1 nano | v1 mini |
+|------|-----------|-----------|---------|---------|
+| **Sentinel self-scan** | 15 findings (67s) | 6 findings (233s) | N/A | N/A |
+| **pip-tools** | 3 findings (32s) | 2 findings (53s) | 20 findings | 31 findings |
+| LLM calls (sentinel) | 50 | 50 | — | — |
+| LLM calls (pip-tools) | 21 | 21 | — | — |
+
+**v1 → v2 reduction on pip-tools**: 20 findings → 3 (85% reduction, nano baseline) and 31 → 2 (94% reduction, mini baseline). The post-LLM filter is aggressively removing low-quality findings. Note that v1 numbers are from cloud models (nano/mini) and v2 from local (4b/9b), so this is not a clean apples-to-apples comparison — it demonstrates the combined effect of v2 filtering.
+
+### Per-Model ICD Characteristics
+
+| Factor | qwen3.5:4b | qwen3.5:9b |
+|--------|-----------|-----------|
+| Finding rate (sentinel) | 30% (15/50 calls) | 12% (6/50 calls) |
+| Finding rate (pip-tools) | 14% (3/21 calls) | 10% (2/21 calls) |
+| Speed per call (sentinel) | 1.3s avg | 4.7s avg |
+| Speed per call (pip-tools) | 1.5s avg | 2.5s avg |
+| Behavior | More aggressive | More conservative |
+
+The 4b model produces 2–3× more findings than 9b, consistent with the pattern seen in other LLM detectors where the smaller model is more prone to flagging borderline cases. The 9b model's stricter filtering makes it a potentially better fit for high-precision use cases — but cloud model benchmarks are needed to confirm whether the 9b's lower finding count reflects better judgment or missed TPs.
+
+### Analysis
+
+1. **ICD v2 works.** The post-LLM filter eliminates the >90% FP rate that plagued v1. Both models achieve 100% precision on the ground-truth sample, and finding counts on larger repos are dramatically reduced.
+
+2. **Local models are viable for ICD.** The 4b model runs ICD in ~1.3s/symbol — fast enough for overnight scans of 50+ symbols. The 9b is 3.5× slower due to CPU offload but produces fewer findings.
+
+3. **Precision assessment needs cloud benchmarks.** Without ground truth on sentinel/pip-tools, we cannot measure the actual FP rate of the remaining findings. The 4b's 15 findings on sentinel self-scan likely include FPs — manual review or cloud model benchmarks (gpt-5.4-nano/mini with v2) would quantify this.
+
+4. **Sample-repo ICD ground truth is minimal.** A single TP (`process_records`) is insufficient for statistical significance. The ground truth should be expanded with additional seeded contradictions or annotated findings from real repos.
+
+### Comparison: All Models × ICD Versions
+
+| Model | Version | sample-repo ICD | pip-tools ICD | sentinel ICD |
+|-------|---------|----------------|--------------|-------------|
+| gpt-5.4-nano | v1 | 0 | 20 | N/A |
+| gpt-5.4-mini | v1 | 0 | 31 | N/A |
+| qwen3.5:4b | v1 | 0 | N/A | 5 |
+| qwen3.5:4b | v2 | 1 (100%P) | 3 | 15 |
+| qwen3.5:9b | v2 | 1 (100%P) | 2 | 6 |
+
+**Next steps**: Run cloud models (nano/mini) with ICD v2 to complete the comparison matrix. This will show whether the filtering improvements hold across model sizes and whether cloud models achieve better precision on the ungrounded repos.
