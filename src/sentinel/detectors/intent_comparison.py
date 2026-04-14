@@ -392,6 +392,7 @@ def _extract_symbols(
             # Use the docstring pair which has code-without-docstring
             sym: dict[str, Any] = {
                 "name": fn.name,
+                "class_name": fn.class_name,
                 "code": pair.code,
                 "line_start": fn.line_start,
                 "code_start": pair.code_start,
@@ -402,6 +403,7 @@ def _extract_symbols(
         else:
             sym = {
                 "name": fn.name,
+                "class_name": fn.class_name,
                 "code": fn.body,
                 "line_start": fn.line_start,
                 "code_start": fn.line_start,
@@ -442,13 +444,13 @@ def _extract_symbols(
 
 def _build_test_lookup(
     repo_root: Path,
-) -> dict[str, dict[str, str]]:
-    """Build a mapping from implementation function name to test function bodies.
+) -> dict[str, list[dict[str, str]]]:
+    """Build a mapping from implementation function name to test function info.
 
-    Returns: {lower_func_name: {test_func_name: test_body, ...}}
+    Returns: {lower_func_name: [{name: str, body: str, class_name: str|""}, ...]}
     Searches test files in all supported languages (Python, JS, TS).
     """
-    lookup: dict[str, dict[str, str]] = {}
+    lookup: dict[str, list[dict[str, str]]] = {}
 
     all_globs = sorted(
         glob for globs in SOURCE_EXTENSIONS.values() for glob in globs
@@ -495,32 +497,80 @@ def _build_test_lookup(
                 if not base:
                     continue
 
-                lookup.setdefault(base, {})[fn.name] = fn.body
+                lookup.setdefault(base, []).append({
+                    "name": fn.name,
+                    "body": fn.body,
+                    "class_name": fn.class_name or "",
+                })
 
     return lookup
 
 
+def _derive_impl_class(test_class: str) -> str:
+    """Derive the implementation class name from a test class name.
+
+    TestOllamaProvider -> ollamaprovider
+    TestOpenAICompatibleProvider -> openaicompatibleprovider
+    """
+    name = test_class.lower()
+    for prefix in ("test_", "test"):
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
+
 def _find_tests_for_symbol(
     sym_name: str,
-    test_lookup: dict[str, dict[str, str]],
+    test_lookup: dict[str, list[dict[str, str]]],
+    impl_class: str | None = None,
 ) -> dict[str, str]:
     """Find test functions for a symbol using exact and prefix matching.
+
+    When impl_class is provided, prefer tests from matching test classes
+    (e.g., OllamaProvider -> TestOllamaProvider). Falls back to all tests
+    only when no class-specific matches exist.
 
     Returns {test_func_name: test_body} for matches.
     """
     key = sym_name.lower()
+    impl_cls_lower = impl_class.lower() if impl_class else None
+
+    def _collect(entries: list[dict[str, str]]) -> dict[str, str]:
+        """Filter entries by class affinity, return name->body dict."""
+        if not impl_cls_lower:
+            return {e["name"]: e["body"] for e in entries}
+
+        # Class-specific matches: test class derives from impl class
+        class_matches = {
+            e["name"]: e["body"] for e in entries
+            if e["class_name"]
+            and _derive_impl_class(e["class_name"]) == impl_cls_lower
+        }
+        if class_matches:
+            return class_matches
+
+        # No class match found — include only unclassed tests (standalone)
+        standalone = {
+            e["name"]: e["body"] for e in entries
+            if not e["class_name"]
+        }
+        if standalone:
+            return standalone
+
+        # Last resort: all tests (may be cross-class)
+        return {e["name"]: e["body"] for e in entries}
 
     # Exact match
     if key in test_lookup:
-        return test_lookup[key]
+        return _collect(test_lookup[key])
 
     # Prefix match — find tests where the impl name is a prefix
     # e.g. "run_scan" matches test_run_scan_incremental
-    matches: dict[str, str] = {}
-    for test_key, test_funcs in test_lookup.items():
+    all_entries: list[dict[str, str]] = []
+    for test_key, entries in test_lookup.items():
         if test_key.startswith(key + "_"):
-            matches.update(test_funcs)
-    return matches
+            all_entries.extend(entries)
+    return _collect(all_entries)
 
 
 # ── Doc section lookup ─────────────────────────────────────────────
@@ -609,7 +659,7 @@ def _gather_artifacts(
     py_file: Path,
     rel_path: str,
     repo_root: Path,
-    test_lookup: dict[str, dict[str, str]],
+    test_lookup: dict[str, list[dict[str, str]]],
     doc_lookup: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
     """Gather all available artifacts for a symbol.
@@ -626,7 +676,9 @@ def _gather_artifacts(
         artifacts["docstring"] = sym["docstring"]
 
     # Find tests
-    tests = _find_tests_for_symbol(sym["name"], test_lookup)
+    tests = _find_tests_for_symbol(
+        sym["name"], test_lookup, impl_class=sym.get("class_name"),
+    )
     if tests:
         artifacts["tests"] = [
             {"test_name": tn, "test_body": tb}

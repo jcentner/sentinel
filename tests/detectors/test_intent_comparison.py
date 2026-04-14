@@ -176,7 +176,8 @@ class TestBuildTestLookup:
         )
         lookup = _build_test_lookup(tmp_path)
         assert "bar" in lookup
-        assert "test_bar" in lookup["bar"]
+        names = [e["name"] for e in lookup["bar"]]
+        assert "test_bar" in names
 
     def test_skips_non_test_files(self, tmp_path: Path) -> None:
         (tmp_path / "helper.py").write_text(
@@ -206,19 +207,54 @@ class TestBuildTestLookup:
 
 class TestFindTestsForSymbol:
     def test_exact_match(self) -> None:
-        lookup = {"run_scan": {"test_run_scan": "body"}}
+        lookup: dict[str, list[dict[str, str]]] = {
+            "run_scan": [{"name": "test_run_scan", "body": "body", "class_name": ""}],
+        }
         result = _find_tests_for_symbol("run_scan", lookup)
         assert "test_run_scan" in result
 
     def test_prefix_match(self) -> None:
-        lookup = {"run_scan_full": {"test_run_scan_full": "body"}}
+        lookup: dict[str, list[dict[str, str]]] = {
+            "run_scan_full": [{"name": "test_run_scan_full", "body": "body", "class_name": ""}],
+        }
         result = _find_tests_for_symbol("run_scan", lookup)
         assert "test_run_scan_full" in result
 
     def test_no_match(self) -> None:
-        lookup = {"unrelated": {"test_unrelated": "body"}}
+        lookup: dict[str, list[dict[str, str]]] = {
+            "unrelated": [{"name": "test_unrelated", "body": "body", "class_name": ""}],
+        }
         result = _find_tests_for_symbol("run_scan", lookup)
         assert len(result) == 0
+
+    def test_class_aware_matching(self) -> None:
+        """Tests from matching test class are preferred over cross-class tests."""
+        lookup: dict[str, list[dict[str, str]]] = {
+            "check_health": [
+                {"name": "test_check_health_success", "body": "ollama body",
+                 "class_name": "TestOllamaProvider"},
+                {"name": "test_check_health_404", "body": "openai body",
+                 "class_name": "TestOpenAICompatibleProvider"},
+            ],
+        }
+        result = _find_tests_for_symbol(
+            "check_health", lookup, impl_class="OllamaProvider",
+        )
+        assert "test_check_health_success" in result
+        assert "test_check_health_404" not in result
+
+    def test_class_aware_falls_back_to_all(self) -> None:
+        """When no class match, return all tests."""
+        lookup: dict[str, list[dict[str, str]]] = {
+            "check_health": [
+                {"name": "test_check_health_x", "body": "body",
+                 "class_name": "TestSomethingElse"},
+            ],
+        }
+        result = _find_tests_for_symbol(
+            "check_health", lookup, impl_class="OllamaProvider",
+        )
+        assert "test_check_health_x" in result
 
 
 # ── Doc lookup ─────────────────────────────────────────────────────
@@ -300,10 +336,12 @@ class TestGatherArtifacts:
             "code_end": 20,
             "docstring_end": 13,
         }
-        test_lookup: dict[str, dict[str, str]] = {
-            "run_scan": {
-                "test_run_scan": "def test_run_scan():\n    ...\n    assert len(r) > 0\n    assert r == expected",
-            },
+        test_lookup: dict[str, list[dict[str, str]]] = {
+            "run_scan": [{
+                "name": "test_run_scan",
+                "body": "def test_run_scan():\n    ...\n    assert len(r) > 0\n    assert r == expected",
+                "class_name": "",
+            }],
         }
         doc_lookup: dict[str, list[dict[str, Any]]] = {
             "run_scan": [{
@@ -332,11 +370,12 @@ class TestGatherArtifacts:
             "code_start": 3,
             "code_end": 6,
         }
-        test_lookup: dict[str, dict[str, str]] = {
-            "process": {
-                f"test_process_{i}": f"body_{i}\n...\n...\n..."
+        test_lookup: dict[str, list[dict[str, str]]] = {
+            "process": [
+                {"name": f"test_process_{i}", "body": f"body_{i}\n...\n...\n...",
+                 "class_name": ""}
                 for i in range(5)
-            },
+            ],
         }
         artifacts = _gather_artifacts(
             sym, tmp_path / "mod.py", "mod.py", tmp_path,
