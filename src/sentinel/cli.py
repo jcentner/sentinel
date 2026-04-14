@@ -605,6 +605,92 @@ def history(repo: str, db: str | None, limit: int, output_json: bool) -> None:
 
 
 @main.command()
+@click.argument("run_id", type=int)
+@click.argument("base_run_id", type=int)
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--json-output", "output_json", is_flag=True, help="Output as JSON")
+def compare(
+    run_id: int,
+    base_run_id: int,
+    repo: str,
+    db: str | None,
+    output_json: bool,
+) -> None:
+    """Compare findings between two scan runs.
+
+    Shows new, resolved, and persistent findings between BASE_RUN_ID and RUN_ID.
+    BASE_RUN_ID is the earlier (baseline) run, RUN_ID is the later run.
+    """
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.store.findings import compare_runs
+    from sentinel.store.runs import get_run_by_id
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        base_run = get_run_by_id(conn, base_run_id)
+        target_run = get_run_by_id(conn, run_id)
+        if not base_run:
+            click.echo(f"Base run #{base_run_id} not found.", err=True)
+            raise SystemExit(1)
+        if not target_run:
+            click.echo(f"Run #{run_id} not found.", err=True)
+            raise SystemExit(1)
+
+        new, resolved, persistent = compare_runs(conn, base_run_id, run_id)
+
+        if output_json:
+            click.echo(json.dumps({
+                "base_run_id": base_run_id,
+                "run_id": run_id,
+                "new": [f.to_dict() for f in new],
+                "resolved": [f.to_dict() for f in resolved],
+                "persistent": [f.to_dict() for f in persistent],
+                "summary": {
+                    "new_count": len(new),
+                    "resolved_count": len(resolved),
+                    "persistent_count": len(persistent),
+                    "net_change": len(new) - len(resolved),
+                },
+            }, indent=2))
+        else:
+            click.echo(f"Comparing run #{base_run_id} → #{run_id}\n")
+            click.echo(f"  New:        {len(new):>4}")
+            click.echo(f"  Resolved:   {len(resolved):>4}")
+            click.echo(f"  Persistent: {len(persistent):>4}")
+            net = len(new) - len(resolved)
+            sign = "+" if net > 0 else ""
+            click.echo(f"  Net change: {sign}{net:>3}\n")
+
+            if new:
+                click.echo("New findings:")
+                click.echo(f"  {'ID':>5}  {'Severity':<9}  {'Detector':<20}  {'Title'}")
+                click.echo("  " + "-" * 70)
+                for f in new:
+                    click.echo(
+                        f"  {f.id:>5}  {f.severity.value:<9}  {f.detector:<20}  {f.title[:35]}"
+                    )
+                click.echo()
+
+            if resolved:
+                click.echo("Resolved findings:")
+                click.echo(f"  {'ID':>5}  {'Severity':<9}  {'Detector':<20}  {'Title'}")
+                click.echo("  " + "-" * 70)
+                for f in resolved:
+                    click.echo(
+                        f"  {f.id:>5}  {f.severity.value:<9}  {f.detector:<20}  {f.title[:35]}"
+                    )
+                click.echo()
+    finally:
+        conn.close()
+
+
+@main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option("--embed-model", default=None,
               help="Embedding model (default: from config or nomic-embed-text)")

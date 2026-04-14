@@ -1108,3 +1108,73 @@ class TestLLMLog:
         data = json.loads(result.output)
         assert "stats" in data
         assert "model_speed" in data
+
+
+# ── compare command ──────────────────────────────────────────────────
+
+
+class TestCompareCommand:
+    def test_compare_not_found(self, runner, test_repo, db_path):
+        result = runner.invoke(main, [
+            "compare", "1", "2",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+
+    def test_compare_two_runs(self, runner, test_repo, db_path):
+        # Create two scan runs
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        # Modify repo to get different findings
+        (test_repo / "extra.py").write_text(
+            "# TODO: another issue\n"
+            "import sys\n"
+        )
+        import subprocess
+        subprocess.run(
+            ["git", "add", "-A"], cwd=str(test_repo),
+            capture_output=True, check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "extra"],
+            cwd=str(test_repo), capture_output=True, check=True,
+        )
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+
+        result = runner.invoke(main, [
+            "compare", "2", "1",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Comparing run #1" in result.output
+        assert "New:" in result.output
+        assert "Resolved:" in result.output
+        assert "Persistent:" in result.output
+
+    def test_compare_json_output(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+
+        result = runner.invoke(main, [
+            "compare", "2", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "new" in data
+        assert "resolved" in data
+        assert "persistent" in data
+        assert "summary" in data
+        assert "net_change" in data["summary"]
