@@ -299,37 +299,34 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "2026-04-13"),
 
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
-    # ICD v2 (Phase 15, commit 3f5654b) added post-LLM filtering with
-    # 3 gates: structural validity, specificity/vagueness, evidence quotes.
-    # Benchmarked across 3 repos x 5 models (2026-04-14).
-    # WARNING: All ICD ratings are estimates inferred from finding counts
-    # on repos without ICD ground truth. Sample-repo has N=1 ICD TP.
-    # Fewer findings may indicate better precision OR lower recall.
-    # Ratings will be revised when ICD ground truth is expanded.
-    _e("intent-comparison", "4b-local", "advanced", QualityRating.GOOD, "<25% (est)",
-       "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
-       "3 findings on pip-tools (no GT), 15 on sentinel (no GT). "
-       "Rating inferred from finding counts, not measured FP rate.",
+    # ICD v2 + class-aware matching + FP reduction filters (4 gates:
+    # structural, self-negating, specificity, evidence quotes).
+    # Precision measured via manual TP/FP annotation on 3 repos:
+    # sample-repo (N=1 TP fixture), pip-tools, sentinel self-scan.
+    # "Real repos" = pip-tools + sentinel (excludes synthetic sample-repo).
+    _e("intent-comparison", "4b-local", "advanced", QualityRating.UNTESTED, "n/a",
+       "Prior benchmarks stale (pre-class-aware-matching). "
+       "Needs re-benchmark with current detector code on Ollama.",
        "2026-04-14"),
-    _e("intent-comparison", "9b-local", "advanced", QualityRating.GOOD, "<25% (est)",
-       "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
-       "2 findings on pip-tools (no GT), 6 on sentinel (no GT). "
-       "Rating inferred from finding counts, not measured FP rate.",
+    _e("intent-comparison", "9b-local", "advanced", QualityRating.UNTESTED, "n/a",
+       "Prior benchmarks stale (pre-class-aware-matching). "
+       "Needs re-benchmark with current detector code on Ollama.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.FAIR, "~25-40% (est)",
-       "ICD v2: 3 findings on sample-repo (1 TP, 2 unexpected, 33% precision). "
-       "17 on pip-tools (no GT), 47 on sentinel (no GT). "
-       "v2 filtering helps less with nano. Rating est from finding counts.",
+    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.POOR, "~98%",
+       "gpt-5.4-nano: 1/60 TP on real repos (~2% precision). "
+       "20 findings on pip-tools (1 TP), 39 on sentinel (0 TP). "
+       "Dominant FP: hallucinated test assertions, misread code paths.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-small", "advanced", QualityRating.GOOD, "<25% (est)",
-       "ICD v2: 2 findings on sample-repo (1 TP, 1 unexpected, 50% precision). "
-       "6 on pip-tools (no GT), 30 on sentinel (no GT). "
-       "Rating est from finding counts. 81% fewer findings vs v1 on pip-tools.",
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.POOR, "~96%",
+       "gpt-5.4-mini: 1/24 TP on real repos (4% precision). "
+       "8 findings on pip-tools (1 TP), 16 on sentinel (0 TP). "
+       "FP patterns: parameter confusion, incomplete call-chain analysis.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.GOOD, "<25% (est)",
-       "ICD v2: 3 findings on sample-repo (1 TP, 2 unexpected, 33% precision). "
-       "1 on pip-tools (no GT), 15 on sentinel (no GT). "
-       "Fewest findings on pip-tools (97% reduction vs v1). Rating est.",
+    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.POOR, "~57%",
+       "gpt-5.4: 3/7 TP on real repos (43% precision). "
+       "2 on pip-tools (1 TP), 5 on sentinel (2 TP). "
+       "Best available but still >40% FP. Found real docstring bugs "
+       "(DFS/BFS mismatch, incomplete return docs).",
        "2026-04-14"),
 ]
 

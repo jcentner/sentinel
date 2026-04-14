@@ -417,6 +417,7 @@ def prepare_incremental(
 
     Returns (scope, changed_files):
       - If a prior run with a commit SHA exists and files changed: INCREMENTAL + file list
+      - If HEAD is unchanged since last run: INCREMENTAL + empty list
       - Otherwise: FULL + None (falls back to a full scan)
     """
     repo_root = str(Path(repo_path).resolve())

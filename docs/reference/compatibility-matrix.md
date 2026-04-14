@@ -26,7 +26,7 @@ These detectors **use the model directly** to analyze code. Model quality direct
 | **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) |
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) |
 | **inline-comment-drift** | ❓ Untested | ❓ Untested | 🟡 Fair (~40% FP) | 🟢 Excellent (<10% FP) | ❓ Untested |
-| **intent-comparison** | 🔵 Good (est, N=1) | 🔵 Good (est, N=1) | 🟡 Fair (est) | 🔵 Good (est) | 🔵 Good (est) |
+| **intent-comparison** | ❓ Untested | ❓ Untested | 🔴 Poor (~98% FP) | 🔴 Poor (~96% FP) | 🔴 Poor (~57% FP) |
 | **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
@@ -67,25 +67,26 @@ Finds real docstring-code drift. With updated ground truth (3 seeded TPs in samp
 
 **Mini is recommended** for this detector — it finds the real issues without the noise. **Very slow**: ~303s on pip-tools due to serial per-function LLM calls.
 
-### intent-comparison — v2 redesign validated across 5 models
+### intent-comparison — high FP rate across all models
 
-ICD v2 (Phase 15) adds post-LLM filtering with 3 gates: structural validity, specificity/vagueness rejection, evidence quote verification. Benchmarked across 3 repos x 5 models.
+ICD v2 + class-aware test matching + 4 FP reduction gates (structural, self-negating, specificity, evidence quotes). Precision measured via manual TP/FP annotation on pip-tools + sentinel self-scan.
 
-**Finding counts (ICD v2):**
+**Measured precision (real repos only, sample-repo excluded):**
 
-| Model | sample-repo | pip-tools | sentinel | v1 pip-tools |
-|-------|------------|-----------|----------|-------------|
-| qwen3.5:4b | 1 (1 TP) | 3 | 15 | — |
-| qwen3.5:9b | 1 (1 TP) | 2 | 6 | — |
-| gpt-5.4-nano | 3 (1 TP) | 17 | 47 | 20 |
-| gpt-5.4-mini | 2 (1 TP) | 6 | 30 | 31 |
-| gpt-5.4 | 3 (1 TP) | 1 | 15 | 35 |
+| Model | pip-tools findings | sentinel findings | Real-repo TP | Precision | FP Rate |
+|-------|-------------------|-------------------|-------------|-----------|---------|
+| gpt-5.4-nano | 20 (1 TP) | 39 (0 TP) | 1/59 | ~2% | ~98% |
+| gpt-5.4-mini | 8 (1 TP) | 16 (0 TP) | 1/24 | 4% | ~96% |
+| gpt-5.4 | 2 (1 TP) | 5 (2 TP) | 3/7 | 43% | ~57% |
 
-**Important**: All ICD ratings are **estimates** inferred from finding counts on repos without ICD ground truth. Sample-repo has only N=1 ICD TP. Fewer findings may indicate better precision **or** lower recall — not yet distinguishable without annotated ground truth on pip-tools/sentinel.
+**Consistent TP**: `dependency_tree` DFS/BFS docstring mismatch in pip-tools (found by all models).
+**Sentinel TPs** (gpt-5.4 only): `prepare_incremental` incomplete return docs, `check_health` stale docstring (fixed).
 
-Sample-repo precision (the only ground-truth data): nano=33%, mini=50%, gpt-5.4=33%, 4B=100%, 9B=100%. These are N=1 measurements — not statistically reliable.
+**Dominant FP patterns**: LLM hallucinated test assertions, partial class reading (misses methods), parameter name confusion, citing archived docs as behavioral specs. The self-negating gate catches ~30-40% of mini FPs (findings where the LLM's own reasoning says "no contradiction").
 
-The detector remains disabled by default (TD-057) pending expansion of ICD ground truth. Run with `--detectors intent-comparison` to include it explicitly.
+4B-local and 9B-local ratings are stale (benchmarked before class-aware matching) and need re-benchmark on Ollama.
+
+The detector remains disabled by default (TD-057) pending precision improvement. Run with `--detectors intent-comparison` to include it explicitly.
 
 Configure per-detector model in `sentinel.toml`:
 

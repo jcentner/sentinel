@@ -359,13 +359,15 @@ The 4b model produces 2–3× more findings than 9b, consistent with the pattern
 
 ### Analysis
 
-1. **ICD v2 works.** The post-LLM filter eliminates the >90% FP rate that plagued v1. Both models achieve 100% precision on the ground-truth sample, and finding counts on larger repos are dramatically reduced.
+1. **ICD precision is low across all models.** Even gpt-5.4 (the best available) achieves only 43% precision on real repos — below the 50% threshold for "useful without heavy human review." Nano and mini are effectively unusable for ICD (<5% precision).
 
-2. **Local models are viable for ICD.** The 4b model runs ICD in ~1.3s/symbol — fast enough for overnight scans of 50+ symbols. The 9b is 3.5× slower due to CPU offload but produces fewer findings.
+2. **The post-LLM filter catches structural noise but not semantic hallucination.** The 4 filter gates (structural, self-negating, specificity, evidence quotes) eliminate obviously bad responses, but the dominant FP pattern — the LLM generating plausible-sounding but factually wrong analysis — passes all gates.
 
-3. **Precision assessment needs cloud benchmarks.** Without ground truth on sentinel/pip-tools, we cannot measure the actual FP rate of the remaining findings. The 4b's 15 findings on sentinel self-scan likely include FPs — manual review or cloud model benchmarks (gpt-5.4-nano/mini with v2) would quantify this.
+3. **Class-aware test matching helps for class-organized codebases.** The cross-class contamination fix removed FPs where tests from one class (e.g., TestAzureProvider) were attributed to a different class's methods. This primarily helps sentinel-style codebases with parallel test classes.
 
-4. **Sample-repo ICD ground truth is minimal.** A single TP (`process_records`) is insufficient for statistical significance. The ground truth should be expanded with additional seeded contradictions or annotated findings from real repos.
+4. **The detector finds real bugs.** Despite low precision, gpt-5.4 found genuine docstring bugs: DFS/BFS mismatch, incomplete return docs, stale completions claim. These are the types of issues humans miss in code review.
+
+5. **Improving ICD precision requires either:** (a) smarter LLM prompting with self-verification, (b) a second LLM pass to validate findings, or (c) restricting to high-confidence findings only. Current architecture hits the ceiling of single-pass LLM analysis.
 
 ### Comparison: All Models × ICD Versions
 
@@ -376,5 +378,27 @@ The 4b model produces 2–3× more findings than 9b, consistent with the pattern
 | qwen3.5:4b | v1 | 0 | N/A | 5 |
 | qwen3.5:4b | v2 | 1 (100%P) | 3 | 15 |
 | qwen3.5:9b | v2 | 1 (100%P) | 2 | 6 |
+| gpt-5.4-nano | v2+fixes | 1 (100%P) | 20 (1TP, 5%P) | 39 (0TP, 0%P) |
+| gpt-5.4-mini | v2+fixes | 1 (100%P) | 8 (1TP, 13%P) | 16 (0TP, 0%P) |
+| gpt-5.4 | v2+fixes | 2 (100%P) | 2 (1TP, 50%P) | 5 (2TP, 40%P) |
 
-**Next steps**: Run cloud models (nano/mini) with ICD v2 to complete the comparison matrix. This will show whether the filtering improvements hold across model sizes and whether cloud models achieve better precision on the ungrounded repos.
+"v2+fixes" = v2 post-LLM filtering + class-aware test matching + self-negating gate + fixture/archive exclusion.
+
+**Measured precision on real repos (pip-tools + sentinel combined):**
+- gpt-5.4-nano: 1/59 TP (~2% precision)
+- gpt-5.4-mini: 1/24 TP (4% precision)
+- gpt-5.4: 3/7 TP (43% precision)
+
+**True positives found:**
+- `dependency_tree` DFS/BFS docstring mismatch in pip-tools (all models)
+- `prepare_incremental` incomplete return docs in sentinel (gpt-5.4 only)
+- `check_health` stale docstring in sentinel (gpt-5.4 only, now fixed)
+
+**Dominant FP patterns:**
+1. Hallucinated test assertions (LLM fabricates tests that don't exist)
+2. Partial class reading (misses embed() method, flags docstring as wrong)
+3. Parameter name confusion (confuses num_ctx with max_tokens)
+4. Citing archived/irrelevant docs as behavioral specs
+5. Self-negating findings (LLM says "no contradiction" in its own reasoning)
+
+The 4B and 9B local model results above are stale — they were benchmarked before class-aware matching and need re-running on Ollama.
