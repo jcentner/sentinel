@@ -41,6 +41,8 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - Open questions: [docs/reference/open-questions.md](docs/reference/open-questions.md)
 - Tech debt: [docs/reference/tech-debt.md](docs/reference/tech-debt.md)
 - Glossary: [docs/reference/glossary.md](docs/reference/glossary.md)
+- Stack skills: [.github/skills/](.github/skills/) — technology-specific docs grounding
+- Workflow catalog: [.github/catalog/MANIFEST.md](.github/catalog/MANIFEST.md) — dormant agents, skills, hooks, and patterns activated on demand
 
 ## Coding Conventions
 
