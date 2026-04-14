@@ -170,6 +170,16 @@ def run_scan(
         before_count = len(detectors)
         detectors = [d for d in detectors if d.name not in skip_set]
         logger.info("Skipping %d disabled detectors (%d remaining)", before_count - len(detectors), len(detectors))
+    else:
+        # No explicit filter — exclude detectors that are not enabled by default
+        non_default = [d for d in detectors if not d.enabled_by_default]
+        if non_default:
+            names = [d.name for d in non_default]
+            detectors = [d for d in detectors if d.enabled_by_default]
+            logger.info(
+                "Excluded %d non-default detector(s): %s (use enabled_detectors to include)",
+                len(names), ", ".join(names),
+            )
 
     # 3c. Build per-detector provider cache (OQ-012)
     detector_providers: dict[str, ModelProvider] = {}

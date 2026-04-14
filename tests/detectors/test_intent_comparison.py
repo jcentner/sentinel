@@ -57,6 +57,10 @@ class TestDetectorMeta:
         d = IntentComparisonDetector()
         assert len(d.description) > 10
 
+    def test_not_enabled_by_default(self) -> None:
+        d = IntentComparisonDetector()
+        assert d.enabled_by_default is False
+
 
 # ── Symbol extraction ──────────────────────────────────────────────
 

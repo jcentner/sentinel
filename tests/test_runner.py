@@ -322,6 +322,66 @@ class TestDetectorFiltering:
         assert len(findings) == 1
         assert "Very low" in report
 
+    def test_enabled_by_default_excludes_non_default(self, db_conn, repo, caplog):
+        """Detectors with enabled_by_default=False are excluded without explicit filter."""
+        import logging
+
+        class _OptInDetector(_MockDetector):
+            @property
+            def name(self):
+                return "opt-in-det"
+
+            @property
+            def enabled_by_default(self):
+                return False
+
+            def detect(self, ctx):
+                return [Finding(
+                    detector="opt-in-det", category="test",
+                    severity=Severity.LOW, confidence=1.0,
+                    title="From opt-in", description="opt-in",
+                    evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="a")],
+                )]
+
+        default_det = _MockDetector([_sample_finding()])
+        with caplog.at_level(logging.INFO):
+            _run, findings, _ = run_scan(
+                str(repo), db_conn,
+                detectors=[default_det, _OptInDetector()],
+                skip_judge=True,
+            )
+        assert len(findings) == 1
+        assert findings[0].detector == "mock-detector"
+        assert "opt-in-det" in caplog.text
+
+    def test_enabled_by_default_included_when_explicitly_enabled(self, db_conn, repo):
+        """Detectors with enabled_by_default=False run when in enabled_detectors."""
+        class _OptInDetector(_MockDetector):
+            @property
+            def name(self):
+                return "opt-in-det"
+
+            @property
+            def enabled_by_default(self):
+                return False
+
+            def detect(self, ctx):
+                return [Finding(
+                    detector="opt-in-det", category="test",
+                    severity=Severity.LOW, confidence=1.0,
+                    title="From opt-in", description="opt-in",
+                    evidence=[Evidence(type=EvidenceType.CODE, source="x.py", content="a")],
+                )]
+
+        _run, findings, _ = run_scan(
+            str(repo), db_conn,
+            detectors=[_MockDetector([_sample_finding()]), _OptInDetector()],
+            skip_judge=True,
+            enabled_detectors=["opt-in-det"],
+        )
+        assert len(findings) == 1
+        assert findings[0].detector == "opt-in-det"
+
 
 # ── Per-detector provider (OQ-012) ──────────────────────────────────
 

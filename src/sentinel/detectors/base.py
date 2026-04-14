@@ -60,6 +60,15 @@ class Detector(abc.ABC):
         """
         return CapabilityTier.NONE
 
+    @property
+    def enabled_by_default(self) -> bool:
+        """Whether this detector runs when no explicit filter is configured.
+
+        Defaults to True. Override to False for experimental or high-FP
+        detectors that should only run when explicitly enabled.
+        """
+        return True
+
     @abc.abstractmethod
     def detect(self, context: DetectorContext) -> list[Finding]:
         """Run detection and return findings.

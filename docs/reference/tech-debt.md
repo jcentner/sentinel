@@ -71,18 +71,12 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Resolution**: Added `_is_example_context()` helper that checks for "e.g.", "for example", "such as", "like" phrases in the 30-char window before backtick-wrapped paths. Eliminated 1/3 pip-tools FPs (the "e.g. `release/v3.4.0`" case). Two edge cases remain: feature descriptions in CHANGELOG and example filenames without explicit example-context phrases.
 
 ### TD-057: intent-comparison detector produces >90% false positives
-**Status**: Active
-**Severity**: High
+**Status**: Mitigated (Session 46) — disabled by default
+**Severity**: High → Low (mitigated)
 **Introduced**: Session 45 (benchmark audit)
-**Description**: The intent-comparison detector has fundamental design issues that make it unreliable:
-1. Runs even with `model_capability=basic` despite declaring `advanced` requirement (warning-only gate in `runner.py`)
-2. No post-LLM filtering — every LLM-reported contradiction becomes a finding regardless of confidence or plausibility
-3. Prompt lacks concrete false-positive examples to calibrate the model
-4. Hardcoded confidence thresholds (0.55 basic, 0.70 enhanced) with no validation
-5. 50-call budget (`_MAX_PER_SCAN`) with no quality check or early stop
-Results: 0 findings on sample-repo (too few 3-artifact symbols), 35 findings on pip-tools (all likely FP). Rated POOR (>90% estimated FP) for cloud-small.
-**Impact**: Users who enable this detector get a flood of false positives, damaging trust in the system. The detector is the noisiest component by a large margin.
-**Proposed resolution**: Redesign needed — add hard capability gate (skip if model < advanced), add post-LLM filtering (reject low-confidence or vague contradictions), add concrete FP examples to prompt, test on multiple repos before re-rating. Consider disabling by default until redesign is complete.
+**Description**: The intent-comparison detector has fundamental design issues. Now disabled by default (`enabled_by_default = False`). Users can opt in via `enabled_detectors = ["intent-comparison"]` in sentinel.toml.
+**Impact**: No longer impacts default scan quality. FP rate still >90% when explicitly enabled.
+**Proposed resolution**: Full redesign needed for re-enablement — add post-LLM filtering, FP examples in prompt, hard capability gate.
 
 ### TD-058: Benchmark precision conflates deterministic and LLM detectors
 **Status**: Resolved (Session 45)

@@ -122,6 +122,10 @@ class IntentComparisonDetector(Detector):
     def categories(self) -> list[str]:
         return ["cross-artifact"]
 
+    @property
+    def enabled_by_default(self) -> bool:
+        return False  # TD-057: >90% FP rate, needs redesign
+
     def detect(self, context: DetectorContext) -> list[Finding]:
         try:
             return self._scan(context)
