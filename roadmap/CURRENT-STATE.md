@@ -2,7 +2,7 @@
 
 > Last updated: Session 50 — CI coverage fixed, benchmark integrity documented, LLM detector evaluation
 
-**Phase Status**: In Progress — Phase 15 ICD work paused; addressing quality/integrity gaps and unblocking CI.
+**Phase Status**: Blocked: Phase 15 ICD precision is Poor on all non-frontier models (best: gpt-5.4 at 43%). Comprehensive evaluation completed (docs/analysis/llm-detector-evaluation.md). Awaiting human decision: (a) close phase with honest Poor ratings and ICD disabled by default, (b) implement two-pass verification to target hallucination FP, or (c) proceed to vision expansion.
 
 ## Latest Session Summary
 
@@ -47,6 +47,8 @@ Key cross-cutting findings:
 ### Key Commits This Session (Session 50)
 - `7a20fb6` fix(ci): add multilang deps + tests for findings/prune to pass 85% coverage
 - `12d484b` docs(benchmarks): add integrity requirements, LLM detector evaluation, fix estimated ratings
+- `0dbf191` chore(checkpoint): Session 50 — CI fix, benchmark integrity, LLM detector eval
+- `05664fc` fix(docs): address reviewer findings — stale test counts, ICD estimate label, test flakiness
 
 ### Repository State
 - **Tests**: 1435 passing (13 new)
