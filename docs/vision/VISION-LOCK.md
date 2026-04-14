@@ -104,7 +104,7 @@ Priority-ordered next investments. Each connects to a validated gap.
 **Gap**: TD-045 — ground truth is 1 repo with 50 findings. Most model×detector combos are untested. New detectors (inline-comment-drift, intent-comparison) have zero benchmark data.
 **What**: Ground truth for 2-3 more repos. Benchmark all detectors on multiple models. `sentinel llm-log` CLI command. Benchmark results in LLM log for web drill-down (OQ-019).
 **Success**: ≥3 repos with annotated ground truth. All detectors benchmarked on ≥2 models.
-**Result**: 3 ground truth repos: sample-repo (37 TPs incl. 3 ICD, 2 cloud models with per-category eval), pip-tools (38 annotated deterministic, no LLM GT, 2 cloud models), sentinel (57 annotated + 120 assumed TP). Per-category benchmark split (deterministic vs LLM precision) implemented. ICD rated from real ground truth: nano Fair (~40% FP), mini Excellent (<10% FP). Intent-comparison rated Poor on both nano and mini (>90% FP est, TD-057). Judge quality UNTESTED for cloud-small/frontier (benchmark skips judge). `sentinel llm-log` CLI with filtering, stats, JSON.
+**Result**: 3 ground truth repos: sample-repo (37 TPs incl. 3 ICD, 2 cloud models with per-category eval), pip-tools (38 annotated deterministic, no LLM GT, 2 cloud models), sentinel (57 annotated + 120 assumed TP). Per-category benchmark split (deterministic vs LLM precision) implemented. ICD rated from real ground truth: nano Fair (~40% FP), mini Excellent (<10% FP). Intent-comparison v1 rated Poor on both nano and mini (>90% FP est, TD-057; superseded by Phase 15 v2 redesign). Judge quality UNTESTED for cloud-small/frontier (benchmark skips judge). `sentinel llm-log` CLI with filtering, stats, JSON.
 
 ### Phase 14: CLI/Web parity & polish ✓
 **Gap**: 5 CLI features not in web, 4 web features not in CLI. Low-severity tech debt accumulation.
@@ -116,6 +116,7 @@ Priority-ordered next investments. Each connects to a validated gap.
 **Gap**: TD-057 — intent-comparison is the highest-potential detector (multi-artifact triangulation catches what pairwise detectors miss) but has >90% FP rate and is disabled by default. No ground truth exists to measure improvements.
 **What**: Seed ICD ground truth in sample-repo. Redesign with structured confidence scoring, concrete FP examples in prompts, post-LLM filtering of vague/low-evidence contradictions, dedup against pairwise detectors.
 **Success**: <25% FP rate on cloud-nano on sample-repo. Re-enabled by default with benchmark gate. TD-057 resolved.
+**Result**: ICD v2 shipped (3f5654b) with post-LLM filtering. Benchmarked 3 repos x 5 models. Success criterion NOT met for cloud-nano (33% precision / 67% FP on sample-repo, 17 findings on pip-tools). Mini achieves 50% precision (N=1), frontier shows fewest findings (1 on pip-tools). Local 4B/9B also good (1 finding on sample-repo). All ICD ratings are estimates (insufficient ground truth). Detector remains disabled by default. TD-057 partially resolved (cloud benchmarks done, ground truth expansion needed).
 
 ## Out of Scope (permanent)
 

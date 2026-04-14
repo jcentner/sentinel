@@ -2,7 +2,7 @@
 
 Which models work well for which detectors — and which combinations to avoid.
 
-> **Last updated**: 2026-04-13 | **Based on**: sample-repo, pip-tools, sentinel self-scan benchmarks
+> **Last updated**: 2026-04-14 | **Based on**: sample-repo, pip-tools, sentinel self-scan benchmarks
 
 ## How to Read This
 
@@ -25,8 +25,8 @@ These detectors **use the model directly** to analyze code. Model quality direct
 |----------|----------|----------|------------|-------------|----------------|
 | **semantic-drift** | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) | 🟢 Excellent (<10% FP) | 🔵 Good (<15% FP) | 🔵 Good (<15% FP) |
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) |
-| **inline-comment-drift** | ❓ Untested | ❓ Untested | � Fair (~40% FP) | 🟢 Excellent (<10% FP) | ❓ Untested |
-| **intent-comparison** | 🟢 Excellent (v2, N=1) | 🟢 Excellent (v2, N=1) | ❓ Untested (v2) | ❓ Untested (v2) | ❓ Untested |
+| **inline-comment-drift** | ❓ Untested | ❓ Untested | 🟡 Fair (~40% FP) | 🟢 Excellent (<10% FP) | ❓ Untested |
+| **intent-comparison** | 🔵 Good (est, N=1) | 🔵 Good (est, N=1) | 🟡 Fair (est) | 🔵 Good (est) | 🔵 Good (est) |
 | **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
@@ -81,9 +81,9 @@ ICD v2 (Phase 15) adds post-LLM filtering with 3 gates: structural validity, spe
 | gpt-5.4-mini | 2 (1 TP) | 6 | 30 | 31 |
 | gpt-5.4 | 3 (1 TP) | 1 | 15 | 35 |
 
-**Quality ratings:** nano=Fair (~25-40% FP), mini=Good (<25%), gpt-5.4=Excellent (<10%), 4B/9B=Good (<25% est).
+**Important**: All ICD ratings are **estimates** inferred from finding counts on repos without ICD ground truth. Sample-repo has only N=1 ICD TP. Fewer findings may indicate better precision **or** lower recall — not yet distinguishable without annotated ground truth on pip-tools/sentinel.
 
-The v2 filter's effectiveness varies by model. Local 4B/9B are the most conservative (fewest findings), while cloud-nano generates plausible-looking FPs that pass the structural/specificity gates. **gpt-5.4 (frontier) is recommended** for ICD when available — 97% reduction vs v1 on pip-tools.
+Sample-repo precision (the only ground-truth data): nano=33%, mini=50%, gpt-5.4=33%, 4B=100%, 9B=100%. These are N=1 measurements — not statistically reliable.
 
 The detector remains disabled by default (TD-057) pending expansion of ICD ground truth. Run with `--detectors intent-comparison` to include it explicitly.
 

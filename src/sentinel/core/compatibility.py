@@ -45,7 +45,7 @@ class CompatibilityEntry:
 
 # ── Empirical compatibility data ─────────────────────────────────
 #
-# Updated: 2026-04-13
+# Updated: 2026-04-14
 # Sources: sample-repo, pip-tools, sentinel self-scan
 # Models tested: qwen3.5:4b, qwen3.5:9b-q4_K_M, gpt-5.4-nano, gpt-5.4-mini, gpt-5.4
 
@@ -302,33 +302,34 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     # ICD v2 (Phase 15, commit 3f5654b) added post-LLM filtering with
     # 3 gates: structural validity, specificity/vagueness, evidence quotes.
     # Benchmarked across 3 repos x 5 models (2026-04-14).
-    # Strong model-quality correlation: nano is noisy, frontier is precise.
-    # Local 4B/9B outperform cloud-nano on pip-tools (more conservative).
+    # WARNING: All ICD ratings are estimates inferred from finding counts
+    # on repos without ICD ground truth. Sample-repo has N=1 ICD TP.
+    # Fewer findings may indicate better precision OR lower recall.
+    # Ratings will be revised when ICD ground truth is expanded.
     _e("intent-comparison", "4b-local", "advanced", QualityRating.GOOD, "<25% (est)",
        "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
-       "3 findings on pip-tools (85% reduction vs v1), 15 on sentinel self-scan. "
-       "FP rate on larger repos unvalidated -- ground truth needed.",
+       "3 findings on pip-tools (no GT), 15 on sentinel (no GT). "
+       "Rating inferred from finding counts, not measured FP rate.",
        "2026-04-14"),
     _e("intent-comparison", "9b-local", "advanced", QualityRating.GOOD, "<25% (est)",
        "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
-       "2 findings on pip-tools (94% reduction vs v1), 6 on sentinel self-scan. "
-       "Fewer findings than 4B -- better signal-to-noise ratio.",
+       "2 findings on pip-tools (no GT), 6 on sentinel (no GT). "
+       "Rating inferred from finding counts, not measured FP rate.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.FAIR, "~25-40%",
-       "ICD v2: 3 findings on sample-repo (1 TP, N=1). "
-       "17 on pip-tools (only 15% reduction vs v1's 20), 47 on sentinel self-scan. "
-       "v2 filtering helps less with nano -- model generates plausible-looking FPs "
-       "that pass structural/specificity gates. Noisiest cloud model for ICD.",
+    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.FAIR, "~25-40% (est)",
+       "ICD v2: 3 findings on sample-repo (1 TP, 2 unexpected, 33% precision). "
+       "17 on pip-tools (no GT), 47 on sentinel (no GT). "
+       "v2 filtering helps less with nano. Rating est from finding counts.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-small", "advanced", QualityRating.GOOD, "<25%",
-       "ICD v2: 2 findings on sample-repo (1 TP, N=1). "
-       "6 on pip-tools (81% reduction vs v1's 31), 30 on sentinel self-scan. "
-       "Significant improvement over v1. Good balance of signal and noise.",
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.GOOD, "<25% (est)",
+       "ICD v2: 2 findings on sample-repo (1 TP, 1 unexpected, 50% precision). "
+       "6 on pip-tools (no GT), 30 on sentinel (no GT). "
+       "Rating est from finding counts. 81% fewer findings vs v1 on pip-tools.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.EXCELLENT, "<10%",
-       "ICD v2: 3 findings on sample-repo (1 TP, N=1). "
-       "1 on pip-tools (97% reduction vs v1's 35), 15 on sentinel self-scan. "
-       "Most precise model -- recommended for ICD when available.",
+    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.GOOD, "<25% (est)",
+       "ICD v2: 3 findings on sample-repo (1 TP, 2 unexpected, 33% precision). "
+       "1 on pip-tools (no GT), 15 on sentinel (no GT). "
+       "Fewest findings on pip-tools (97% reduction vs v1). Rating est.",
        "2026-04-14"),
 ]
 

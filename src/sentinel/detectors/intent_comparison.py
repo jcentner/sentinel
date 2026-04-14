@@ -144,7 +144,7 @@ class IntentComparisonDetector(Detector):
 
     @property
     def enabled_by_default(self) -> bool:
-        return False  # TD-057: pending cloud benchmark validation before re-enable
+        return False  # TD-057: N=1 ground truth insufficient for confident quality rating
 
     def detect(self, context: DetectorContext) -> list[Finding]:
         try:
