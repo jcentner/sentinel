@@ -1,6 +1,6 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 6.0
+> **Version**: 6.1
 > **Updated**: 2026-04-13
 > **Supersedes**: v5.6 ([archived](archive/VISION-LOCK-v5.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
@@ -54,7 +54,7 @@ The model provider is **pluggable** (Ollama default, OpenAI-compatible supported
 
 ## What Exists Today
 
-18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016) and multi-language support via tree-sitter (Python, JavaScript, TypeScript with regex fallback). Two-phase execution: heuristic detectors run first (parallel via thread pool), building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Async LLM pipeline: concurrent judge (8) and synthesis (4) via ADR-017, giving 4.5x speedup on cloud providers. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (14 commands incl. `llm-log`, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard). GitHub issue creation. Multi-repo scanning. 1387 tests. Published on PyPI as `repo-sentinel`.
+18 pluggable detectors (Python, JS/TS, Go, Rust, cross-artifact, CI/CD, architecture). Four LLM-assisted detectors (semantic-drift, test-coherence, inline-comment-drift, intent-comparison) with benchmark-driven prompt adaptation (binary safe-default, enhanced when quality data supports it — ADR-016) and multi-language support via tree-sitter (Python, JavaScript, TypeScript with regex fallback). Two-phase execution: heuristic detectors run first (parallel via thread pool), building per-file risk signals; LLM detectors then prioritize high-churn files (TD-043). Full pipeline: fingerprint → dedup → context → judge → synthesis → store → report. Async LLM pipeline: concurrent judge (8) and synthesis (4) via ADR-017, giving 4.5x speedup on cloud providers. Pluggable providers (Ollama, OpenAI-compat, Azure). Entry-points plugin system (ADR-012). CLI (21 commands incl. `compare`, `bulk-approve`, `bulk-suppress`, `--json-output`). Web UI (triage, scan config, compatibility matrix, LLM call log, eval dashboard, benchmark). GitHub issue creation. Multi-repo scanning. 1378 tests. Published on PyPI as `repo-sentinel`.
 
 88% confirmation rate on real-world scan (92/104 findings confirmed). 3 repos with annotated ground truth (sample-repo, pip-tools, sentinel). All 18 detectors benchmarked on ≥2 models. See [compatibility matrix](../reference/compatibility-matrix.md) for per-model quality ratings.
 
@@ -106,10 +106,11 @@ Priority-ordered next investments. Each connects to a validated gap.
 **Success**: ≥3 repos with annotated ground truth. All detectors benchmarked on ≥2 models.
 **Result**: 3 ground truth repos: sample-repo (37 TPs incl. 3 ICD, 2 cloud models with per-category eval), pip-tools (38 annotated deterministic, no LLM GT, 2 cloud models), sentinel (57 annotated + 120 assumed TP). Per-category benchmark split (deterministic vs LLM precision) implemented. ICD rated from real ground truth: nano Fair (~40% FP), mini Excellent (<10% FP). Intent-comparison rated Poor on both nano and mini (>90% FP est, TD-057). Judge quality UNTESTED for cloud-small/frontier (benchmark skips judge). `sentinel llm-log` CLI with filtering, stats, JSON.
 
-### Phase 14: CLI/Web parity & polish
+### Phase 14: CLI/Web parity & polish ✓
 **Gap**: 5 CLI features not in web, 4 web features not in CLI. Low-severity tech debt accumulation.
 **What**: Web UI for benchmark runs. CLI `sentinel llm-log`, `sentinel compare`, bulk operations. Resolve TD-024 (JSON envelope), TD-041 (docs-drift FP), OQ-016 (message list protocol).
 **Success**: Every major workflow achievable from both CLI and web.
+**Result**: CLI: `compare` (run-to-run diff), `bulk-approve`, `bulk-suppress` commands. Web: `/benchmark` page with form, per-detector results, save-to-disk. TD-024 partially resolved (JSON error paths standardized). TD-057 mitigated (intent-comparison disabled by default via `enabled_by_default` property). OQ-016 deferred (no current caller). 21 CLI commands, 21 web routes. 1378 tests.
 
 ## Out of Scope (permanent)
 
@@ -131,6 +132,14 @@ Priority-ordered next investments. Each connects to a validated gap.
 | Tree-sitter adds native dependency | Medium | Optional dep, graceful degradation to regex extraction |
 
 ## Changelog
+
+### v6.1 (2026-04-13)
+- Phase 14 completed: CLI/Web parity & polish
+- CLI: added `compare`, `bulk-approve`, `bulk-suppress` (21 commands total)
+- Web: added `/benchmark` page (21 routes total)
+- TD-024 partially resolved: JSON error paths standardized to `{"error": "..."}`
+- TD-057 mitigated: intent-comparison disabled by default via `enabled_by_default` property
+- Updated "What Exists Today" with current command/test counts
 
 ### v6.0 (2026-04-13)
 Major version bump: vision expansion after all v5 goals completed.
