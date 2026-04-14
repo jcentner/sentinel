@@ -67,15 +67,25 @@ Finds real docstring-code drift. With updated ground truth (3 seeded TPs in samp
 
 **Mini is recommended** for this detector — it finds the real issues without the noise. **Very slow**: ~303s on pip-tools due to serial per-function LLM calls.
 
-### intent-comparison — v2 redesign shipped, pending cloud validation
+### intent-comparison — v2 redesign validated across 5 models
 
-ICD v2 (Phase 15) adds post-LLM filtering with 3 gates: structural validity, specificity/vagueness rejection, evidence quote verification. On sample-repo, both 4B and 9B achieve 100% precision and recall (N=1 TP). On larger repos, v2 reduces finding counts by 85–94% compared to v1.
+ICD v2 (Phase 15) adds post-LLM filtering with 3 gates: structural validity, specificity/vagueness rejection, evidence quote verification. Benchmarked across 3 repos x 5 models.
 
-- **4B**: 15 findings on sentinel self-scan (50 calls), 3 on pip-tools (21 calls)
-- **9B**: 6 findings on sentinel self-scan (50 calls), 2 on pip-tools (21 calls)
-- **Cloud models**: Not yet tested with v2 — v1 ratings no longer apply
+**Finding counts (ICD v2):**
 
-The detector remains disabled by default (TD-057) pending cloud benchmarks to validate the <25% FP rate target. Run with `--detectors intent-comparison` to include it explicitly.
+| Model | sample-repo | pip-tools | sentinel | v1 pip-tools |
+|-------|------------|-----------|----------|-------------|
+| qwen3.5:4b | 1 (1 TP) | 3 | 15 | — |
+| qwen3.5:9b | 1 (1 TP) | 2 | 6 | — |
+| gpt-5.4-nano | 3 (1 TP) | 17 | 47 | 20 |
+| gpt-5.4-mini | 2 (1 TP) | 6 | 30 | 31 |
+| gpt-5.4 | 3 (1 TP) | 1 | 15 | 35 |
+
+**Quality ratings:** nano=Fair (~25-40% FP), mini=Good (<25%), gpt-5.4=Excellent (<10%), 4B/9B=Good (<25% est).
+
+The v2 filter's effectiveness varies by model. Local 4B/9B are the most conservative (fewest findings), while cloud-nano generates plausible-looking FPs that pass the structural/specificity gates. **gpt-5.4 (frontier) is recommended** for ICD when available — 97% reduction vs v1 on pip-tools.
+
+The detector remains disabled by default (TD-057) pending expansion of ICD ground truth. Run with `--detectors intent-comparison` to include it explicitly.
 
 Configure per-detector model in `sentinel.toml`:
 

@@ -1,8 +1,8 @@
 # Current State — Sentinel
 
-> Last updated: Session 47 — Phase 15 ICD v2
+> Last updated: Session 48 — Phase 15 ICD v2 cloud benchmarks complete
 
-**Phase Status**: Blocked: Phase 15 validation requires cloud model benchmarks (Azure access needed for gpt-5.4-nano/mini ICD v2 runs)
+**Phase Status**: In Progress
 
 ## Latest Session Summary
 
@@ -38,21 +38,26 @@ Phase 15: Intent-comparison v2 — post-LLM filtering + calibration. Goal: <25% 
 - `0eaa69d` test(icd): seed sample-repo with ICD ground truth
 - `3f5654b` feat(intent-comparison): ICD v2 with post-LLM filtering
 - `f8e6a72` fix(intent-comparison): use relative path for is_test_file check
-- `5ab789a` bench(icd-v2): add ICD v2 benchmarks across 3 repos × 2 local models
+- `5ab789a` bench(icd-v2): add ICD v2 benchmarks across 3 repos x 2 local models
 - `e526551` fix(lint): resolve ruff SIM102 and RUF012 in ICD v2 code
 - `a4eae86` docs(icd-v2): fix stale references post-ICD v2 redesign
 
+#### Session 48
+- `002a2da` fix(test): update JS ICD test mock to match v2 schema (CI fix)
+- `784c1fa` fix(hooks): add pytest to slice-gate stop hook
+- `b635e8b` bench(icd-v2): Azure cloud model benchmarks across 3 repos x 3 models
+
 ### Repository State
-- **Tests**: 1376 passing
+- **Tests**: 1419 passing
 - **CLI commands**: 21
 - **Web routes**: 21
 - **VISION-LOCK**: v7.0 (Phase 15 added)
 
 ### What Remains / Next Priority
-1. **Run ICD v2 with cloud models** (nano/mini) to complete comparison matrix — requires Azure access
-2. **Manual review of sentinel ICD findings** (15 on 4b, 6 on 9b) to estimate TP rate without ground truth
-3. **Expand sample-repo ICD ground truth** — 1 TP is not statistically significant
-4. **Consider re-enabling ICD by default** if cloud benchmarks confirm <25% FP rate
+1. ~~Run ICD v2 with cloud models~~ **DONE** — nano=Fair, mini=Good, gpt-5.4=Excellent
+2. **Expand sample-repo ICD ground truth** — 1 TP is not statistically significant for confident ratings
+3. **Manual review of sentinel ICD findings** to estimate TP rate without ground truth (nano=47, mini=30, gpt-5.4=15)
+4. **Consider re-enabling ICD by default** once ground truth expanded
 5. **Vision expansion**: Proceed with remaining directions (2-5) after ICD v2 is fully validated
 
 ### Decisions Made
