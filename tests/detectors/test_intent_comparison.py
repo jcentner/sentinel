@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -674,7 +674,7 @@ class TestBuildEvidence:
 class TestFilterContradictions:
     """Tests for the post-LLM filtering that removes likely false positives."""
 
-    VALID_NAMES = ["code", "docstring", "test", "documentation"]
+    VALID_NAMES: ClassVar[list[str]] = ["code", "docstring", "test", "documentation"]
 
     def test_accepts_valid_contradiction_with_quotes(self) -> None:
         result = _filter_contradictions(

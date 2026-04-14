@@ -911,9 +911,7 @@ def _filter_contradictions(
         quote_b = c.get("quote_b", "")
         has_quotes = bool(quote_a and len(quote_a) > 5 and quote_b and len(quote_b) > 5)
 
-        if not has_quotes:
-            # Without quotes, apply stricter reason length requirement
-            if len(reason) < _MIN_REASON_CHARS * 2:
+        if not has_quotes and len(reason) < _MIN_REASON_CHARS * 2:
                 logger.debug(
                     "ICD filter: dropped (no quotes + short reason): %s",
                     reason,
