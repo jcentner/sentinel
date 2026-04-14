@@ -1289,7 +1289,10 @@ class TestIntentComparisonDetectorJS:
 
         provider = self._make_provider(json.dumps({
             "contradictions": [{
-                "description": "Test drift detected in JS code",
+                "between": ["code", "docstring"],
+                "reason": "JSDoc says multiply by two but code adds zero to the result before returning, not doubling",
+                "quote_a": "const processed = result + 0;",
+                "quote_b": "Multiply the input by two and return the doubled value.",
                 "confidence": 0.8,
             }],
         }))
