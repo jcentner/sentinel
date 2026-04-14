@@ -243,8 +243,24 @@ class TestFindTestsForSymbol:
         assert "test_check_health_success" in result
         assert "test_check_health_404" not in result
 
-    def test_class_aware_falls_back_to_all(self) -> None:
-        """When no class match, return all tests."""
+    def test_class_aware_falls_back_to_standalone(self) -> None:
+        """When no class match, return only standalone (unclassed) tests."""
+        lookup: dict[str, list[dict[str, str]]] = {
+            "check_health": [
+                {"name": "test_check_health_x", "body": "body",
+                 "class_name": "TestSomethingElse"},
+                {"name": "test_check_health_standalone", "body": "body2",
+                 "class_name": ""},
+            ],
+        }
+        result = _find_tests_for_symbol(
+            "check_health", lookup, impl_class="OllamaProvider",
+        )
+        assert "test_check_health_standalone" in result
+        assert "test_check_health_x" not in result
+
+    def test_class_aware_returns_empty_when_no_match(self) -> None:
+        """When no class match and no standalone tests, return empty."""
         lookup: dict[str, list[dict[str, str]]] = {
             "check_health": [
                 {"name": "test_check_health_x", "body": "body",
@@ -254,7 +270,7 @@ class TestFindTestsForSymbol:
         result = _find_tests_for_symbol(
             "check_health", lookup, impl_class="OllamaProvider",
         )
-        assert "test_check_health_x" in result
+        assert result == {}
 
 
 # ── Doc lookup ─────────────────────────────────────────────────────

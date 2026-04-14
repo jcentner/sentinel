@@ -554,11 +554,7 @@ def _find_tests_for_symbol(
             e["name"]: e["body"] for e in entries
             if not e["class_name"]
         }
-        if standalone:
-            return standalone
-
-        # Last resort: all tests (may be cross-class)
-        return {e["name"]: e["body"] for e in entries}
+        return standalone
 
     # Exact match
     if key in test_lookup:

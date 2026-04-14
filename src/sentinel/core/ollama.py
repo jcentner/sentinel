@@ -33,8 +33,8 @@ def embed_texts(
 ) -> list[list[float]] | None:
     """Embed a batch of texts via Ollama's /api/embed endpoint.
 
-    Returns a list of embedding vectors (one per input text),
-    or None if the request fails for any reason.
+    Returns an empty list if *texts* is empty, a list of embedding
+    vectors (one per input text) on success, or None on failure.
     """
     if not texts:
         return []

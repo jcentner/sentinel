@@ -296,8 +296,7 @@ class OpenAICompatibleProvider:
     def check_health(self) -> bool:
         """Check if the API endpoint is reachable.
 
-        Sends a minimal completions request to verify connectivity.
-        Falls back to checking if api_base responds to GET.
+        Sends a lightweight GET to api_base to verify connectivity.
         """
         try:
             import httpx
