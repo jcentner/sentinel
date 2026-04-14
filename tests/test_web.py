@@ -1785,3 +1785,72 @@ class TestEmbedIndexPage:
         assert "nomic-embed-text" in resp.text
         # Should show at least 1 file and 1 chunk
         assert ">1<" in resp.text or "1\n" in resp.text
+
+
+# ── Benchmark page ──────────────────────────────────────────────────
+
+
+class TestBenchmarkPage:
+    def test_benchmark_form_get(self, app: TestClient) -> None:
+        resp = app.get("/benchmark")
+        assert resp.status_code == 200
+        assert "Benchmark" in resp.text
+        assert "Run Benchmark" in resp.text
+
+    def test_benchmark_no_repo(self, app: TestClient) -> None:
+        resp = app.post("/benchmark", data={})
+        assert resp.status_code == 500
+        assert "No repo configured" in resp.text
+
+    def test_benchmark_bad_repo_path(self, app: TestClient) -> None:
+        resp = app.post("/benchmark", data={"repo_path": "/nonexistent/path"})
+        assert resp.status_code == 400
+        assert "not found" in resp.text
+
+    def test_benchmark_success(
+        self, seeded_db: tuple[sqlite3.Connection, int, int],
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    ) -> None:
+        from dataclasses import dataclass
+
+        conn, _, _ = seeded_db
+
+        @dataclass
+        class FakeBenchmark:
+            repo_path: str = str(tmp_path)
+            timestamp: str = "2026-04-13T12:00:00"
+            model: str = "test-model"
+            provider: str = "mock"
+            model_capability: str = "basic"
+            total_findings: int = 5
+            total_duration_ms: float = 1234.0
+            detector_count: int = 3
+            detectors: list = None  # type: ignore[assignment]
+            eval_result: dict | None = None
+
+            def __post_init__(self) -> None:
+                if self.detectors is None:
+                    self.detectors = []
+
+        fake = FakeBenchmark()
+
+        monkeypatch.setattr(
+            "sentinel.core.benchmark.run_benchmark",
+            lambda *a, **kw: fake,
+        )
+        monkeypatch.setattr(
+            "sentinel.core.benchmark.save_benchmark",
+            lambda *a, **kw: "benchmarks/test.toml",
+        )
+
+        (tmp_path / "main.py").write_text("x = 1\n")
+        application = create_app(conn, repo_path=str(tmp_path))
+        client = CSRFTestClient(TestClient(application))
+        resp = client.post("/benchmark", data={
+            "repo_path": str(tmp_path),
+            "save_results": "on",
+        })
+        assert resp.status_code == 200
+        assert "test-model" in resp.text
+        assert "5" in resp.text
+        assert "test.toml" in resp.text

@@ -16,6 +16,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from sentinel.store.runs import get_run_history
+from sentinel.web.routes.benchmark import benchmark_page
 from sentinel.web.routes.detectors import detectors_page
 from sentinel.web.routes.doctor import doctor_page
 from sentinel.web.routes.eval import eval_history_page, eval_page
@@ -87,6 +88,7 @@ def create_app(
         Route("/detectors", endpoint=detectors_page, methods=["GET", "POST"]),
         Route("/eval", endpoint=eval_page, methods=["GET", "POST"]),
         Route("/eval/history", endpoint=eval_history_page),
+        Route("/benchmark", endpoint=benchmark_page, methods=["GET", "POST"]),
         Route("/scan", endpoint=scan_page, methods=["GET", "POST"]),
         Route("/doctor", endpoint=doctor_page),
         Route("/github", endpoint=github_page),
