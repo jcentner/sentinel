@@ -301,27 +301,34 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
     # ICD v2 (Phase 15, commit 3f5654b) added post-LLM filtering with
     # 3 gates: structural validity, specificity/vagueness, evidence quotes.
-    # sample-repo: 1 TP found by both 4B and 9B (100% precision, 100% recall).
-    # v2 reduces findings by 85-94% vs v1 on larger repos.
-    # Cloud models not yet re-benchmarked with v2 — v1 ratings stale.
+    # Benchmarked across 3 repos x 5 models (2026-04-14).
+    # Strong model-quality correlation: nano is noisy, frontier is precise.
+    # Local 4B/9B outperform cloud-nano on pip-tools (more conservative).
     _e("intent-comparison", "4b-local", "advanced", QualityRating.GOOD, "<25% (est)",
        "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
        "3 findings on pip-tools (85% reduction vs v1), 15 on sentinel self-scan. "
-       "FP rate on larger repos unvalidated — ground truth needed.",
+       "FP rate on larger repos unvalidated -- ground truth needed.",
        "2026-04-14"),
     _e("intent-comparison", "9b-local", "advanced", QualityRating.GOOD, "<25% (est)",
        "ICD v2: 1 finding on sample-repo (1 TP, 0 FP = 100% precision, N=1). "
        "2 findings on pip-tools (94% reduction vs v1), 6 on sentinel self-scan. "
-       "Fewer findings than 4B — better signal-to-noise ratio.",
+       "Fewer findings than 4B -- better signal-to-noise ratio.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.UNTESTED, "?",
-       "v1 rated Poor (>90% FP). Not yet re-benchmarked with ICD v2 post-LLM filtering.",
+    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.FAIR, "~25-40%",
+       "ICD v2: 3 findings on sample-repo (1 TP, N=1). "
+       "17 on pip-tools (only 15% reduction vs v1's 20), 47 on sentinel self-scan. "
+       "v2 filtering helps less with nano -- model generates plausible-looking FPs "
+       "that pass structural/specificity gates. Noisiest cloud model for ICD.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
-       "v1 rated Poor (>90% FP). Not yet re-benchmarked with ICD v2 post-LLM filtering.",
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.GOOD, "<25%",
+       "ICD v2: 2 findings on sample-repo (1 TP, N=1). "
+       "6 on pip-tools (81% reduction vs v1's 31), 30 on sentinel self-scan. "
+       "Significant improvement over v1. Good balance of signal and noise.",
        "2026-04-14"),
-    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked with ICD v2.",
+    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.EXCELLENT, "<10%",
+       "ICD v2: 3 findings on sample-repo (1 TP, N=1). "
+       "1 on pip-tools (97% reduction vs v1's 35), 15 on sentinel self-scan. "
+       "Most precise model -- recommended for ICD when available.",
        "2026-04-14"),
 ]
 
