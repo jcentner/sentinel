@@ -123,7 +123,7 @@ Key differences:
 | Speed (sample repo) | 9.2s | 18.2s | 4.7s |
 | Speed (self-scan) | 84s | not tested | 49s |
 | Sensitivity | High (more findings) | Conservative | Selective |
-| FP rate (estimated) | ~40% test-coherence | ~30% | ~15% test-coherence |
+| FP rate | ~40% test-coherence (measured) | ~30% (measured) | ~15% test-coherence (measured) |
 | Cost | Free (local) | Free (local) | ~$0.002/scan |
 
 ### Recommendations

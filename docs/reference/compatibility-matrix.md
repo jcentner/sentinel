@@ -27,6 +27,7 @@ These detectors **use the model directly** to analyze code. Model quality direct
 | **test-coherence** | 🔴 Poor (~40% FP) | 🟡 Fair (~30% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) | 🔵 Good (~15% FP) |
 | **inline-comment-drift** | ❓ Untested | ❓ Untested | 🟡 Fair (~40% FP) | 🟢 Excellent (<10% FP) | ❓ Untested |
 | **intent-comparison** | ❓ Untested | ❓ Untested | 🔴 Poor (~98% FP) | 🔴 Poor (~96% FP) | 🔴 Poor (~57% FP) |
+| **docs-drift** (LLM path) | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested | ❓ Untested |
 | **(judge)** | 🔵 Good (~15% FP) | 🟡 Fair (~10% FP\*) | 🔵 Good (~10% FP) | ❓ Untested | ❓ Untested |
 
 \* The 9B model's low FP rate is misleading — it rejects 58% of findings, many of which are true positives. It over-filters.
@@ -39,7 +40,7 @@ These 13 deterministic detectors work identically regardless of model. The model
 
 lint-runner · eslint-runner · todo-scanner · unused-deps · stale-env · cicd-drift · architecture-drift · dep-audit · go-linter · rust-clippy · complexity · dead-code · git-hotspots
 
-**Note**: docs-drift is hybrid — its link/path/dep checks are deterministic, but it optionally uses the LLM for doc-code semantic comparison when a provider is available. It is classified as LLM-assisted in the codebase.
+**Note**: docs-drift is hybrid — its link/path/dep checks are deterministic, but it optionally uses the LLM for doc-code semantic comparison on key docs (README, CONTRIBUTING, INSTALL, GETTING-STARTED) when a provider is available. It is listed in both the LLM-assisted matrix (for its LLM path quality) and noted here. **Users should know**: if you configure a model provider, docs-drift will use it on key docs. The LLM path has no benchmark data yet — run `sentinel benchmark` with your model to measure quality. Without a provider (or with `--skip-llm`), docs-drift is fully deterministic.
 
 **Model recommendation for deterministic detectors**: Any model works. The 4B local model is sufficient as judge for these. Skip the model entirely (`--skip-judge`) for fastest results.
 

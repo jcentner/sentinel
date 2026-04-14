@@ -74,7 +74,7 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Status**: Mostly resolved (Session 48) — cloud benchmarks complete, still disabled by default
 **Severity**: Low
 **Introduced**: Session 45 (benchmark audit)
-**Description**: ICD v2 benchmarked across 3 repos x 5 models. Cloud results: nano=Fair (~25-40% FP), mini=Good (<25%), gpt-5.4=Excellent (<10%). Local 4B/9B=Good (<25% est). The v2 filter works well with stronger models but nano generates plausible FPs that pass gates. Detector remains disabled by default because sample-repo ground truth has only N=1 ICD TP — not enough for statistical confidence.
+**Description**: ICD v2 benchmarked across 3 repos x 5 models. Cloud results measured via manual TP/FP annotation (Session 49): nano=~2% precision, mini=4% precision, gpt-5.4=43% precision — all rated Poor. Local 4B/9B are UNTESTED with current code (pre-class-aware-matching benchmarks are stale). The v2 filter + class-aware matching + FP gates reduce noise but the dominant FP pattern is LLM hallucination of evidence, which is not fixable by filtering. Detector remains disabled by default.
 **Impact**: No longer impacts default scan quality. v2 substantially reduces FPs when explicitly enabled.
 **Remaining**: Expand ICD ground truth beyond N=1 (seed more contradictions in sample-repo or annotate pip-tools findings). Consider re-enabling by default once ground truth supports confidence.
 
@@ -83,4 +83,20 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Severity**: Medium
 **Introduced**: Session 45 (benchmark audit)
 **Resolution**: Added `[benchmark.eval.deterministic]` and `[benchmark.eval.llm_assisted]` sections to benchmark TOML output with separate precision/recall. `compare_benchmarks()` now shows Det./LLM precision split. Per-detector precision shown in comparison table. Sample-repo benchmarks re-run with updated ground truth (37 TPs incl. 3 ICD).
+
+### TD-059: docs-drift LLM path unbenchmarked, no prompt adaptation
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 50 (LLM detector evaluation)
+**Description**: docs-drift optionally uses the LLM for doc-code semantic comparison on key docs. This path has no benchmark data, no prompt adaptation (always uses a single prompt regardless of model), and no declared `capability_tier`. Users who configure a provider silently get LLM-assisted findings with unknown quality. The task is similar to semantic-drift (pairwise doc/code comparison) so it should work at similar quality levels, but we can't claim that without benchmarks.
+**Impact**: Users see docs-drift LLM findings without knowing if their model produces reliable results. Violates the transparency principle from the compatibility matrix.
+**Proposed resolution**: (1) Add `capability_tier = BASIC` to docs-drift. (2) Add `should_use_enhanced_prompt()` support for binary/enhanced prompt adaptation. (3) Seed LLM-detectable doc-code drift in sample-repo ground truth. (4) Benchmark across models and populate the compatibility matrix.
+
+### TD-060: Benchmark integrity — estimated ratings in documentation
+**Status**: Active
+**Severity**: Medium
+**Introduced**: Session 50 (benchmark audit)
+**Description**: Some documentation previously used "estimated" or "est" labels for quality ratings that were not empirically measured (e.g., "Local 4B/9B=Good (<25% est)"). This violates ADR-016's principle that quality ratings come from benchmark data, not assumptions. Session 50 corrected known instances, but the pattern may recur during rapid iteration. Benchmark integrity requirements now documented in `benchmarks/README.md`.
+**Impact**: Users may trust ratings that were never measured, leading to suboptimal model selection.
+**Proposed resolution**: Resolved for known instances. Ongoing enforcement via reviewer checklist: any quality rating in docs must cite a specific benchmark TOML file or be marked ❓ Untested.
 
