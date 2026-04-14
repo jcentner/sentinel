@@ -41,12 +41,12 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: Accepted as-is — these detectors are cheap to maintain and useful for repos without CI linting. New development investment should focus on cross-artifact semantic detectors (Phase 5) that provide analysis nothing else does. No need to remove existing detectors.
 
 ### TD-024: `--json-output` error envelope inconsistency
-**Status**: Active
+**Status**: Partially resolved (Session 46)
 **Severity**: Low
 **Introduced**: Session 22 (identified via systemic review)
-**Description**: JSON output shapes differ by command and by success/failure. Some error paths write to stderr with no JSON (e.g., `create-issues` with no config). Exit codes conflate "below target" with "errored" (eval uses exit 1 for both). No consistent envelope like `{"ok": true, "data": ...}`.
-**Impact**: Agents must special-case each command's output format. Reduces reliability of automated Sentinel consumption.
-**Proposed resolution**: Define and document a standard JSON envelope for all `--json-output` commands. Use distinct exit codes for "ran but below threshold" (e.g., exit 2) vs. "command errored" (exit 1).
+**Description**: JSON output shapes differ by command. Error paths now consistently emit `{"error": "..."}` when `--json-output` is active (compare, create-issues, eval, findings). Success shapes still vary by command (no `{"ok": true, "data": ...}` envelope) to avoid breaking existing consumers.
+**Impact**: Error handling is standardized for machine consumers. Full envelope would require a major version bump.
+**Proposed resolution**: Full envelope wrapper deferred to a future breaking-change release. Current state is acceptable for agent consumption.
 
 ### TD-032: Synthesis gated to standard+ tier, off by default
 **Status**: Active

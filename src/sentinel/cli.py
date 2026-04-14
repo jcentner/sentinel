@@ -429,11 +429,14 @@ def create_issues_cmd(
 
     gh = get_github_config(owner=owner, repo=github_repo, token=token)
     if gh is None and not dry_run:
-        click.echo(
+        msg = (
             "GitHub config required. Set --owner, --github-repo, --token "
-            "or SENTINEL_GITHUB_OWNER, SENTINEL_GITHUB_REPO, SENTINEL_GITHUB_TOKEN env vars.",
-            err=True,
+            "or SENTINEL_GITHUB_OWNER, SENTINEL_GITHUB_REPO, SENTINEL_GITHUB_TOKEN env vars."
         )
+        if output_json:
+            click.echo(json.dumps({"error": msg}))
+        else:
+            click.echo(msg, err=True)
         raise SystemExit(1)
 
     conn = get_connection(db_path)
@@ -636,10 +639,16 @@ def compare(
         base_run = get_run_by_id(conn, base_run_id)
         target_run = get_run_by_id(conn, run_id)
         if not base_run:
-            click.echo(f"Base run #{base_run_id} not found.", err=True)
+            if output_json:
+                click.echo(json.dumps({"error": f"Base run #{base_run_id} not found"}))
+            else:
+                click.echo(f"Base run #{base_run_id} not found.", err=True)
             raise SystemExit(1)
         if not target_run:
-            click.echo(f"Run #{run_id} not found.", err=True)
+            if output_json:
+                click.echo(json.dumps({"error": f"Run #{run_id} not found"}))
+            else:
+                click.echo(f"Run #{run_id} not found.", err=True)
             raise SystemExit(1)
 
         new, resolved, persistent = compare_runs(conn, base_run_id, run_id)
@@ -795,8 +804,11 @@ def eval(
     # Find ground truth file
     gt_path = Path(ground_truth) if ground_truth else repo / "ground-truth.toml"
     if not gt_path.exists():
-        click.echo(f"Ground truth file not found: {gt_path}", err=True)
-        click.echo("Create a ground-truth.toml file or use --ground-truth to specify one.", err=True)
+        if output_json:
+            click.echo(json.dumps({"error": f"Ground truth file not found: {gt_path}"}))
+        else:
+            click.echo(f"Ground truth file not found: {gt_path}", err=True)
+            click.echo("Create a ground-truth.toml file or use --ground-truth to specify one.", err=True)
         raise SystemExit(1)
 
     gt = load_ground_truth(gt_path)
@@ -813,8 +825,11 @@ def eval(
             config = load_config(repo)
             provider = create_provider(config)
             if not provider.check_health():
-                click.echo("Full-pipeline eval requires a healthy model provider.", err=True)
-                click.echo("Use --replay-file for offline evaluation.", err=True)
+                if output_json:
+                    click.echo(json.dumps({"error": "Full-pipeline eval requires a healthy model provider"}))
+                else:
+                    click.echo("Full-pipeline eval requires a healthy model provider.", err=True)
+                    click.echo("Use --replay-file for offline evaluation.", err=True)
                 raise SystemExit(1)
 
         if record_responses and provider is not None:
