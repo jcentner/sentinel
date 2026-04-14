@@ -1267,3 +1267,126 @@ class TestBulkSuppressCommand:
         data = json.loads(result.output)
         assert "suppressed" in data
         assert "total" in data
+
+
+# ── findings command ─────────────────────────────────────────────────
+
+
+class TestFindingsCommand:
+    def test_findings_after_scan(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "findings", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Findings for run" in result.output
+
+    def test_findings_json(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "findings", "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+
+    def test_findings_no_runs(self, runner, test_repo, db_path):
+        from sentinel.store.db import get_connection
+
+        get_connection(db_path).close()
+        result = runner.invoke(main, [
+            "findings", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+
+    def test_findings_filter_detector(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "findings", "--repo", str(test_repo), "--db", db_path,
+            "--detector", "todo-scanner",
+        ])
+        assert result.exit_code == 0
+
+    def test_findings_filter_severity(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "findings", "--repo", str(test_repo), "--db", db_path,
+            "--severity", "high",
+        ])
+        assert result.exit_code == 0
+
+    def test_findings_specific_run(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "findings", "--run", "1",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+
+    def test_findings_no_runs_json(self, runner, test_repo, db_path):
+        from sentinel.store.db import get_connection
+
+        get_connection(db_path).close()
+        result = runner.invoke(main, [
+            "findings", "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code != 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+
+# ── prune command ────────────────────────────────────────────────────
+
+
+class TestPruneCommand:
+    def test_prune_empty_db(self, runner, test_repo, db_path):
+        from sentinel.store.db import get_connection
+
+        get_connection(db_path).close()
+        result = runner.invoke(main, [
+            "prune", "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Nothing to prune" in result.output
+
+    def test_prune_after_scan(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "prune", "--repo", str(test_repo), "--db", db_path,
+            "--older-than", "0",
+        ])
+        assert result.exit_code == 0
+        assert "Pruned" in result.output or "Nothing to prune" in result.output
+
+    def test_prune_json(self, runner, test_repo, db_path):
+        from sentinel.store.db import get_connection
+
+        get_connection(db_path).close()
+        result = runner.invoke(main, [
+            "prune", "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "deleted" in data
+        assert "retention_days" in data

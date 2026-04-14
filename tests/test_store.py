@@ -491,3 +491,35 @@ class TestAnnotations:
     def test_delete_nonexistent(self, db_conn):
         from sentinel.store.findings import delete_annotation
         assert delete_annotation(db_conn, 9999) is False
+
+
+class TestPruneOldData:
+    def test_prune_empty_db(self, db_conn):
+        from sentinel.store.findings import prune_old_data
+        result = prune_old_data(db_conn, retention_days=90)
+        assert result["llm_log"] == 0
+        assert result["findings"] == 0
+        assert result["runs"] == 0
+
+    def test_prune_deletes_old_runs(self, db_conn):
+        from sentinel.store.findings import prune_old_data
+        run = create_run(db_conn, "/tmp/test")
+        insert_finding(db_conn, run.id, _sample_finding())
+        # Backdate the run to 100 days ago
+        db_conn.execute(
+            "UPDATE runs SET started_at = datetime('now', '-100 days') WHERE id = ?",
+            (run.id,),
+        )
+        db_conn.commit()
+        result = prune_old_data(db_conn, retention_days=1)
+        assert result["runs"] >= 1
+        assert result["findings"] >= 1
+
+    def test_prune_preserves_recent(self, db_conn):
+        from sentinel.store.findings import prune_old_data
+        run = create_run(db_conn, "/tmp/test")
+        insert_finding(db_conn, run.id, _sample_finding())
+        # 9999 days retention — nothing should be pruned
+        result = prune_old_data(db_conn, retention_days=9999)
+        assert result["runs"] == 0
+        assert result["findings"] == 0
