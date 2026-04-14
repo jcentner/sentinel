@@ -2,7 +2,7 @@
 
 > Last updated: Session 47 — Phase 15 ICD v2
 
-**Phase Status**: In Progress
+**Phase Status**: Blocked: Phase 15 validation requires cloud model benchmarks (Azure access needed for gpt-5.4-nano/mini ICD v2 runs)
 
 ## Latest Session Summary
 
@@ -39,6 +39,8 @@ Phase 15: Intent-comparison v2 — post-LLM filtering + calibration. Goal: <25% 
 - `3f5654b` feat(intent-comparison): ICD v2 with post-LLM filtering
 - `f8e6a72` fix(intent-comparison): use relative path for is_test_file check
 - `5ab789a` bench(icd-v2): add ICD v2 benchmarks across 3 repos × 2 local models
+- `e526551` fix(lint): resolve ruff SIM102 and RUF012 in ICD v2 code
+- `a4eae86` docs(icd-v2): fix stale references post-ICD v2 redesign
 
 ### Repository State
 - **Tests**: 1376 passing
