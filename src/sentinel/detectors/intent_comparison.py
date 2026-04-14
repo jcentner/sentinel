@@ -79,6 +79,26 @@ _MAX_PER_SCAN = 50
 # so _MIN_ARTIFACTS=3 means code + 2 others)
 _MIN_ARTIFACTS = 3
 
+# Post-LLM filtering: minimum reason length to accept a contradiction
+_MIN_REASON_CHARS = 30
+
+# Vague phrases that indicate the LLM is hedging rather than citing specifics
+_VAGUE_PHRASES = frozenset({
+    "may not",
+    "might not",
+    "could be",
+    "seems to",
+    "appears to",
+    "potentially",
+    "possibly",
+    "not entirely clear",
+    "slightly different",
+    "minor difference",
+    "subtle difference",
+    "arguably",
+    "debatable",
+})
+
 # Risk signal thresholds (same as other LLM detectors)
 _FIX_HEAVY_BONUS = 10.0
 _FIX_RATIO_THRESHOLD = 0.3
@@ -230,7 +250,20 @@ class IntentComparisonDetector(Detector):
                 )
 
                 if result and result.get("contradictions"):
-                    for contradiction in result["contradictions"]:
+                    # Determine artifact names for filtering
+                    a_names = ["code"]
+                    if "docstring" in artifacts:
+                        a_names.append("docstring")
+                    if "tests" in artifacts:
+                        a_names.append("test")
+                    if "doc_sections" in artifacts:
+                        a_names.append("documentation")
+
+                    filtered = _filter_contradictions(
+                        result["contradictions"], a_names,
+                    )
+
+                    for contradiction in filtered:
                         severity = Severity.MEDIUM
                         llm_sev = contradiction.get("severity", "")
                         if llm_sev == "high":
@@ -246,6 +279,13 @@ class IntentComparisonDetector(Detector):
                         )
 
                         confidence = 0.70 if use_enhanced else 0.55
+                        # Boost confidence when LLM provided evidence quotes
+                        has_quotes = bool(
+                            contradiction.get("quote_a")
+                            and contradiction.get("quote_b")
+                        )
+                        if has_quotes:
+                            confidence = min(confidence + 0.10, 0.85)
 
                         evidence_items = _build_evidence(
                             sym, artifacts, pair, rel_path,
@@ -669,56 +709,72 @@ def _llm_triangulate(
     artifact_text = "\n\n".join(sections)
     artifact_list = ", ".join(artifact_names)
 
+    fp_examples = (
+        "\nExamples of FALSE POSITIVES you must NOT flag:\n"
+        "- A test checks `result is not None` but the docstring says \"returns data\" → "
+        "same concept, different words\n"
+        "- A docstring says \"validates input\" and code has `if not isinstance(...)` → "
+        "validation IS present, just described differently\n"
+        "- A test doesn't cover all branches → missing coverage, not a contradiction\n"
+        "- Documentation uses higher-level language than code comments → abstraction, not conflict\n"
+        "\nExamples of TRUE POSITIVES you SHOULD flag:\n"
+        "- Documentation says \"returns a tuple\" but code returns a dict → factual type mismatch\n"
+        "- Test docstring says \"validates XML\" but code never references XML → false claim\n"
+        "- Docstring says \"errors are silently dropped\" but code builds an error list → "
+        "behavioral contradiction\n"
+    )
+
+    json_schema = (
+        "Respond ONLY with a JSON object (no markdown fences):\n"
+        "{\n"
+        '  "contradictions": [\n'
+        "    {\n"
+        '      "between": ["artifact1", "artifact2"],\n'
+        '      "severity": "high"/"medium"/"low",\n'
+        '      "quote_a": "exact quote from first artifact supporting the contradiction",\n'
+        '      "quote_b": "exact quote from second artifact that contradicts it",\n'
+        '      "reason": "One clear sentence: what artifact A claims vs what artifact B shows"\n'
+        "    }\n"
+        "  ]\n"
+        "}\n"
+        f"Use these exact names in 'between': {artifact_list}\n"
+        'If no contradictions: {"contradictions": []}'
+    )
+
     if use_enhanced:
         prompt = (
             "You are a senior software engineer performing multi-artifact "
             "consistency analysis. You are given multiple independent sources "
             "of intent for the same function: code, docstring, tests, and/or "
             "documentation.\n\n"
-            "Your task: identify **contradictions** between any pair of "
-            "artifacts. A contradiction is when two sources make conflicting "
-            "claims about what the function does, its parameters, return "
-            "values, behavior, or side effects.\n\n"
-            "Do NOT flag:\n"
-            "- Differences in level of detail (one source being more verbose)\n"
-            "- Style differences or different wording for the same concept\n"
-            "- Missing coverage (a test not testing every feature)\n"
-            "- Cosmetic or formatting differences\n\n"
-            "Only flag genuine factual contradictions where two sources "
-            "disagree about the function's behavior.\n\n"
+            "Your task: identify **factual contradictions** between artifacts. "
+            "A contradiction is when two sources make OPPOSITE claims about "
+            "a specific, concrete aspect of the function (return type, parameter "
+            "handling, side effects, error behavior).\n\n"
+            "STRICT RULES:\n"
+            "- Only flag contradictions where you can quote BOTH sides\n"
+            "- One source must claim X, the other must claim NOT-X or Y (incompatible with X)\n"
+            "- Differences in detail level, wording, or test coverage are NOT contradictions\n"
+            "- If unsure, do NOT flag — false positives are worse than missed issues\n"
+            f"{fp_examples}\n"
             f"Artifacts available: {artifact_list}\n\n"
             f"{artifact_text}\n\n"
-            "Respond ONLY with a JSON object:\n"
-            "{\n"
-            '  "contradictions": [\n'
-            '    {"between": ["artifact1", "artifact2"], '
-            '"severity": "high"/"medium"/"low", '
-            '"reason": "One sentence describing the contradiction"}\n'
-            "  ]\n"
-            "}\n"
-            f"Use these exact names in 'between': {artifact_list}\n"
-            "If no contradictions found, return: "
-            '{"contradictions": []}'
+            f"{json_schema}"
         )
         max_tokens = 1024
     else:
         prompt = (
-            "You are a code consistency checker. Compare these artifacts "
-            f"for `{sym_name}` and find factual contradictions between them.\n\n"
-            "A contradiction is when two sources disagree about what the "
-            "function does. Do NOT flag differences in verbosity, style, "
-            "or missing coverage.\n\n"
+            "You are a code consistency checker. Find FACTUAL contradictions "
+            f"between these artifacts for `{sym_name}`.\n\n"
+            "A contradiction = two sources make OPPOSITE claims about a specific "
+            "aspect (return type, behavior, parameters). You must be able to "
+            "quote both sides.\n\n"
+            "NOT contradictions: different wording, missing detail, incomplete "
+            "test coverage, style differences.\n"
+            f"{fp_examples}\n"
             f"Artifacts: {artifact_list}\n\n"
             f"{artifact_text}\n\n"
-            "Respond ONLY with a JSON object (no markdown fences):\n"
-            "{\n"
-            '  "contradictions": [\n'
-            '    {"between": ["artifact1", "artifact2"], '
-            '"reason": "One sentence"}\n'
-            "  ]\n"
-            "}\n"
-            f"Use these exact names in 'between': {artifact_list}\n"
-            'If no contradictions: {"contradictions": []}'
+            f"{json_schema}"
         )
         max_tokens = 512
 
@@ -796,6 +852,78 @@ def _llm_triangulate(
             )
 
     return result
+
+
+# ── Post-LLM filtering ────────────────────────────────────────────
+
+
+def _filter_contradictions(
+    contradictions: list[dict[str, Any]],
+    artifact_names: list[str],
+) -> list[dict[str, Any]]:
+    """Filter LLM-reported contradictions to remove likely false positives.
+
+    Applies three filters:
+    1. Structural: valid 'between' pair referencing known artifacts
+    2. Specificity: reason must be long enough and not vague
+    3. Evidence quotes: require quote_a and quote_b (non-trivial)
+    """
+    valid_names = set(artifact_names)
+    kept: list[dict[str, Any]] = []
+
+    for c in contradictions:
+        pair = c.get("between", [])
+        reason = c.get("reason", "")
+
+        # Filter 1: structural — valid artifact pair
+        if (
+            not isinstance(pair, list)
+            or len(pair) < 2
+            or not all(isinstance(p, str) for p in pair[:2])
+        ):
+            logger.debug("ICD filter: dropped (invalid pair): %s", pair)
+            continue
+
+        pair_lower = [p.lower() for p in pair[:2]]
+        if not all(
+            any(p.startswith(n) or n.startswith(p) for n in valid_names)
+            for p in pair_lower
+        ):
+            logger.debug("ICD filter: dropped (unknown artifact): %s", pair)
+            continue
+
+        # Filter 2: specificity — reason must be substantive
+        if len(reason) < _MIN_REASON_CHARS:
+            logger.debug(
+                "ICD filter: dropped (short reason %d chars): %s",
+                len(reason), reason,
+            )
+            continue
+
+        reason_lower = reason.lower()
+        if any(phrase in reason_lower for phrase in _VAGUE_PHRASES):
+            logger.debug(
+                "ICD filter: dropped (vague language): %s", reason,
+            )
+            continue
+
+        # Filter 3: evidence quotes — prefer responses with concrete quotes
+        quote_a = c.get("quote_a", "")
+        quote_b = c.get("quote_b", "")
+        has_quotes = bool(quote_a and len(quote_a) > 5 and quote_b and len(quote_b) > 5)
+
+        if not has_quotes:
+            # Without quotes, apply stricter reason length requirement
+            if len(reason) < _MIN_REASON_CHARS * 2:
+                logger.debug(
+                    "ICD filter: dropped (no quotes + short reason): %s",
+                    reason,
+                )
+                continue
+
+        kept.append(c)
+
+    return kept
 
 
 # ── Evidence builder ───────────────────────────────────────────────

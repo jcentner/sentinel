@@ -16,6 +16,7 @@ from sentinel.detectors.intent_comparison import (
     _build_evidence,
     _build_test_lookup,
     _extract_symbols,
+    _filter_contradictions,
     _find_tests_for_symbol,
     _gather_artifacts,
     _llm_triangulate,
@@ -382,7 +383,9 @@ class TestLLMTriangulate:
                 "contradictions": [
                     {
                         "between": ["docstring", "code"],
-                        "reason": "Docstring says returns list, code returns int",
+                        "reason": "Docstring claims function returns a list of results, but code actually returns integer 42",
+                        "quote_a": "Returns a list of results from the computation pipeline.",
+                        "quote_b": "return 42",
                     }
                 ],
             }),
@@ -447,7 +450,9 @@ class TestLLMTriangulate:
                     {
                         "between": ["test", "docstring"],
                         "severity": "high",
-                        "reason": "Test verifies dict, docstring says list",
+                        "reason": "Test verifies return value is a dict, but docstring claims it returns a list of data entries",
+                        "quote_a": "assert isinstance(get_data(), dict)",
+                        "quote_b": "Returns a list of all data entries retrieved from storage.",
                     }
                 ],
             }),
@@ -545,7 +550,7 @@ class TestLLMTriangulate:
         provider = self._make_provider(
             json.dumps({
                 "contradictions": [
-                    {"between": ["code", "docstring"], "reason": "mismatch"},
+                    {"between": ["code", "docstring"], "reason": "Code returns an empty list but docstring claims it returns an integer count of items in the collection", "quote_a": "return []", "quote_b": "Returns an integer count of items in the collection."},
                 ],
             }),
         )
@@ -566,7 +571,7 @@ class TestLLMTriangulate:
         rows = conn.execute("SELECT verdict, summary FROM llm_log").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "contradiction_found"
-        assert rows[0][1] == "mismatch"
+        assert "returns" in rows[0][1].lower()
         conn.close()
 
 
@@ -661,6 +666,120 @@ class TestBuildEvidence:
         )
         assert len(evidence) == 1
         assert evidence[0].type.value == "code"
+
+
+# ── Post-LLM filtering ─────────────────────────────────────────────
+
+
+class TestFilterContradictions:
+    """Tests for the post-LLM filtering that removes likely false positives."""
+
+    VALID_NAMES = ["code", "docstring", "test", "documentation"]
+
+    def test_accepts_valid_contradiction_with_quotes(self) -> None:
+        result = _filter_contradictions(
+            [
+                {
+                    "between": ["code", "docstring"],
+                    "reason": "Code returns an integer but docstring claims it returns a list of results",
+                    "quote_a": "return 42",
+                    "quote_b": "Returns a list of results from the pipeline.",
+                },
+            ],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 1
+
+    def test_rejects_short_reason(self) -> None:
+        result = _filter_contradictions(
+            [{"between": ["code", "test"], "reason": "mismatch"}],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 0
+
+    def test_rejects_vague_language(self) -> None:
+        result = _filter_contradictions(
+            [
+                {
+                    "between": ["code", "docstring"],
+                    "reason": "The docstring seems to describe something potentially different from the code",
+                    "quote_a": "return 42",
+                    "quote_b": "Returns a value",
+                },
+            ],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 0
+
+    def test_rejects_invalid_artifact_pair(self) -> None:
+        result = _filter_contradictions(
+            [
+                {
+                    "between": ["unknown_artifact", "code"],
+                    "reason": "Some long enough reason text that passes the length check easily here.",
+                    "quote_a": "quote one",
+                    "quote_b": "quote two",
+                },
+            ],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 0
+
+    def test_rejects_missing_pair(self) -> None:
+        result = _filter_contradictions(
+            [{"reason": "Long reason that should pass the length check here."}],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 0
+
+    def test_accepts_long_reason_without_quotes(self) -> None:
+        result = _filter_contradictions(
+            [
+                {
+                    "between": ["code", "documentation"],
+                    "reason": (
+                        "The documentation states that the function returns a tuple of "
+                        "valid records and errors, but the code actually returns a dictionary "
+                        "with keys 'results', 'errors', and 'total'"
+                    ),
+                },
+            ],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 1
+
+    def test_rejects_short_reason_without_quotes(self) -> None:
+        result = _filter_contradictions(
+            [
+                {
+                    "between": ["code", "documentation"],
+                    "reason": "Documentation says returns tuple, code returns dict",
+                },
+            ],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 0
+
+    def test_filters_mixed_valid_and_invalid(self) -> None:
+        result = _filter_contradictions(
+            [
+                {
+                    "between": ["code", "docstring"],
+                    "reason": "Code returns an integer 42 but docstring claims it returns a list of results from computation",
+                    "quote_a": "return 42",
+                    "quote_b": "Returns a list of results.",
+                },
+                {"between": ["code", "test"], "reason": "short"},
+                {
+                    "between": ["code", "test"],
+                    "reason": "The test seems to possibly check something different from what the code does",
+                    "quote_a": "return 42",
+                    "quote_b": "assert result == []",
+                },
+            ],
+            self.VALID_NAMES,
+        )
+        assert len(result) == 1
 
 
 # ── Full detector integration ──────────────────────────────────────
@@ -765,7 +884,9 @@ class TestIntentComparisonDetector:
                 "contradictions": [
                     {
                         "between": ["docstring", "test"],
-                        "reason": "Docstring says multiply, test expects 10 for input 5",
+                        "reason": "Docstring says multiply input by two, but test expects result of 10 for input 5 which confirms multiplication behavior",
+                        "quote_a": "Multiply the input by two and return the doubled value.",
+                        "quote_b": "assert result == 10",
                     }
                 ],
             }),
@@ -815,7 +936,9 @@ class TestIntentComparisonDetector:
                 "contradictions": [
                     {
                         "between": ["documentation", "code"],
-                        "reason": "Docs say returns dict, code returns list",
+                        "reason": "Documentation says function returns a dictionary of results grouped by detector name, but code returns a flat list of findings",
+                        "quote_a": "It returns a dictionary of results grouped by detector name",
+                        "quote_b": "findings = [] ... return findings",
                     }
                 ],
             }),

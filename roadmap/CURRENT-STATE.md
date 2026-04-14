@@ -1,47 +1,22 @@
 # Current State — Sentinel
 
-> Last updated: Session 46 — Phase 14 CLI/Web parity complete
+> Last updated: Session 47 — Phase 15 ICD v2
 
-**Phase Status**: Blocked: Vision Expansion — awaiting human approval
+**Phase Status**: In Progress
 
 ## Latest Session Summary
 
 ### Current Objective
-Phase 14: Achieve feature parity between CLI and web UI. Resolve key tech debt items.
+Phase 15: Intent-comparison v2 — post-LLM filtering + calibration. Goal: <25% FP rate.
 
 ### What Was Accomplished
 
-#### Setup: Catalog activations (0b75579)
-- Activated 5 catalog items: tool-guardrails, context-checkpoint, designer agent, ci-verification skill, anti-slop skill
-- Fixed tree-sitter skip guards in 4 detector test files
-- Registered PreToolUse and PostToolUse hooks in autonomous-builder agent
-
-#### Slice 1: CLI `sentinel compare` (6cc6a30)
-- New command for run-to-run diff: new/resolved/persistent findings
-- Supports `--json-output`. 3 new tests.
-
-#### Slice 2: TD-024 JSON error standardization (51a116a)
-- All error paths emit `{"error": "..."}` when `--json-output` is active
-- TD-024 partially resolved (full envelope deferred as breaking change)
-
-#### Slice 3: CLI bulk operations (2aca544)
-- `sentinel bulk-approve --run <id>` or `--ids <1,2,3>`
-- `sentinel bulk-suppress --run <id>` or `--ids <1,2,3> --reason <text>`
-- 7 new tests.
-
-#### Slice 4: Web benchmark page (560457b)
-- `/benchmark` route: form, stat cards, per-detector results, save-to-disk
-- 4 new web tests.
-
-#### Slice 5: TD-057 intent-comparison disabled by default (eadc1d9)
-- `enabled_by_default` property on Detector base class
-- IntentComparisonDetector set to False. 3 new tests.
-
-### Decisions Made
-- **No full JSON envelope** — breaking change, standardized error shape sufficient
-- **enabled_by_default property** — keeps decision close to detector code
-- **OQ-016 deferred** — no current caller needs multi-turn messages
-- **TD-041 deferred** — remaining docs-drift FP edge cases are low-priority
+#### Benchmark expansion (02646a7)
+- qwen3.5:4b on sample-repo: 94% precision, 91% recall, 14.8s (all 18 detectors)
+- qwen3.5:9b on sample-repo: 94% precision, 97% recall, 36.1s
+- qwen3.5:4b self-scan: 398 findings incl. 5 ICD, 150s
+- Local models achieve 80-83% LLM precision vs cloud 85-100%
+- Updated model-benchmarks.md with full comparison tables
 
 ### Repository State
 - **Tests**: 1378 passing, 36 skipped

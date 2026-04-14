@@ -1,7 +1,7 @@
 # Vision Lock — Local Repo Sentinel
 
-> **Version**: 6.1
-> **Updated**: 2026-04-13
+> **Version**: 6.2
+> **Updated**: 2026-04-14
 > **Supersedes**: v5.6 ([archived](archive/VISION-LOCK-v5.md))
 > **Status**: Active baseline. Substantive changes require a new version with a changelog entry appended to this file.
 
@@ -112,6 +112,11 @@ Priority-ordered next investments. Each connects to a validated gap.
 **Success**: Every major workflow achievable from both CLI and web.
 **Result**: CLI: `compare` (run-to-run diff), `bulk-approve`, `bulk-suppress` commands. Web: `/benchmark` page with form, per-detector results, save-to-disk. TD-024 partially resolved (JSON error paths standardized). TD-057 mitigated (intent-comparison disabled by default via `enabled_by_default` property). OQ-016 deferred (no current caller). 21 CLI commands, 21 web routes. 1378 tests.
 
+### Phase 15: Intent-comparison v2 — post-LLM filtering + calibration
+**Gap**: TD-057 — intent-comparison is the highest-potential detector (multi-artifact triangulation catches what pairwise detectors miss) but has >90% FP rate and is disabled by default. No ground truth exists to measure improvements.
+**What**: Seed ICD ground truth in sample-repo. Redesign with structured confidence scoring, concrete FP examples in prompts, post-LLM filtering of vague/low-evidence contradictions, dedup against pairwise detectors.
+**Success**: <25% FP rate on cloud-nano on sample-repo. Re-enabled by default with benchmark gate. TD-057 resolved.
+
 ## Out of Scope (permanent)
 
 - Implementing fixes or generating patches
@@ -132,6 +137,11 @@ Priority-ordered next investments. Each connects to a validated gap.
 | Tree-sitter adds native dependency | Medium | Optional dep, graceful degradation to regex extraction |
 
 ## Changelog
+
+### v6.2 (2026-04-14)
+- Phase 15 added: Intent-comparison v2 — post-LLM filtering + calibration
+- Human-approved direction from vision expansion proposal (Direction 1)
+- Goal: <25% FP rate, re-enable by default, resolve TD-057
 
 ### v6.1 (2026-04-13)
 - Phase 14 completed: CLI/Web parity & polish
