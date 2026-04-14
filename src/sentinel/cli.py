@@ -335,6 +335,127 @@ def approve(finding_id: int, repo: str, db: str | None, output_json: bool) -> No
         conn.close()
 
 
+@main.command(name="bulk-approve")
+@click.option("--run", "run_id", type=int, default=None, help="Approve all findings in this run")
+@click.option("--ids", default=None, help="Comma-separated list of finding IDs")
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def bulk_approve(
+    run_id: int | None,
+    ids: str | None,
+    repo: str,
+    db: str | None,
+    output_json: bool,
+) -> None:
+    """Approve multiple findings at once.
+
+    Use --run to approve all findings in a run, or --ids for specific IDs.
+    """
+    from sentinel.config import load_config
+    from sentinel.models import FindingStatus
+    from sentinel.store.db import get_connection
+    from sentinel.store.findings import (
+        get_finding_by_id,
+        get_findings_by_run,
+        update_finding_status,
+    )
+
+    if not run_id and not ids:
+        msg = "Specify --run <run_id> or --ids <id1,id2,...>"
+        if output_json:
+            click.echo(json.dumps({"error": msg}))
+        else:
+            click.echo(msg, err=True)
+        raise SystemExit(1)
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        finding_ids: list[int] = []
+        if run_id:
+            findings = get_findings_by_run(conn, run_id)
+            finding_ids = [f.id for f in findings if f.id is not None]
+        elif ids:
+            finding_ids = [int(x.strip()) for x in ids.split(",") if x.strip()]
+
+        count = 0
+        for fid in finding_ids:
+            finding = get_finding_by_id(conn, fid)
+            if finding is not None:
+                update_finding_status(conn, fid, FindingStatus.APPROVED)
+                count += 1
+
+        if output_json:
+            click.echo(json.dumps({"approved": count, "total": len(finding_ids)}))
+        else:
+            click.echo(f"Approved {count} finding(s).")
+    finally:
+        conn.close()
+
+
+@main.command(name="bulk-suppress")
+@click.option("--run", "run_id", type=int, default=None, help="Suppress all findings in this run")
+@click.option("--ids", default=None, help="Comma-separated list of finding IDs")
+@click.option("--reason", default=None, help="Reason for suppression")
+@click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--db", default=None, help="Database path")
+@click.option("--json-output", "output_json", is_flag=True, help="Output results as JSON")
+def bulk_suppress(
+    run_id: int | None,
+    ids: str | None,
+    reason: str | None,
+    repo: str,
+    db: str | None,
+    output_json: bool,
+) -> None:
+    """Suppress multiple findings at once.
+
+    Use --run to suppress all findings in a run, or --ids for specific IDs.
+    """
+    from sentinel.config import load_config
+    from sentinel.store.db import get_connection
+    from sentinel.store.findings import get_finding_by_id, get_findings_by_run, suppress_finding
+
+    if not run_id and not ids:
+        msg = "Specify --run <run_id> or --ids <id1,id2,...>"
+        if output_json:
+            click.echo(json.dumps({"error": msg}))
+        else:
+            click.echo(msg, err=True)
+        raise SystemExit(1)
+
+    repo_path = Path(repo).resolve()
+    config = load_config(repo_path)
+    db_path = db or str(repo_path / config.db_path)
+
+    conn = get_connection(db_path)
+    try:
+        finding_ids: list[int] = []
+        if run_id:
+            findings = get_findings_by_run(conn, run_id)
+            finding_ids = [f.id for f in findings if f.id is not None]
+        elif ids:
+            finding_ids = [int(x.strip()) for x in ids.split(",") if x.strip()]
+
+        count = 0
+        for fid in finding_ids:
+            finding = get_finding_by_id(conn, fid)
+            if finding is not None and finding.fingerprint:
+                suppress_finding(conn, finding.fingerprint, reason=reason)
+                count += 1
+
+        if output_json:
+            click.echo(json.dumps({"suppressed": count, "total": len(finding_ids)}))
+        else:
+            click.echo(f"Suppressed {count} finding(s).")
+    finally:
+        conn.close()
+
+
 @main.command()
 @click.argument("finding_id", type=int)
 @click.option("--repo", type=click.Path(exists=True, file_okay=False), default=".")

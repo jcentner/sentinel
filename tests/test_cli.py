@@ -1178,3 +1178,92 @@ class TestCompareCommand:
         assert "persistent" in data
         assert "summary" in data
         assert "net_change" in data["summary"]
+
+
+# ── bulk-approve / bulk-suppress commands ─────────────────────────────
+
+
+class TestBulkApproveCommand:
+    def test_bulk_approve_by_run(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "bulk-approve", "--run", "1",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Approved" in result.output
+        assert "finding(s)" in result.output
+
+    def test_bulk_approve_by_ids(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "bulk-approve", "--ids", "1,2",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code == 0
+        assert "Approved" in result.output
+
+    def test_bulk_approve_no_args(self, runner, test_repo, db_path):
+        result = runner.invoke(main, [
+            "bulk-approve",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+
+    def test_bulk_approve_json(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "bulk-approve", "--run", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "approved" in data
+        assert "total" in data
+
+
+class TestBulkSuppressCommand:
+    def test_bulk_suppress_by_run(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "bulk-suppress", "--run", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "--reason", "Bulk suppressed",
+        ])
+        assert result.exit_code == 0
+        assert "Suppressed" in result.output
+
+    def test_bulk_suppress_no_args(self, runner, test_repo, db_path):
+        result = runner.invoke(main, [
+            "bulk-suppress",
+            "--repo", str(test_repo), "--db", db_path,
+        ])
+        assert result.exit_code != 0
+
+    def test_bulk_suppress_json(self, runner, test_repo, db_path):
+        runner.invoke(main, [
+            "scan", str(test_repo),
+            "--skip-judge", "--db", db_path, "-o", os.devnull,
+        ])
+        result = runner.invoke(main, [
+            "bulk-suppress", "--run", "1",
+            "--repo", str(test_repo), "--db", db_path,
+            "--json-output",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "suppressed" in data
+        assert "total" in data
