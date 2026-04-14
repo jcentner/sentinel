@@ -1,8 +1,8 @@
 # Current State — Sentinel
 
-> Last updated: Session 48 — Phase 15 ICD v2 benchmarks complete
+> Last updated: Session 49 — ICD precision measured, detector fixes applied
 
-**Phase Status**: Blocked: Phase 15 success criterion (<25% FP on cloud-nano) not met (33% precision). Remaining work: expand ICD ground truth to get statistically meaningful FP rates. Awaiting human decision on whether to close phase as-is or iterate further.
+**Phase Status**: Blocked: Phase 15 ICD precision is Poor across all models (best: gpt-5.4 at 43% precision on real repos). The detector finds real bugs but noise dominates. Awaiting human decision on whether to close phase and accept measured ratings, or iterate further on FP reduction.
 
 ## Latest Session Summary
 
@@ -11,63 +11,63 @@ Phase 15: Intent-comparison v2 — post-LLM filtering + calibration. Goal: <25% 
 
 ### What Was Accomplished
 
-#### ICD v2 Implementation (3f5654b)
-- Rewrote `_filter_contradictions()` with 3-layer post-LLM filter: structural validity, specificity (min 30 chars, vague phrase detection), evidence quotes
-- Improved prompt with FP examples and required `quote_a`/`quote_b` fields
-- Dynamic confidence scoring based on quote presence
-- 8 new filter tests, 64 ICD tests total, 1376 total tests passing
+#### Measured ICD Precision (empirical TP/FP annotation)
+Ran ICD on pip-tools + sentinel self-scan with 3 Azure models, manually verified every gpt-5.4 finding and all mini findings:
 
-#### is_test_file fix (f8e6a72)
-- Fixed `is_test_file()` to use relative paths — repos nested under `tests/` directory had ALL files classified as test files
+| Model | Real-repo findings | TP | Precision | FP Rate |
+|-------|-------------------|-----|-----------|---------|
+| gpt-5.4-nano | 59 | 1 | ~2% | ~98% |
+| gpt-5.4-mini | 24 | 1 | 4% | ~96% |
+| gpt-5.4 | 7 | 3 | 43% | ~57% |
 
-#### ICD v2 Benchmarks (5ab789a)
-- **sample-repo**: Both 4b and 9b achieve **100% ICD precision, 100% ICD recall** (seeded `process_records` TP found)
-- **sentinel self-scan**: 4b=15 findings (50 calls, 67s), 9b=6 findings (50 calls, 233s)
-- **pip-tools**: 4b=3 findings (21 calls, 32s), 9b=2 findings (21 calls, 53s)
-- **v1→v2 reduction on pip-tools**: 85-94% fewer findings (20→3 / 31→2)
-- Full-suite sample-repo: 4b=36 findings (92%P, 92%R), 9b=38 findings (92%P, 97%R)
+#### Root cause: cross-class test contamination
+`_build_test_lookup` keyed by function name only — `test_check_health` tests from TestOllamaProvider, TestOpenAICompatibleProvider, and TestAzureProvider ALL got sent to the LLM for any `check_health` function.
 
-#### Prior: Ollama full-suite benchmarks (02646a7)
-- qwen3.5:4b on sample-repo: 94% precision, 91% recall, 14.8s
-- qwen3.5:9b on sample-repo: 94% precision, 97% recall, 36.1s
-- qwen3.5:4b self-scan: 398 findings incl. 5 ICD, 150s
-- Local models achieve 80-83% LLM precision vs cloud 85-100%
+#### ICD detector fixes (3 commits)
+1. **Class-aware test matching** (48741cf): `_build_test_lookup` returns class_name metadata, `_find_tests_for_symbol` uses class affinity
+2. **Remove cross-class fallback** (51499a5): When impl_class is known but no matching tests exist, return empty instead of wrong-class tests
+3. **3 FP reduction filters** (c051822): Self-negating gate (drops findings where LLM says "no contradiction"), fixture exclusion (skip tests/fixtures/), archive doc exclusion
 
-### Key Commits This Session
-- `02646a7` bench(models): expand Ollama benchmarks for full detector suite
-- `0eaa69d` test(icd): seed sample-repo with ICD ground truth
-- `3f5654b` feat(intent-comparison): ICD v2 with post-LLM filtering
-- `f8e6a72` fix(intent-comparison): use relative path for is_test_file check
-- `5ab789a` bench(icd-v2): add ICD v2 benchmarks across 3 repos x 2 local models
-- `e526551` fix(lint): resolve ruff SIM102 and RUF012 in ICD v2 code
-- `a4eae86` docs(icd-v2): fix stale references post-ICD v2 redesign
+#### Real docstring bugs fixed (found by ICD)
+- `openai_compat.check_health`: docstring claimed completions+GET fallback, code only does GET
+- `ollama.embed_texts`: docstring omitted empty-input shortcut behavior
+- `runner.prepare_incremental`: docstring missed HEAD-unchanged case
 
-#### Session 48
-- `002a2da` fix(test): update JS ICD test mock to match v2 schema (CI fix)
-- `784c1fa` fix(hooks): add pytest to slice-gate stop hook
-- `b635e8b` bench(icd-v2): Azure cloud model benchmarks across 3 repos x 3 models
-- `ea95bdd` docs(icd-v2): update docs with cloud benchmark results
-- `2a8b4d5` fix(compatibility): honest ICD rating qualifiers from reviewer findings
+#### Updated compatibility matrix with measured data (e857be0)
+All cloud models rated Poor (measured FP >40%). 4b/9b local marked Untested (pre-fix benchmarks stale).
+
+### Key Commits This Session (Session 49)
+- `48741cf` fix(icd): class-aware test matching to reduce cross-class FPs
+- `51499a5` fix(icd): remove cross-class fallback, fix 2 TP docstring bugs
+- `c051822` fix(icd): add 3 FP reduction filters to post-LLM pipeline
+- `e857be0` docs(icd): update compatibility matrix with measured precision data
+- `f17b4e9` bench(icd): v2+fixes benchmark results and ground truth annotations
 
 ### Repository State
-- **Tests**: 1419 passing
+- **Tests**: 1422 passing
 - **CLI commands**: 21
 - **Web routes**: 21
-- **VISION-LOCK**: v7.0 (Phase 15 added)
+- **VISION-LOCK**: v7.0 (Phase 15)
 
 ### What Remains / Next Priority
-1. ~~Run ICD v2 with cloud models~~ **DONE** — nano=Fair(est), mini=Good(est), gpt-5.4=Good(est)
-2. **Expand sample-repo ICD ground truth** — 1 TP is not statistically significant for confident ratings
-3. **Manual review of sentinel ICD findings** to estimate TP rate without ground truth (nano=47, mini=30, gpt-5.4=15)
-4. **Consider re-enabling ICD by default** once ground truth expanded
-5. **Vision expansion**: Proceed with remaining directions (2-5) after ICD v2 is validated
+1. **Human decision**: Close Phase 15 with honest Poor ratings, or invest more in FP reduction?
+2. **ICD FP ceiling**: Dominant pattern is LLM hallucination of evidence — not fixable by better filtering. Needs either self-verification prompting, second-pass validation, or restricting to high-confidence-only findings.
+3. **4b/9b re-benchmark**: Local model benchmarks are stale (pre-class-aware-matching). Need to re-run on Ollama machine.
+4. **Vision expansion**: Remaining directions (2-5) after Phase 15 is resolved.
 
 ### Decisions Made
-- ICD v2 post-LLM filter thresholds: `_MIN_REASON_CHARS=30`, `_VAGUE_PHRASES` set, quote-based confidence
-- Used `relative_to(repo_root)` for is_test_file check (was absolute path causing false test classification)
-- ICD ratings are estimates from finding counts, not measured FP rates (reviewer Critical finding)
-- gpt-5.4 downgraded from Excellent to Good(est) — 33% precision on sample-repo (N=1) does not justify Excellent
-- Phase 15 success criterion not met for nano (67% FP on sample-repo, target was <25%)
+- ICD's main FP source is LLM hallucination, not bad filtering — the v2 filter catches structural noise but can't catch factually plausible fabrications
+- Class-aware test matching helps for class-organized test suites but most FPs come from incorrect LLM analysis, not wrong test matching
+- Self-negating gate catches ~30-40% of mini FPs (findings where LLM's own reasoning says "no contradiction")
+- gpt-5.4 is the only model with actionable ICD precision (43%) — total findings are low enough (7) for quick human review
+
+### Dominant FP Patterns (from TP/FP annotation)
+1. **Hallucinated test assertions**: LLM fabricates tests that don't exist (e.g. claims `test_get_dependencies` asserts `== []`)
+2. **Partial class reading**: LLM only sees first part of class, misses embed() method, flags docstring as wrong
+3. **Parameter name confusion**: Confuses `num_ctx` with `max_tokens`
+4. **Irrelevant doc citations**: Treats benchmark tables, changelogs, glossary entries as behavioral specs
+5. **Self-negating findings**: LLM concludes "no contradiction" in its own reason but emits finding anyway (fixed by gate)
+6. **Fixture confusion**: Confuses intentionally drifted test fixtures with real tests (fixed by exclusion)
 
 ## Vision Expansion Proposal
 
