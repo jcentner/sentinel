@@ -205,7 +205,8 @@ class IntentComparisonDetector(Detector):
                 break
 
             # Skip test files — we analyze *implementations*, not tests
-            if is_test_file(source_file):
+            rel_path = str(source_file.relative_to(repo_root))
+            if is_test_file(rel_path):
                 continue
 
             try:
@@ -217,8 +218,6 @@ class IntentComparisonDetector(Detector):
             symbols = _extract_symbols(source, language)
             if not symbols:
                 continue
-
-            rel_path = str(source_file.relative_to(repo_root))
 
             for sym in symbols[:_MAX_PER_FILE]:
                 if total_checked >= _MAX_PER_SCAN:
