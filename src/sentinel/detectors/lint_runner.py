@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,22 @@ from sentinel.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _find_ruff() -> str | None:
+    """Find the ruff binary, checking the current Python environment first."""
+    # Check alongside the running Python interpreter (venv/bin/)
+    bin_dir = Path(sys.prefix) / "bin"
+    candidate = bin_dir / "ruff"
+    if candidate.is_file():
+        return str(candidate)
+    # Windows variant
+    candidate = bin_dir / "Scripts" / "ruff.exe"
+    if candidate.is_file():
+        return str(candidate)
+    # Fall back to PATH
+    return shutil.which("ruff")
+
 
 # Map ruff message severity prefixes to Sentinel severities
 _SEVERITY_MAP: dict[str, Severity] = {
@@ -62,8 +80,13 @@ class LintRunner(Detector):
     def _run_ruff(self, context: DetectorContext) -> list[Finding]:
         repo_root = Path(context.repo_root)
 
+        ruff_bin = _find_ruff()
+        if ruff_bin is None:
+            logger.warning("ruff not found — skipping lint-runner")
+            return []
+
         # Build command
-        cmd = ["ruff", "check", "--output-format=json", "--no-fix",
+        cmd = [ruff_bin, "check", "--output-format=json", "--no-fix",
                "--exclude", ".sentinel"]
 
         # Scope: specific files or whole repo
