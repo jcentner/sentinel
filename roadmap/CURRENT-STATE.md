@@ -1,8 +1,8 @@
 # Current State — Sentinel
 
-> Last updated: Session 48 — Phase 15 ICD v2 cloud benchmarks complete
+> Last updated: Session 48 — Phase 15 ICD v2 benchmarks complete
 
-**Phase Status**: In Progress
+**Phase Status**: Blocked: Phase 15 success criterion (<25% FP on cloud-nano) not met (33% precision). Remaining work: expand ICD ground truth to get statistically meaningful FP rates. Awaiting human decision on whether to close phase as-is or iterate further.
 
 ## Latest Session Summary
 
@@ -46,6 +46,8 @@ Phase 15: Intent-comparison v2 — post-LLM filtering + calibration. Goal: <25% 
 - `002a2da` fix(test): update JS ICD test mock to match v2 schema (CI fix)
 - `784c1fa` fix(hooks): add pytest to slice-gate stop hook
 - `b635e8b` bench(icd-v2): Azure cloud model benchmarks across 3 repos x 3 models
+- `ea95bdd` docs(icd-v2): update docs with cloud benchmark results
+- `2a8b4d5` fix(compatibility): honest ICD rating qualifiers from reviewer findings
 
 ### Repository State
 - **Tests**: 1419 passing
@@ -54,15 +56,18 @@ Phase 15: Intent-comparison v2 — post-LLM filtering + calibration. Goal: <25% 
 - **VISION-LOCK**: v7.0 (Phase 15 added)
 
 ### What Remains / Next Priority
-1. ~~Run ICD v2 with cloud models~~ **DONE** — nano=Fair, mini=Good, gpt-5.4=Excellent
+1. ~~Run ICD v2 with cloud models~~ **DONE** — nano=Fair(est), mini=Good(est), gpt-5.4=Good(est)
 2. **Expand sample-repo ICD ground truth** — 1 TP is not statistically significant for confident ratings
 3. **Manual review of sentinel ICD findings** to estimate TP rate without ground truth (nano=47, mini=30, gpt-5.4=15)
 4. **Consider re-enabling ICD by default** once ground truth expanded
-5. **Vision expansion**: Proceed with remaining directions (2-5) after ICD v2 is fully validated
+5. **Vision expansion**: Proceed with remaining directions (2-5) after ICD v2 is validated
 
 ### Decisions Made
 - ICD v2 post-LLM filter thresholds: `_MIN_REASON_CHARS=30`, `_VAGUE_PHRASES` set, quote-based confidence
 - Used `relative_to(repo_root)` for is_test_file check (was absolute path causing false test classification)
+- ICD ratings are estimates from finding counts, not measured FP rates (reviewer Critical finding)
+- gpt-5.4 downgraded from Excellent to Good(est) — 33% precision on sample-repo (N=1) does not justify Excellent
+- Phase 15 success criterion not met for nano (67% FP on sample-repo, target was <25%)
 
 ## Vision Expansion Proposal
 
