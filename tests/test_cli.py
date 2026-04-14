@@ -1371,12 +1371,18 @@ class TestPruneCommand:
             "scan", str(test_repo),
             "--skip-judge", "--db", db_path, "-o", os.devnull,
         ])
+        # Backdate the run so pruning finds something to delete
+        from sentinel.store.db import get_connection
+        conn = get_connection(db_path)
+        conn.execute("UPDATE runs SET started_at = datetime('now', '-100 days')")
+        conn.commit()
+        conn.close()
         result = runner.invoke(main, [
             "prune", "--repo", str(test_repo), "--db", db_path,
-            "--older-than", "0",
+            "--older-than", "1",
         ])
         assert result.exit_code == 0
-        assert "Pruned" in result.output or "Nothing to prune" in result.output
+        assert "Pruned" in result.output
 
     def test_prune_json(self, runner, test_repo, db_path):
         from sentinel.store.db import get_connection

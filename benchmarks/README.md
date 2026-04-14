@@ -31,7 +31,7 @@ sentinel benchmark <repo-path> --compare benchmarks/file1.toml --compare benchma
 
 | Repo | Findings | Detectors Active | Duration | Date |
 |------|----------|-----------------|----------|------|
-| sample-repo (fixture) | 32 | 7/14 | ~5.5s | 2025-04-09 |
-| tsgbuilder | 134 | 7/14 | ~14s | 2025-04-09 |
+| sample-repo (fixture) | 32 | 7/14 | ~5.5s | 2026-04-09 |
+| tsgbuilder | 134 | 7/14 | ~14s | 2026-04-09 |
 
 Both baselines were run with `--skip-judge` (deterministic detectors only, no LLM).

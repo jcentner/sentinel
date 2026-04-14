@@ -4,11 +4,11 @@
 
 ## Executive Summary
 
-Sentinel has 5 LLM-assisted detectors. Three work well (semantic-drift, test-coherence, inline-comment-drift). One is severely broken (intent-comparison). One is untested at the LLM level (docs-drift). The dominant failure mode across detectors is **insufficient context for the task asked** and **prompt ambiguity that weaker models exploit**.
+Sentinel has 5 LLM-assisted detectors. Three work well (semantic-drift, test-coherence, inline-comment-drift). One is severely underperforming on non-frontier models (intent-comparison — 43% precision on frontier, <5% on everything else). One is untested at the LLM level (docs-drift). The dominant failure mode across detectors is **insufficient context for the task asked** and **prompt ambiguity that weaker models exploit**.
 
 ### Key Findings
 
-1. **Binary prompts outperform enhanced prompts for weaker models.** This validates ADR-016's approach — but the system should go further. For nano-class models, even the binary prompt asks too much in multi-artifact scenarios.
+1. **Binary prompts outperform enhanced prompts for weaker models.** This validates ADR-016's approach — but the system should go further. For nano-class models, even the binary prompt asks too much in multi-artifact scenarios. (Observed pattern across all benchmarked model×detector combinations — see [compatibility-matrix.md](../reference/compatibility-matrix.md) for per-model ratings.)
 2. **Context truncation is the invisible FP driver.** When functions are truncated at 1500 chars, the model sees a partial implementation and flags "missing behavior" that actually exists past the truncation point.
 3. **Intent-comparison is fundamentally over-scoped.** Asking a model to cross-reference 4 artifact types in a single prompt exceeds the reasoning capability of most models. The 98% FP rate on nano isn't a prompting problem — it's a task design problem.
 4. **docs-drift's LLM path is unbenchmarked and has no prompt adaptation.** Users deploying with a model provider silently get LLM-assisted docs-drift with no quality data.

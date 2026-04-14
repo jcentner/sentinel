@@ -514,6 +514,9 @@ class TestPruneOldData:
         result = prune_old_data(db_conn, retention_days=1)
         assert result["runs"] >= 1
         assert result["findings"] >= 1
+        assert "annotations" in result
+        assert "llm_log" in result
+        assert "finding_persistence" in result
 
     def test_prune_preserves_recent(self, db_conn):
         from sentinel.store.findings import prune_old_data
