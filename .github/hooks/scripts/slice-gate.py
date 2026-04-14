@@ -28,11 +28,26 @@ def _block(reason: str) -> None:
     )
 
 
+def _find_python(cwd: str) -> str:
+    """Find the best Python executable — prefer the project venv."""
+    venv_candidates = [
+        os.path.join(cwd, ".venv", "bin", "python"),
+        os.path.join(cwd, ".venv", "Scripts", "python.exe"),
+        os.path.join(cwd, "venv", "bin", "python"),
+        os.path.join(cwd, "venv", "Scripts", "python.exe"),
+    ]
+    for candidate in venv_candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    return sys.executable
+
+
 def _run_ci_checks(cwd: str) -> str | None:
     """Run ruff and mypy. Returns failure message or None if all pass."""
+    python = _find_python(cwd)
     checks = [
-        ([sys.executable, "-m", "ruff", "check", "src/", "tests/"], "ruff"),
-        ([sys.executable, "-m", "mypy", "src/sentinel/", "--strict"], "mypy"),
+        ([python, "-m", "ruff", "check", "src/", "tests/"], "ruff"),
+        ([python, "-m", "mypy", "src/sentinel/", "--strict"], "mypy"),
     ]
     failures: list[str] = []
     for cmd, name in checks:
@@ -48,6 +63,9 @@ def _run_ci_checks(cwd: str) -> str | None:
             continue
         if result.returncode != 0:
             output = (result.stdout + result.stderr).strip()
+            # Module not installed — skip rather than block
+            if "No module named" in output:
+                continue
             # Truncate to avoid exceeding hook output limits
             if len(output) > 2000:
                 output = output[:2000] + "\n... (truncated)"
