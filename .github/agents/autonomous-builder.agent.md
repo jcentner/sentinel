@@ -10,6 +10,14 @@ agents:
   - critic
   - Explore
 hooks:
+  PreToolUse:
+    - type: command
+      command: "python3 .github/hooks/scripts/tool-guardrails.py"
+      timeout: 10
+  PostToolUse:
+    - type: command
+      command: "python3 .github/hooks/scripts/context-checkpoint.py"
+      timeout: 10
   Stop:
     - type: command
       command: "python3 .github/hooks/scripts/slice-gate.py"

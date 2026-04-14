@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
+
+from sentinel.core.extractors import has_tree_sitter
 from sentinel.detectors.intent_comparison import (
     IntentComparisonDetector,
     _build_doc_lookup,
@@ -24,6 +27,10 @@ from sentinel.models import (
     DetectorContext,
     DetectorTier,
     ScopeType,
+)
+
+_skip_no_tree_sitter = pytest.mark.skipif(
+    not has_tree_sitter(), reason="tree-sitter not installed",
 )
 
 # ── Detector metadata ──────────────────────────────────────────────
@@ -1025,6 +1032,7 @@ class TestSortByRisk:
 # ── JS/TS multi-language support ──────────────────────────────────
 
 
+@_skip_no_tree_sitter
 class TestExtractSymbolsJS:
     def test_js_function_with_jsdoc(self) -> None:
         source = (
@@ -1077,6 +1085,7 @@ class TestExtractSymbolsJS:
         assert "docstring" not in result[0]
 
 
+@_skip_no_tree_sitter
 class TestBuildTestLookupJS:
     def test_finds_js_test_functions(self, tmp_path: Path) -> None:
         test_file = tmp_path / "utils.test.js"
@@ -1114,6 +1123,7 @@ class TestBuildTestLookupJS:
         assert len(lookup) == 0
 
 
+@_skip_no_tree_sitter
 class TestIntentComparisonDetectorJS:
     def _make_provider(self, response_text: str) -> MagicMock:
         provider = MagicMock()

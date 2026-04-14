@@ -15,6 +15,13 @@ Changes to Copilot instructions, prompts, agents, and workflow files. Each entry
 
 ## Entries
 
+### 2026-04-13 — Catalog activation: tool-guardrails, context-checkpoint, designer, ci-verification, anti-slop [EXPANSION]
+**Problem observed**: Project at session 46 with 45+ prior sessions and no safety hooks beyond slice-gate. Tool-guardrails (destructive command prevention), context-checkpoint (context pressure monitoring), designer agent (UI consistency), ci-verification skill (CI gating), and anti-slop skill (AI code smell detection) were all unactivated despite trigger conditions being met.
+**Affected file(s)**: `.github/agents/autonomous-builder.agent.md`, `.github/hooks/tool-guardrails.json`, `.github/hooks/scripts/tool-guardrails.py`, `.github/hooks/scripts/context-checkpoint.py`, `.github/agents/designer.agent.md`, `.github/skills/ci-verification/SKILL.md`, `.github/skills/anti-slop/SKILL.md`
+**Change made**: Activated 5 catalog items. Registered PreToolUse (tool-guardrails) and PostToolUse (context-checkpoint) hooks in autonomous-builder.agent.md frontmatter.
+**Expected benefit**: Destructive git ops blocked automatically. Context pressure monitored with advisory warnings. Designer available for UI review slices. CI verification and anti-slop available as skills.
+**Validation**: tool-guardrails should block `git push --force` in next test. context-checkpoint should advise after ~400KB of tool I/O.
+
 ### 2026-04-05 — Reviewer subagent skipped after significant implementation
 **Problem observed**: Session 9 implemented a 4-file embedding system (ADR, schema migration, 3 new modules, 6 modified files). The autonomous loop (step 6) requires running the reviewer subagent after significant code changes, but this step was skipped entirely. The review only occurred because the human explicitly requested it. The review found 8 issues — 4 of which were trivially detectable (stale doc references in the same file that was edited, dead set entry, missing diagram update). These should have been caught before committing.
 **Affected file(s)**: `.github/agents/autonomous-builder.agent.md`

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sentinel.core.extractors import impl_name_from_test
+import pytest
+
+from sentinel.core.extractors import has_tree_sitter, impl_name_from_test
 from sentinel.detectors.test_coherence import (
     TestCoherenceDetector,
     _match_test_to_impl,
@@ -11,6 +13,10 @@ from sentinel.detectors.test_coherence import (
     find_test_files,
 )
 from sentinel.models import DetectorContext, DetectorTier
+
+_skip_no_tree_sitter = pytest.mark.skipif(
+    not has_tree_sitter(), reason="tree-sitter not installed",
+)
 
 # ── Detector properties ──────────────────────────────────────────
 
@@ -632,6 +638,7 @@ class TestEnhancedMode:
 # ── JS/TS multi-language support ──────────────────────────────────
 
 
+@_skip_no_tree_sitter
 class TestFindTestFilesJS:
     def test_finds_js_test_files(self, tmp_path):
         (tmp_path / "config.test.js").write_text("test('x', () => {});\n")
@@ -654,6 +661,7 @@ class TestFindTestFilesJS:
         assert "utils.ts" not in names
 
 
+@_skip_no_tree_sitter
 class TestImplNameFromTestJS:
     def test_js_test_suffix(self):
         assert impl_name_from_test("config.test.js", "javascript") == "config.js"
@@ -668,6 +676,7 @@ class TestImplNameFromTestJS:
         assert impl_name_from_test("utils.spec.ts", "typescript") == "utils.ts"
 
 
+@_skip_no_tree_sitter
 class TestFindImplementationFileJS:
     def test_finds_js_impl_from_naming(self, tmp_path):
         src = tmp_path / "src"
@@ -698,6 +707,7 @@ class TestFindImplementationFileJS:
         assert result.name == "utils.ts"
 
 
+@_skip_no_tree_sitter
 class TestExtractFunctionPairsJS:
     def test_js_function_pairing(self, tmp_path):
         impl = tmp_path / "calculator.js"
@@ -748,6 +758,7 @@ class TestExtractFunctionPairsJS:
         assert "process" in impl_names
 
 
+@_skip_no_tree_sitter
 class TestDetectorIntegrationJS:
     def _make_js_repo(self, tmp_path):
         """Create a minimal JS repo with test + impl files."""

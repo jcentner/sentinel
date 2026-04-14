@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sentinel.core.extractors import extract_signatures
+from sentinel.core.extractors import extract_signatures, has_tree_sitter
 from sentinel.detectors.semantic_drift import (
     SemanticDriftDetector,
     _extract_code_excerpt,
@@ -14,6 +14,10 @@ from sentinel.detectors.semantic_drift import (
     parse_sections,
 )
 from sentinel.models import DetectorContext, DetectorTier, ScopeType
+
+_skip_no_tree_sitter = pytest.mark.skipif(
+    not has_tree_sitter(), reason="tree-sitter not installed",
+)
 
 
 @pytest.fixture
@@ -688,6 +692,7 @@ class TestEnhancedSemanticDrift:
 # ── JS/TS multi-language support ─────────────────────────────────
 
 
+@_skip_no_tree_sitter
 class TestExtractCodeExcerptJS:
     def test_ts_file(self, tmp_path):
         ts_file = tmp_path / "index.ts"
@@ -720,6 +725,7 @@ class TestExtractCodeExcerptJS:
         assert "validate" in excerpt
 
 
+@_skip_no_tree_sitter
 class TestMatchSymbolsToFilesJS:
     def test_finds_js_function_definition(self, tmp_path):
         src = tmp_path / "src"
@@ -746,6 +752,7 @@ class TestMatchSymbolsToFilesJS:
         assert "config.ts" in pairs[0][0]
 
 
+@_skip_no_tree_sitter
 class TestDetectorIntegrationJS:
     def test_produces_finding_on_drift_js(self, tmp_path, monkeypatch):
         """Drift between markdown docs and JS/TS source file."""

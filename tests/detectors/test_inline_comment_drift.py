@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import pytest
 
+from sentinel.core.extractors import has_tree_sitter
 from sentinel.detectors.inline_comment_drift import (
     InlineCommentDrift,
     _sort_by_risk,
     extract_docstring_pairs,
 )
 from sentinel.models import DetectorContext, DetectorTier, ScopeType
+
+_skip_no_tree_sitter = pytest.mark.skipif(
+    not has_tree_sitter(), reason="tree-sitter not installed",
+)
 
 
 @pytest.fixture
@@ -391,6 +396,7 @@ class TestFindingStructure:
 # ── JS/TS multi-language support ────────────────────────────────────
 
 
+@_skip_no_tree_sitter
 class TestExtractDocstringPairsJS:
     """JSDoc extraction via extract_docstring_pairs."""
 
@@ -434,6 +440,7 @@ class TestExtractDocstringPairsJS:
         assert len(pairs) == 0
 
 
+@_skip_no_tree_sitter
 class TestDetectorBehaviorJS:
     def test_finding_when_drift_detected_js(self, detector, tmp_path, monkeypatch):
         """LLM flagging a JSDoc produces a finding on a .js file."""
