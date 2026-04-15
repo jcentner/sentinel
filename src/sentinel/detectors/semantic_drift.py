@@ -57,20 +57,17 @@ _PROSE_PATH = re.compile(
     r"\b((?:src|lib|pkg|cmd|internal|app)/[\w./-]+\.(?:py|js|ts|go|rs))\b"
 )
 
-# Function/class names in backticks: `run_scan()`, `SentinelConfig`, `detect()`
-_BACKTICK_SYMBOL = re.compile(r"`(\w{2,}(?:\(\))?)`")
+# Function/class names in backticks: `run_scan()`, `SentinelConfig`, `detect()`,
+# or with parameters: `format_currency(amount, currency)`
+_BACKTICK_SYMBOL = re.compile(r"`(\w{2,})(?:\([^)]*\))?`")
 
 # Markdown links to source files: [config.py](src/sentinel/config.py)
 _MD_LINK_PATH = re.compile(
     r"\[[^\]]*\]\(([\w./-]+\.(?:py|js|ts|go|rs))\)"
 )
 
-# Key doc filenames to scan
-_KEY_DOCS = frozenset({
-    "README.MD", "CONTRIBUTING.MD", "INSTALL.MD", "GETTING-STARTED.MD",
-    "USAGE.MD", "API.MD", "DEVELOPMENT.MD", "GUIDE.MD",
-    "QUICKSTART.MD", "SETUP.MD",
-})
+# Max markdown files to analyze per scan (bounds LLM cost)
+_MAX_MD_FILES = 20
 
 # Max chars for doc section and code excerpt sent to LLM
 _MAX_DOC_CHARS = 800
@@ -128,7 +125,7 @@ class SemanticDriftDetector(Detector):
             logger.debug("Model provider unavailable — semantic-drift detector disabled")
             return []
 
-        md_files = self._get_key_docs(context, repo_root)
+        md_files = self._find_doc_files(context, repo_root)
         if not md_files:
             logger.debug("No key doc files found")
             return []
@@ -252,40 +249,41 @@ class SemanticDriftDetector(Detector):
     # ── File discovery ─────────────────────────────────────────────
 
     @staticmethod
-    def _get_key_docs(
+    def _find_doc_files(
         context: DetectorContext, repo_root: Path
     ) -> list[Path]:
-        """Find key documentation files to analyze.
+        """Find markdown documentation files to analyze.
 
-        Intentionally shallow: only scans repo root and docs/ directory to bound
-        LLM cost per scan. See phase-5-semantic-detectors.md.
+        Scans all .md files in the repo recursively (respecting common skip dirs)
+        up to _MAX_MD_FILES to bound LLM cost.
         """
         if context.scope == ScopeType.TARGETED and context.target_paths:
             return [
                 repo_root / p
                 for p in context.target_paths
-                if (repo_root / p).is_file() and p.upper().rstrip("/").split("/")[-1] in _KEY_DOCS
+                if (repo_root / p).is_file() and p.lower().endswith(".md")
             ]
 
         if context.scope == ScopeType.INCREMENTAL and context.changed_files:
             return [
                 repo_root / p
                 for p in context.changed_files
-                if (repo_root / p).is_file()
-                and p.upper().rstrip("/").split("/")[-1] in _KEY_DOCS
+                if (repo_root / p).is_file() and p.lower().endswith(".md")
             ]
 
         results: list[Path] = []
-        for item in sorted(repo_root.iterdir()):
-            if item.is_file() and item.suffix.lower() == ".md" and item.name.upper() in _KEY_DOCS:
-                results.append(item)
-
-        # Also check docs/ directory one level down
-        docs_dir = repo_root / "docs"
-        if docs_dir.is_dir():
-            for item in sorted(docs_dir.iterdir()):
-                if item.is_file() and item.suffix.lower() == ".md" and item.name.upper() in _KEY_DOCS:
-                    results.append(item)
+        for md_file in sorted(repo_root.rglob("*.md")):
+            if not md_file.is_file():
+                continue
+            try:
+                rel = md_file.relative_to(repo_root)
+            except ValueError:
+                continue
+            if any(part in COMMON_SKIP_DIRS for part in rel.parts):
+                continue
+            results.append(md_file)
+            if len(results) >= _MAX_MD_FILES:
+                break
 
         return results
 
@@ -594,10 +592,23 @@ def extract_code_pairs(
             pairs.append((rel_str, excerpt))
 
     # 4. If no file paths found, try to match backtick symbols to files
+    #    Search both the section body and the section title (API docs often
+    #    put the function name only in the heading).
     if not pairs:
-        symbols = _extract_symbols(body)
+        title = section.get("title", "")
+        symbols = _extract_symbols(title + "\n" + body)
         if symbols:
             pairs = _match_symbols_to_files(symbols, repo_root)
+
+    # 5. Last resort: extract significant keywords from prose and try to
+    #    match them against function/class definitions. This catches
+    #    architecture docs that describe behavior without code references
+    #    (e.g., "the login handler verifies bcrypt hashes").
+    if not pairs:
+        title = section.get("title", "")
+        keywords = _extract_prose_keywords(title + "\n" + body)
+        if keywords:
+            pairs = _match_keywords_to_files(keywords, repo_root)
 
     return pairs
 
@@ -679,6 +690,91 @@ def _match_symbols_to_files(
                         pairs.append((str(rel), excerpt))
                         if len(pairs) >= 3:
                             return pairs
+
+    return pairs
+
+
+# Stopwords for prose keyword extraction — only grammatical function words.
+# Domain terms like "handler", "service", "notification" are deliberately
+# kept because they help match prose sections to source files.
+_PROSE_STOPWORDS = frozenset({
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+    "should", "may", "might", "can", "could", "must", "need",
+    "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
+    "into", "through", "during", "before", "after", "between", "against",
+    "out", "off", "over", "under", "then", "once",
+    "here", "there", "when", "where", "why", "how",
+    "all", "each", "every", "both", "few", "more", "most", "other", "some",
+    "such", "no", "not", "only", "own", "same", "so", "than", "too", "very",
+    "just", "because", "but", "and", "or", "if", "while",
+    "that", "this", "these", "those", "it", "its", "they", "their", "them",
+    "we", "our", "us", "he", "she", "his", "her", "him",
+    "who", "which", "what", "about", "also", "any",
+})
+
+
+def _extract_prose_keywords(text: str) -> list[str]:
+    """Extract significant keywords from prose for fuzzy source file matching."""
+    text = re.sub(r"[#*_`\[\]()]", " ", text)
+    words = re.findall(r"[a-zA-Z][a-zA-Z0-9_]+", text)
+    seen: set[str] = set()
+    keywords: list[str] = []
+    for w in words:
+        low = w.lower()
+        if low in _PROSE_STOPWORDS or len(low) < 3 or low in seen:
+            continue
+        seen.add(low)
+        keywords.append(low)
+    return keywords[:20]
+
+
+def _match_keywords_to_files(
+    keywords: list[str], repo_root: Path,
+) -> list[tuple[str, str]]:
+    """Find source files whose content overlaps with the given keywords.
+
+    Scores each file by the count of distinct keyword substring matches.
+    Requires at least 2 hits to qualify. Returns up to 3 top-scoring files.
+    """
+    src_dirs = [repo_root / "src", repo_root / "lib", repo_root]
+    searched: set[Path] = set()
+    scored: list[tuple[int, Path, str]] = []
+
+    for src_dir in src_dirs:
+        if not src_dir.is_dir():
+            continue
+        for glob in _SOURCE_GLOBS:
+            for src_file in sorted(src_dir.rglob(glob)):
+                if src_file in searched:
+                    continue
+                searched.add(src_file)
+
+                try:
+                    rel = src_file.relative_to(repo_root)
+                except ValueError:
+                    continue
+                if any(part in COMMON_SKIP_DIRS for part in rel.parts):
+                    continue
+
+                try:
+                    source = src_file.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    continue
+
+                source_lower = source.lower()
+                hits = sum(1 for kw in keywords if kw in source_lower)
+
+                if hits >= 2:
+                    scored.append((hits, src_file, str(rel)))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    pairs: list[tuple[str, str]] = []
+    for _, src_file, rel_str in scored[:3]:
+        excerpt = _extract_code_excerpt(src_file)
+        if excerpt:
+            pairs.append((rel_str, excerpt))
 
     return pairs
 

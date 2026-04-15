@@ -8,7 +8,9 @@ from sentinel.core.extractors import extract_signatures, has_tree_sitter
 from sentinel.detectors.semantic_drift import (
     SemanticDriftDetector,
     _extract_code_excerpt,
+    _extract_prose_keywords,
     _extract_symbols,
+    _match_keywords_to_files,
     _match_symbols_to_files,
     extract_code_pairs,
     parse_sections,
@@ -268,6 +270,67 @@ class TestMatchSymbolsToFiles:
         assert len(pairs) <= 3
 
 
+class TestExtractProseKeywords:
+    def test_extracts_domain_terms(self):
+        text = "All passwords are hashed with bcrypt before storage."
+        kws = _extract_prose_keywords(text)
+        assert "passwords" in kws
+        assert "hashed" in kws
+        assert "bcrypt" in kws
+
+    def test_filters_stopwords(self):
+        text = "The login handler verifies credentials against bcrypt hashes."
+        kws = _extract_prose_keywords(text)
+        assert "the" not in kws
+        assert "against" not in kws
+
+    def test_filters_short_words(self):
+        text = "An ID is used by DB to track users."
+        kws = _extract_prose_keywords(text)
+        assert "id" not in [k.lower() for k in kws]
+
+    def test_deduplicates(self):
+        text = "bcrypt bcrypt bcrypt hashing"
+        kws = _extract_prose_keywords(text)
+        assert kws.count("bcrypt") == 1
+
+    def test_caps_at_20(self):
+        text = " ".join(f"word{i}" for i in range(30))
+        kws = _extract_prose_keywords(text)
+        assert len(kws) <= 20
+
+
+class TestMatchKeywordsToFiles:
+    def test_finds_file_with_keyword_overlap(self, tmp_path):
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "auth.py").write_text(
+            "import bcrypt\ndef handle_login(password):\n    return bcrypt.check(password)\n"
+        )
+        pairs = _match_keywords_to_files(["bcrypt", "login", "password"], tmp_path)
+        assert len(pairs) == 1
+        assert "auth.py" in pairs[0][0]
+
+
+    def test_ranks_by_hit_count(self, tmp_path):
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "low.py").write_text("# login password\n")
+        (tmp_path / "src" / "high.py").write_text(
+            "# login password bcrypt credentials hashed\n"
+        )
+        pairs = _match_keywords_to_files(
+            ["login", "password", "bcrypt", "credentials", "hashed"], tmp_path,
+        )
+        assert len(pairs) >= 1
+        assert "high.py" in pairs[0][0]
+
+    def test_limits_to_3_files(self, tmp_path):
+        (tmp_path / "src").mkdir()
+        for i in range(5):
+            (tmp_path / "src" / f"mod{i}.py").write_text("# login password\n")
+        pairs = _match_keywords_to_files(["login", "password"], tmp_path)
+        assert len(pairs) <= 3
+
+
 # ── Python code extraction ────────────────────────────────────────
 
 
@@ -483,60 +546,78 @@ class TestDetectorIntegration:
 
         assert findings == []
 
-    def test_targeted_scope_filters_non_key_docs(self, detector, tmp_path):
-        readme = tmp_path / "README.md"
-        readme.write_text("# Title\n\nContent here.\n")
+    def test_targeted_scope_includes_any_md(self, detector, tmp_path):
+        """Targeted scope accepts any .md file, not just key docs."""
         notes = tmp_path / "notes.md"
-        notes.write_text("# Notes\n\nRandom notes.\n")
+        notes.write_text("# Notes\n\nSome `src/foo.py` reference.\n")
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "foo.py").write_text("def bar(): pass\n")
 
         ctx = DetectorContext(
             repo_root=str(tmp_path),
             scope=ScopeType.TARGETED,
             target_paths=["notes.md"],
-            config={"skip_llm": True},
         )
-        findings = detector.detect(ctx)
-        assert findings == []
+        found = detector._find_doc_files(ctx, tmp_path)
+        assert len(found) == 1
+        assert found[0].name == "notes.md"
 
-    def test_finds_docs_in_docs_directory(self, detector, tmp_path):
-        docs_dir = tmp_path / "docs"
-        docs_dir.mkdir()
-        usage = docs_dir / "USAGE.md"
-        usage.write_text("# Usage\n\nSome usage information.\n")
+    def test_finds_docs_in_nested_directories(self, detector, tmp_path):
+        """Finds markdown files recursively in docs/guides/ etc."""
+        docs_dir = tmp_path / "docs" / "guides"
+        docs_dir.mkdir(parents=True)
+        guide = docs_dir / "api-reference.md"
+        guide.write_text("# API Reference\n\nSome API information.\n")
+        readme = tmp_path / "README.md"
+        readme.write_text("# Project\n")
 
-        found = detector._get_key_docs(
+        found = detector._find_doc_files(
             DetectorContext(repo_root=str(tmp_path)), tmp_path
         )
-        assert len(found) == 1
-        assert found[0].name == "USAGE.md"
+        assert len(found) == 2
+        names = {f.name for f in found}
+        assert "README.md" in names
+        assert "api-reference.md" in names
 
 
 # ── Key doc discovery ─────────────────────────────────────────────
 
 
-class TestGetKeyDocs:
+class TestFindDocFiles:
     def test_finds_readme(self, detector, tmp_path):
         readme = tmp_path / "README.md"
         readme.write_text("# Project\n")
-        found = detector._get_key_docs(
+        found = detector._find_doc_files(
             DetectorContext(repo_root=str(tmp_path)), tmp_path
         )
         assert len(found) == 1
         assert found[0].name == "README.md"
 
-    def test_finds_contributing(self, detector, tmp_path):
-        (tmp_path / "CONTRIBUTING.md").write_text("# Contributing\n")
-        found = detector._get_key_docs(
+    def test_finds_any_md_file(self, detector, tmp_path):
+        (tmp_path / "random.md").write_text("# Random\n")
+        found = detector._find_doc_files(
             DetectorContext(repo_root=str(tmp_path)), tmp_path
         )
         assert len(found) == 1
 
-    def test_ignores_non_key_docs(self, detector, tmp_path):
-        (tmp_path / "random.md").write_text("# Random\n")
-        found = detector._get_key_docs(
+    def test_finds_nested_md_files(self, detector, tmp_path):
+        (tmp_path / "docs" / "guides").mkdir(parents=True)
+        (tmp_path / "docs" / "guides" / "api.md").write_text("# API\n")
+        (tmp_path / "README.md").write_text("# Top\n")
+        found = detector._find_doc_files(
             DetectorContext(repo_root=str(tmp_path)), tmp_path
         )
-        assert len(found) == 0
+        assert len(found) == 2
+
+    def test_skips_common_dirs(self, detector, tmp_path):
+        (tmp_path / "node_modules").mkdir()
+        (tmp_path / "node_modules" / "pkg.md").write_text("# Pkg\n")
+        (tmp_path / "README.md").write_text("# Top\n")
+        found = detector._find_doc_files(
+            DetectorContext(repo_root=str(tmp_path)), tmp_path
+        )
+        assert len(found) == 1
+        assert found[0].name == "README.md"
 
     def test_targeted_scope(self, detector, tmp_path):
         readme = tmp_path / "README.md"
@@ -546,32 +627,40 @@ class TestGetKeyDocs:
             scope=ScopeType.TARGETED,
             target_paths=["README.md"],
         )
-        found = detector._get_key_docs(ctx, tmp_path)
+        found = detector._find_doc_files(ctx, tmp_path)
         assert len(found) == 1
 
     def test_incremental_scope_filters_unchanged(self, detector, tmp_path):
-        """Incremental scope only returns changed key docs."""
         (tmp_path / "README.md").write_text("# Project\n")
-        (tmp_path / "CONTRIBUTING.md").write_text("# Contributing\n")
+        (tmp_path / "notes.md").write_text("# Notes\n")
         ctx = DetectorContext(
             repo_root=str(tmp_path),
             scope=ScopeType.INCREMENTAL,
             changed_files=["README.md"],
         )
-        found = detector._get_key_docs(ctx, tmp_path)
+        found = detector._find_doc_files(ctx, tmp_path)
         assert len(found) == 1
         assert found[0].name == "README.md"
 
-    def test_incremental_scope_ignores_non_key_changed(self, detector, tmp_path):
-        """Changed files that aren't key docs are excluded."""
+    def test_incremental_scope_includes_any_changed_md(self, detector, tmp_path):
+        """Incremental scope includes any changed .md file."""
         (tmp_path / "notes.md").write_text("# Notes\n")
         ctx = DetectorContext(
             repo_root=str(tmp_path),
             scope=ScopeType.INCREMENTAL,
             changed_files=["notes.md"],
         )
-        found = detector._get_key_docs(ctx, tmp_path)
-        assert len(found) == 0
+        found = detector._find_doc_files(ctx, tmp_path)
+        assert len(found) == 1
+
+    def test_caps_at_max_files(self, detector, tmp_path):
+        from sentinel.detectors import semantic_drift
+        for i in range(25):
+            (tmp_path / f"doc{i:02d}.md").write_text(f"# Doc {i}\n")
+        found = detector._find_doc_files(
+            DetectorContext(repo_root=str(tmp_path)), tmp_path
+        )
+        assert len(found) == semantic_drift._MAX_MD_FILES
 
 
 # ── Enhanced mode tests ──────────────────────────────────────────
