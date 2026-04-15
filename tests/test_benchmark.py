@@ -488,17 +488,16 @@ class TestModelNameToClass:
 class TestGetReferenceQuality:
     """Tests for get_reference_quality()."""
 
-    def test_known_untested_combo(self) -> None:
-        """After benchmark purge, LLM detector entries are UNTESTED."""
-        from sentinel.core.compatibility import get_reference_quality
-        # All LLM detector entries reset to UNTESTED during purge
+    def test_known_fair_combo(self) -> None:
+        """Phase 1 benchmarks: 4B semantic-drift is FAIR on sample-repo."""
+        from sentinel.core.compatibility import QualityRating, get_reference_quality
         q = get_reference_quality("qwen3.5:4b", "semantic-drift")
-        assert q is None  # UNTESTED maps to None via get_reference_quality
+        assert q == QualityRating.FAIR
 
-    def test_known_untested_combo_tc(self) -> None:
-        from sentinel.core.compatibility import get_reference_quality
+    def test_known_fair_combo_tc(self) -> None:
+        from sentinel.core.compatibility import QualityRating, get_reference_quality
         q = get_reference_quality("qwen3.5:4b", "test-coherence")
-        assert q is None  # UNTESTED maps to None via get_reference_quality
+        assert q == QualityRating.FAIR
 
     def test_unknown_model(self) -> None:
         from sentinel.core.compatibility import get_reference_quality

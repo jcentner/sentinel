@@ -227,32 +227,98 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "Not yet benchmarked as judge (benchmark skips judge)."),
 
     # ── semantic-drift (LLM-assisted, basic tier) ────────────────
-    # All entries reset 2026-04-14: old benchmarks purged (pre-expanded sample-repo).
-    # Phase 1 benchmarks will populate these with empirical data.
-    *[_e("semantic-drift", mc, "basic", QualityRating.UNTESTED, "?",
-         "Awaiting Phase 1 benchmark (old data purged)")
-      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
+    # Phase 1 benchmarks 2026-04-14: expanded sample-repo (10 expected TPs).
+    # All models found only 1/10 — recall is uniformly poor.
+    # 2 findings total per model: 1 TP + 1 FP = 50% precision.
+    # Low recall suggests detector design gap (only checks README sections).
+    _e("semantic-drift", "4b-local", "basic", QualityRating.FAIR, "50%",
+       "1/2 TP (50%P, 10%R). Finds only top-level README drift. "
+       "Misses api-reference.md and architecture.md issues.",
+       "2026-04-14", tp=1, n=2, repos="sample-repo"),
+    _e("semantic-drift", "9b-local", "basic", QualityRating.FAIR, "50%",
+       "1/2 TP (50%P, 10%R). Same findings as 4B at 3× slower.",
+       "2026-04-14", tp=1, n=2, repos="sample-repo"),
+    _e("semantic-drift", "cloud-nano", "basic", QualityRating.FAIR, "50%",
+       "1/2 TP (50%P, 10%R). Same as local models on this fixture.",
+       "2026-04-14", tp=1, n=2, repos="sample-repo"),
+    _e("semantic-drift", "cloud-small", "basic", QualityRating.UNTESTED, "?",
+       "0 findings on sample-repo (mini too conservative). "
+       "N=0 — cannot rate. Needs real-repo benchmark.",
+       "2026-04-14", tp=0, n=0, repos="sample-repo"),
+    _e("semantic-drift", "cloud-frontier", "basic", QualityRating.UNTESTED, "?",
+       "Not benchmarked (frontier excluded from Phase 1)"),
     *[_e("semantic-drift", mc, "standard", QualityRating.UNTESTED, "?",
          "Enhanced mode not yet benchmarked")
       for mc in ["cloud-nano", "cloud-small", "cloud-frontier"]],
 
     # ── test-coherence (LLM-assisted, basic tier) ────────────────
-    *[_e("test-coherence", mc, "basic", QualityRating.UNTESTED, "?",
-         "Awaiting Phase 1 benchmark (old data purged)")
-      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
+    # Phase 1 benchmarks 2026-04-14: expanded sample-repo (15 expected TPs).
+    # Low recall across all models (13-20%) — detector only finds obvious drift.
+    _e("test-coherence", "4b-local", "basic", QualityRating.FAIR, "~40%",
+       "3/5 TP (60%P, 20%R). Finds obvious test-code mismatches but "
+       "misses subtle parameter/return-type drift in most test files.",
+       "2026-04-14", tp=3, n=5, repos="sample-repo"),
+    _e("test-coherence", "9b-local", "basic", QualityRating.FAIR, "~33%",
+       "2/3 TP (67%P, 13%R). Slightly more selective than 4B, "
+       "fewer findings but also lower recall.",
+       "2026-04-14", tp=2, n=3, repos="sample-repo"),
+    _e("test-coherence", "cloud-nano", "basic", QualityRating.FAIR, "~40%",
+       "3/5 TP (60%P, 20%R). Same pattern as 4B — finds only "
+       "the most obvious drift.",
+       "2026-04-14", tp=3, n=5, repos="sample-repo"),
+    _e("test-coherence", "cloud-small", "basic", QualityRating.UNTESTED, "?",
+       "0 findings on sample-repo (mini too conservative). "
+       "N=0 — cannot rate. Needs real-repo benchmark.",
+       "2026-04-14", tp=0, n=0, repos="sample-repo"),
+    _e("test-coherence", "cloud-frontier", "basic", QualityRating.UNTESTED, "?",
+       "Not benchmarked (frontier excluded from Phase 1)"),
     *[_e("test-coherence", mc, "standard", QualityRating.UNTESTED, "?",
          "Enhanced mode not yet benchmarked")
       for mc in ["cloud-nano", "cloud-small", "cloud-frontier"]],
 
     # ── inline-comment-drift (LLM-assisted, basic tier) ──────────
-    *[_e("inline-comment-drift", mc, "basic", QualityRating.UNTESTED, "?",
-         "Awaiting Phase 1 benchmark (old data purged)")
-      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
+    # Phase 1 benchmarks 2026-04-14: expanded sample-repo (18 expected TPs).
+    # Most productive LLM detector. Recall scales with model size.
+    _e("inline-comment-drift", "4b-local", "basic", QualityRating.FAIR, "~36%",
+       "9/14 TP (64%P, 50%R). Decent precision but misses half "
+       "the seeded issues. 35s runtime on 10-file fixture.",
+       "2026-04-14", tp=9, n=14, repos="sample-repo"),
+    _e("inline-comment-drift", "9b-local", "basic", QualityRating.FAIR, "~40%",
+       "15/25 TP (60%P, 83%R). Best recall of local models but "
+       "10 FPs. 161s runtime — very slow on 8 GB VRAM.",
+       "2026-04-14", tp=15, n=25, repos="sample-repo"),
+    _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.FAIR, "~48%",
+       "16/31 TP (52%P, 89%R). Highest recall but also most FPs (15). "
+       "96s runtime. Good recall but noisy.",
+       "2026-04-14", tp=16, n=31, repos="sample-repo"),
+    _e("inline-comment-drift", "cloud-small", "basic", QualityRating.UNTESTED, "?",
+       "0 findings on sample-repo (mini too conservative). "
+       "N=0 — cannot rate. Needs real-repo benchmark.",
+       "2026-04-14", tp=0, n=0, repos="sample-repo"),
+    _e("inline-comment-drift", "cloud-frontier", "basic", QualityRating.UNTESTED, "?",
+       "Not benchmarked (frontier excluded from Phase 1)"),
 
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
-    *[_e("intent-comparison", mc, "advanced", QualityRating.UNTESTED, "?",
-         "Awaiting Phase 1 benchmark (old data purged)")
-      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
+    # Phase 1 benchmarks 2026-04-14: expanded sample-repo (9 expected TPs).
+    # 4B is surprisingly best. 9B worst — generates many hallucinated FPs.
+    _e("intent-comparison", "4b-local", "advanced", QualityRating.FAIR, "~56%",
+       "4/9 TP (44%P, 44%R). Best IC performance of tested models. "
+       "5 FPs — hallucinated contradictions. 26s runtime.",
+       "2026-04-14", tp=4, n=9, repos="sample-repo"),
+    _e("intent-comparison", "9b-local", "advanced", QualityRating.POOR, "~82%",
+       "2/11 TP (18%P, 22%R). Worst IC performance — 9 FPs. "
+       "Generates more hallucinated contradictions than 4B. 139s runtime.",
+       "2026-04-14", tp=2, n=11, repos="sample-repo"),
+    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.POOR, "~73%",
+       "4/15 TP (27%P, 44%R). Same recall as 4B but more FPs (11). "
+       "23s runtime.",
+       "2026-04-14", tp=4, n=15, repos="sample-repo"),
+    _e("intent-comparison", "cloud-small", "advanced", QualityRating.UNTESTED, "?",
+       "0 findings on sample-repo (mini too conservative). "
+       "N=0 — cannot rate. Needs real-repo benchmark.",
+       "2026-04-14", tp=0, n=0, repos="sample-repo"),
+    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.UNTESTED, "?",
+       "Not benchmarked (frontier excluded from Phase 1)"),
 ]
 
 
