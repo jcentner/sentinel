@@ -1,60 +1,65 @@
 # Current State — Sentinel
 
-> Last updated: Session 51 — ADR-018 benchmark rigor, expanded sample-repo, richer compatibility metrics
+> Last updated: Session 52 — Phase 0+1 benchmarking: purge + sample-repo baselines
 
-**Phase Status**: Blocked: Phase 15 ICD precision is Poor on all non-frontier models. Benchmark infrastructure now strengthened (ADR-018). Awaiting human decision: (a) close phase with honest Poor ratings and ICD disabled by default, (b) proceed to vision expansion, or (c) execute benchmarking plan first.
+**Phase Status**: In Progress — executing benchmarking plan. Phase 1 (sample-repo baselines) complete. Phase 2 (real-repo annotation) next.
 
 ## Latest Session Summary
 
 ### Current Objective
-Codify benchmark rigor as a design decision. Expand sample-repo for meaningful LLM detector benchmarks. Show richer metrics (precision, raw counts, sample size) on the detectors page.
+Execute the benchmarking plan (docs/analysis/benchmarking-plan.md) to build statistically meaningful benchmark data for all detectors.
 
 ### What Was Accomplished
 
-#### ADR-018: Benchmark Rigor as Core Engineering Discipline
-- Codified that FP rate alone is insufficient — precision, recall, raw counts, and sample size all matter
-- Minimum sample requirements: N<5 = raw counts only, N≥10 across ≥2 repos = "Established"
-- Ground truth files are first-class engineering artifacts
-- Strengthens ADR-016 (benchmark-driven model quality)
+#### Phase 0: Purge Old Benchmark Data
+- Removed 38 stale benchmark TOML files from `benchmarks/` (pre-expanded sample-repo, prior detector versions)
+- Reset all LLM detector COMPATIBILITY_MATRIX entries to UNTESTED
+- Ground truth files and README preserved
 
-#### Expanded Sample-Repo (3 → 10 source files, 37 → 85 ground truth TPs)
-- New modules: `utils.py`, `models.py`, `handlers.py`, `services.py`
-- New tests: `test_utils.py`, `test_handlers.py`, `test_services.py`
-- New docs: `docs/guides/api-reference.md`, `docs/architecture.md`
-- Each file contains a mix of seeded drift issues and correct code (true negatives)
-- LLM detector ground truth: semantic-drift=10, test-coherence=15, inline-comment-drift=18, intent-comparison=9
+#### Phase 1: Sample-Repo Baselines (4 models × 4 LLM detectors)
+Ran all LLM detectors on expanded sample-repo (10 files, 85 ground truth TPs) with 4 model classes:
 
-#### Richer Compatibility Matrix
-- `CompatibilityEntry` now has `tp_count`, `finding_count`, `repos_tested` fields
-- Detectors page shows raw counts (`3/7 TP`) when available, falls back to FP rate
-- ICD entries now show precise counts with repos tested
+| Detector | 4B (P/R) | 9B (P/R) | Nano (P/R) | Mini |
+|---|---|---|---|---|
+| semantic-drift | 50%/10% (1/2) | 50%/10% (1/2) | 50%/10% (1/2) | 0 findings |
+| test-coherence | 60%/20% (3/5) | 67%/13% (2/3) | 60%/20% (3/5) | 0 findings |
+| inline-comment-drift | 64%/50% (9/14) | 60%/83% (15/25) | 52%/89% (16/31) | 0 findings |
+| intent-comparison | 44%/44% (4/9) | 18%/22% (2/11) | 27%/44% (4/15) | 0 findings |
 
-#### Ground Truth Gap Documentation
-- Both real-repo ground truth files (sentinel, pip-tools) now document the LLM detector annotation gap
-- TD-061 filed: LLM detectors have no real-repo ground truth (High severity)
-- Benchmarking plan written at docs/analysis/benchmarking-plan.md
+Key insights:
+- **gpt-5.4-mini produced ZERO LLM findings** — model too conservative for seeded fixture issues
+- **semantic-drift recall uniformly 10%** — detector only checks top-level README sections, misses api-reference.md and architecture.md
+- **test-coherence recall 13-20%** — misses subtle parameter/return drift
+- **inline-comment-drift is the most productive LLM detector** — highest recall across all models
+- **intent-comparison: 4B surprisingly outperforms 9B and nano on precision** (44% vs 18% vs 27%)
 
-### Key Commits This Session
-- `b036604` feat(benchmarks): ADR-018 benchmark rigor, expanded sample-repo, richer metrics
-
-### Repository State
-- **Tests**: 1401 passing, 37 skipped (tree-sitter)
-- **Coverage**: ~85% (unchanged — no source code changes)
-- **Ruff + mypy strict**: clean
-- **VISION-LOCK**: v6.2 (Phase 15)
-
-### What Remains / Next Priority
-1. **Execute benchmarking plan Phase 1**: Run sample-repo benchmarks across all 5 model classes — this can be done immediately with the expanded ground truth
-2. **Execute benchmarking plan Phase 2**: Run LLM detectors on real repos (sentinel, pip-tools), annotate findings, build ground truth
-3. **Phase 15 decision**: Close with honest ratings or proceed to vision expansion
-4. **TD-059**: Benchmark docs-drift LLM path
+COMPATIBILITY_MATRIX updated with empirical tp/n/repos data per ADR-018.
 5. **TD-061**: Fill real-repo LLM detector ground truth
 
 ### Decisions Made
+### Key Commits This Session
+- `5675e85` chore(benchmarks): purge 38 stale benchmark results, reset matrix to UNTESTED
+- `20e2969` feat(benchmarks): Phase 1 sample-repo baselines — 4 models, empirical matrix
+
+### Repository State
+- **Tests**: 1401 passing, 37 skipped (tree-sitter)
+- **Ruff + mypy strict**: clean
+- **VISION-LOCK**: v6.2 (Phase 15)
+- **Benchmark files**: 4 fresh sample-repo baselines (4B, 9B, nano, mini)
+
+### What Remains / Next Priority
+1. **Benchmarking plan Phase 2**: Run LLM detectors on real repos (sentinel, pip-tools), annotate findings, build ground truth — critical for "Established" ratings (N≥10, ≥2 repos)
+2. **Investigate mini's zero findings**: gpt-5.4-mini found 0 LLM issues on sample-repo — try on real repos to determine if too conservative everywhere or just on fixtures
+3. **Investigate semantic-drift 10% recall**: detector only checks README sections per heading — misses api-reference.md and architecture.md ground truth. Design gap or intentional scope limitation?
+4. **Benchmarking plan Phase 3**: Update compatibility matrix with combined sample-repo + real-repo data
+5. **TD-059**: Benchmark docs-drift LLM path
+6. **TD-061**: Fill real-repo LLM detector ground truth (addressed by Phase 2)
+
+### Decisions Made
 - ADR-018 accepted: benchmark rigor is non-negotiable engineering discipline
-- FP rate alone is insufficient for quality ratings — precision, recall, raw counts, sample size all matter
-- Ground truth is a first-class artifact — the benchmark fixture needs to be big enough for statistical significance
-- Current LLM detector ratings on real repos are informal and need reproducible benchmarks
+- Old benchmark data purged to avoid confusion with stale results
+- gpt-5.4 frontier excluded from benchmarks per user instruction (cost control)
+- OpenAI API key available at `.oai` for nano/mini benchmarks only
 
 ## Vision Expansion Proposal
 
