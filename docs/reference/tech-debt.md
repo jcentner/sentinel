@@ -93,10 +93,18 @@ Tracked technical debt items. These are known compromises, shortcuts, or deferre
 **Proposed resolution**: (1) Add `capability_tier = BASIC` to docs-drift. (2) Add `should_use_enhanced_prompt()` support for binary/enhanced prompt adaptation. (3) Seed LLM-detectable doc-code drift in sample-repo ground truth. (4) Benchmark across models and populate the compatibility matrix.
 
 ### TD-060: Benchmark integrity — estimated ratings in documentation
-**Status**: Active
+**Status**: Partially resolved (ADR-018 codifies requirements, Session 51 adds infrastructure)
 **Severity**: Medium
 **Introduced**: Session 50 (benchmark audit)
-**Description**: Some documentation previously used "estimated" or "est" labels for quality ratings that were not empirically measured (e.g., "Local 4B/9B=Good (<25% est)"). This violates ADR-016's principle that quality ratings come from benchmark data, not assumptions. Session 50 corrected known instances, but the pattern may recur during rapid iteration. Benchmark integrity requirements now documented in `benchmarks/README.md`.
+**Description**: Some documentation previously used "estimated" or "est" labels for quality ratings that were not empirically measured (e.g., "Local 4B/9B=Good (<25% est)"). This violates ADR-016's principle that quality ratings come from benchmark data, not assumptions. Session 50 corrected known instances. ADR-018 codifies benchmark rigor as a core engineering discipline. Session 51 expanded the sample-repo and compatibility matrix to show raw counts (tp/n) so sparse data is visible. Ongoing enforcement via reviewer checklist.
 **Impact**: Users may trust ratings that were never measured, leading to suboptimal model selection.
-**Proposed resolution**: Resolved for known instances. Ongoing enforcement via reviewer checklist: any quality rating in docs must cite a specific benchmark TOML file or be marked ❓ Untested.
+**Proposed resolution**: Resolved for known instances. ADR-018 + expanded ground truth + richer matrix display. Still needs: full Phase 1/2 benchmark runs per docs/analysis/benchmarking-plan.md.
+
+### TD-061: LLM detectors have no real-repo ground truth
+**Status**: Active
+**Severity**: High
+**Introduced**: Session 51 (benchmark rigor audit)
+**Description**: semantic-drift, test-coherence, and inline-comment-drift have zero annotated ground truth entries in real-repo (sentinel, pip-tools) benchmark files. Their compatibility matrix ratings came from manual inspection of scan output, not reproducible `sentinel benchmark --ground-truth` evaluation. The sample-repo has been expanded with seeded issues (10-16 per detector), but real-repo annotations require running LLM scans and manually classifying each finding.
+**Impact**: Three of four LLM detectors have ratings that cannot be reproduced or verified. Violates ADR-018.
+**Proposed resolution**: Execute the benchmarking plan (docs/analysis/benchmarking-plan.md): Phase 1 (sample-repo baselines), Phase 2 (real-repo annotation), Phase 3 (matrix update).
 

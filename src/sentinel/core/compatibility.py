@@ -41,6 +41,10 @@ class CompatibilityEntry:
     fp_rate: str  # e.g., "<10%", "~40%", "n/a"
     notes: str  # Brief explanation
     benchmark_date: str  # When this was measured
+    # ADR-018: richer metrics for transparency
+    tp_count: int | None = None  # True positives observed
+    finding_count: int | None = None  # Total findings observed
+    repos_tested: str = ""  # e.g., "sample-repo, pip-tools, sentinel"
 
 
 # ── Empirical compatibility data ─────────────────────────────────
@@ -177,11 +181,16 @@ def _e(
     detector: str, model_class: str, tier: str,
     rating: QualityRating, fp_rate: str, notes: str,
     date: str = "2026-04-11",
+    *,
+    tp: int | None = None,
+    n: int | None = None,
+    repos: str = "",
 ) -> CompatibilityEntry:
     return CompatibilityEntry(
         detector=detector, model_class=model_class,
         capability_tier=tier, rating=rating,
         fp_rate=fp_rate, notes=notes, benchmark_date=date,
+        tp_count=tp, finding_count=n, repos_tested=repos,
     )
 
 
@@ -316,18 +325,21 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "gpt-5.4-nano: 1/60 TP on real repos (~2% precision). "
        "20 findings on pip-tools (1 TP), 39 on sentinel (0 TP). "
        "Dominant FP: hallucinated test assertions, misread code paths.",
-       "2026-04-14"),
+       "2026-04-14",
+       tp=1, n=60, repos="pip-tools, sentinel"),
     _e("intent-comparison", "cloud-small", "advanced", QualityRating.POOR, "~96%",
        "gpt-5.4-mini: 1/24 TP on real repos (4% precision). "
        "8 findings on pip-tools (1 TP), 16 on sentinel (0 TP). "
        "FP patterns: parameter confusion, incomplete call-chain analysis.",
-       "2026-04-14"),
+       "2026-04-14",
+       tp=1, n=24, repos="pip-tools, sentinel"),
     _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.POOR, "~57%",
        "gpt-5.4: 3/7 TP on real repos (43% precision). "
        "2 on pip-tools (1 TP), 5 on sentinel (2 TP). "
        "Best available but still >40% FP. Found real docstring bugs "
        "(DFS/BFS mismatch, incomplete return docs).",
-       "2026-04-14"),
+       "2026-04-14",
+       tp=3, n=7, repos="pip-tools, sentinel"),
 ]
 
 
@@ -399,12 +411,18 @@ def build_summary_table() -> list[dict[str, object]]:
                     "rating": entry.rating.value,
                     "fp_rate": entry.fp_rate,
                     "notes": entry.notes,
+                    "tp_count": entry.tp_count,
+                    "finding_count": entry.finding_count,
+                    "repos_tested": entry.repos_tested,
                 }
             else:
                 row[mc["id"]] = {
                     "rating": "untested",
                     "fp_rate": "?",
                     "notes": "Not yet benchmarked",
+                    "tp_count": None,
+                    "finding_count": None,
+                    "repos_tested": "",
                 }
         rows.append(row)
 
@@ -427,12 +445,18 @@ def build_summary_table() -> list[dict[str, object]]:
                 "rating": entry.rating.value,
                 "fp_rate": entry.fp_rate,
                 "notes": entry.notes,
+                "tp_count": entry.tp_count,
+                "finding_count": entry.finding_count,
+                "repos_tested": entry.repos_tested,
             }
         else:
             judge_row[mc["id"]] = {
                 "rating": "untested",
                 "fp_rate": "?",
                 "notes": "Not yet benchmarked",
+                "tp_count": None,
+                "finding_count": None,
+                "repos_tested": "",
             }
     rows.append(judge_row)
 

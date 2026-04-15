@@ -29,6 +29,13 @@ assume_tp_findings = 25  # complexity (14) + todo (11) following same TP pattern
 assume_tp_reason = "Remaining complexity findings are structurally accurate (objective metric). Remaining TODO findings follow same real-TODO pattern as spot-checked samples."
 # Detectors with 0 findings: dead-code, dep-audit, eslint-runner, go-linter, lint-runner, rust-clippy, semantic-drift, stale-env, test-coherence, unused-deps
 
+# ── LLM detector ground truth status ──────────────────────────────────
+# intent-comparison: 1 TP, 1 FP annotated (gpt-5.4 scan, 2026-04-14)
+# semantic-drift: NOT YET ANNOTATED — needs full LLM scan + human review
+# test-coherence: NOT YET ANNOTATED — needs full LLM scan + human review
+# inline-comment-drift: NOT YET ANNOTATED — needs full LLM scan + human review
+# See docs/analysis/benchmarking-plan.md for the plan to fill these gaps
+
 # ── complexity (20 findings, 20 spot-checked) ──────────────────────────
 # All complexity findings are structurally accurate — the functions genuinely
 # exceed the thresholds. These are TP by definition (the metric is objective).

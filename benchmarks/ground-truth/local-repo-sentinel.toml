@@ -19,6 +19,13 @@ annotated_findings = 57  # individually annotated with [[findings]] entries
 assume_tp_findings = 120  # 111 complexity + 9 git-hotspots
 assume_tp_reason = "Complexity findings are objective metrics (function genuinely exceeds threshold). Git-hotspots are factual churn data."
 
+# ── LLM detector ground truth status ──────────────────────────────────
+# intent-comparison: 3 TP, 3 FP annotated (gpt-5.4 scan, 2026-04-14)
+# semantic-drift: NOT YET ANNOTATED — needs full LLM scan + human review
+# test-coherence: NOT YET ANNOTATED — needs full LLM scan + human review
+# inline-comment-drift: NOT YET ANNOTATED — needs full LLM scan + human review
+# See docs/analysis/benchmarking-plan.md for the plan to fill these gaps
+
 # ── complexity (111 findings) ──────────────────────────────────────────
 # All structurally accurate — functions genuinely exceed thresholds.
 # Not individually annotated. TP by definition.

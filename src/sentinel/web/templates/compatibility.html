@@ -52,8 +52,13 @@
             <span class="compat-badge compat-{{ cell.rating }}" title="{{ cell.notes }}">
               {{ cell.rating | title }}
             </span>
-            {% if cell.fp_rate and cell.fp_rate != 'n/a' and cell.fp_rate != '?' %}
+            {% if cell.tp_count is not none and cell.finding_count is not none %}
+            <br><small class="text-muted" title="True positives / Total findings">{{ cell.tp_count }}/{{ cell.finding_count }} TP</small>
+            {% elif cell.fp_rate and cell.fp_rate != 'n/a' and cell.fp_rate != '?' %}
             <br><small class="text-muted">{{ cell.fp_rate }} FP</small>
+            {% endif %}
+            {% if cell.repos_tested %}
+            <br><small class="text-muted" style="font-size:0.68rem; opacity:0.7;">{{ cell.repos_tested }}</small>
             {% endif %}
           </td>
           {% endfor %}
@@ -100,7 +105,9 @@
             <span class="compat-badge compat-{{ cell.rating }}" title="{{ cell.notes }}">
               {{ cell.rating | title }}
             </span>
-            {% if cell.fp_rate and cell.fp_rate != 'n/a' and cell.fp_rate != '?' %}
+            {% if cell.tp_count is not none and cell.finding_count is not none %}
+            <br><small class="text-muted" title="True positives / Total findings">{{ cell.tp_count }}/{{ cell.finding_count }} TP</small>
+            {% elif cell.fp_rate and cell.fp_rate != 'n/a' and cell.fp_rate != '?' %}
             <br><small class="text-muted">{{ cell.fp_rate }} FP</small>
             {% endif %}
           </td>

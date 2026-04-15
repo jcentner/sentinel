@@ -29,6 +29,7 @@ Before making design choices, check existing [ADRs](docs/architecture/decisions/
 - ADR-014: Replay-based eval for judge and synthesis paths
 - ADR-016: Benchmark-driven model quality (supersedes ADR-011 tier system)
 - ADR-017: Async model provider with backward-compatible concurrency
+- ADR-018: Benchmark rigor as core engineering discipline (strengthens ADR-016)
 
 ## Documentation
 

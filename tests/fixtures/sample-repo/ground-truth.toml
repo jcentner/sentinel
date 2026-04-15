@@ -175,11 +175,68 @@ detector = "unused-deps"
 file_path = "pyproject.toml"
 title = "sqlalchemy"
 
+[[expected]]
+detector = "unused-deps"
+file_path = "pyproject.toml"
+title = "bcrypt"
+
+[[expected]]
+detector = "unused-deps"
+file_path = "pyproject.toml"
+title = "pydantic"
+
 # semantic-drift: docs section doesn't match code reality
 [[expected]]
 detector = "semantic-drift"
 file_path = "README.md"
 title = "Configuration"
+
+# semantic-drift: api-reference.md documents behavior that doesn't match code
+[[expected]]
+detector = "semantic-drift"
+file_path = "api-reference.md"
+title = "format_currency"
+
+[[expected]]
+detector = "semantic-drift"
+file_path = "api-reference.md"
+title = "parse_date"
+
+[[expected]]
+detector = "semantic-drift"
+file_path = "api-reference.md"
+title = "hash_file"
+
+[[expected]]
+detector = "semantic-drift"
+file_path = "api-reference.md"
+title = "handle_login"
+
+[[expected]]
+detector = "semantic-drift"
+file_path = "api-reference.md"
+title = "calculate_shipping"
+
+[[expected]]
+detector = "semantic-drift"
+file_path = "api-reference.md"
+title = "generate_report"
+
+[[expected]]
+detector = "semantic-drift"
+file_path = "api-reference.md"
+title = "handle_search"
+
+# semantic-drift: architecture.md claims that don't match code
+[[expected]]
+detector = "semantic-drift"
+file_path = "architecture.md"
+title = "Security"
+
+[[expected]]
+detector = "semantic-drift"
+file_path = "architecture.md"
+title = "Notifications"
 
 # test-coherence: seeded test-code drift in fixture test files
 [[expected]]
@@ -192,11 +249,229 @@ detector = "test-coherence"
 file_path = "tests/test_main.py"
 title = "test_main_returns_data"
 
-# inline-comment-drift: seeded stale docstrings in fixture files
+# test-coherence: tests/test_utils.py — tests that don't match implementations
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_utils.py"
+title = "test_format_currency_returns_string"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_utils.py"
+title = "test_retry_exponential_backoff"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_utils.py"
+title = "test_hash_file_sha256"
+
+# test-coherence: tests/test_handlers.py — tests that assume wrong behavior
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_handlers.py"
+title = "test_login_validates_bcrypt"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_handlers.py"
+title = "test_register_sends_welcome_email"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_handlers.py"
+title = "test_profile_includes_avatar"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_handlers.py"
+title = "test_search_fuzzy_matching"
+
+# test-coherence: tests/test_services.py — tests that assert wrong behavior
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_services.py"
+title = "test_free_shipping_over_50"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_services.py"
+title = "test_notification_sends_sms"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_services.py"
+title = "test_report_returns_pdf"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_services.py"
+title = "test_refund_only_pending"
+
+# test-coherence: tests/test_processing.py — existing drifted tests
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_processing.py"
+title = "test_process_empty_records"
+
+[[expected]]
+detector = "test-coherence"
+file_path = "tests/test_processing.py"
+title = "test_process_validates_xml_format"
+
+# inline-comment-drift: stale docstrings that don't match function bodies
 [[expected]]
 detector = "inline-comment-drift"
 file_path = "tests/test_main.py"
 title = "test_keyboard_interrupt_handling"
+
+# inline-comment-drift: utils.py — docstrings that don't match implementation
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "utils.py"
+title = "format_currency"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "utils.py"
+title = "parse_date"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "utils.py"
+title = "retry"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "utils.py"
+title = "hash_file"
+
+# inline-comment-drift: handlers.py — docstrings that don't match code
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "handlers.py"
+title = "handle_login"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "handlers.py"
+title = "handle_register"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "handlers.py"
+title = "handle_profile"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "handlers.py"
+title = "handle_search"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "handlers.py"
+title = "handle_delete_user"
+
+# inline-comment-drift: services.py — docstrings that don't match code
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "services.py"
+title = "calculate_shipping"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "services.py"
+title = "send_notification"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "services.py"
+title = "generate_report"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "services.py"
+title = "process_refund"
+
+# inline-comment-drift: models.py — class/method docstrings that don't match
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "models.py"
+title = "Order"
+
+[[expected]]
+detector = "inline-comment-drift"
+file_path = "models.py"
+title = "Invoice"
+
+# intent-comparison: multi-artifact contradictions (code vs docstring vs test vs docs)
+# These are cases where 3+ artifacts exist and disagree
+[[expected]]
+detector = "intent-comparison"
+file_path = "utils.py"
+title = "format_currency"
+
+[[expected]]
+detector = "intent-comparison"
+file_path = "utils.py"
+title = "hash_file"
+
+[[expected]]
+detector = "intent-comparison"
+file_path = "handlers.py"
+title = "handle_login"
+
+[[expected]]
+detector = "intent-comparison"
+file_path = "handlers.py"
+title = "handle_search"
+
+[[expected]]
+detector = "intent-comparison"
+file_path = "services.py"
+title = "calculate_shipping"
+
+[[expected]]
+detector = "intent-comparison"
+file_path = "services.py"
+title = "generate_report"
+
+[[expected]]
+detector = "intent-comparison"
+file_path = "services.py"
+title = "send_notification"
+
+[[expected]]
+detector = "intent-comparison"
+file_path = "processing.py"
+title = "process_records"
+
+# ── Known false positive patterns ────────────────────────────────
+
+# Dead-code FPs: new module-level symbols that are imported by tests
+[[false_positives]]
+detector = "dead-code"
+file_path = "utils.py"
+title = "format_currency"
+
+[[false_positives]]
+detector = "dead-code"
+file_path = "utils.py"
+title = "parse_date"
+
+[[false_positives]]
+detector = "dead-code"
+file_path = "handlers.py"
+title = "handle_login"
+
+[[false_positives]]
+detector = "dead-code"
+file_path = "handlers.py"
+title = "handle_register"
+
+[[false_positives]]
+detector = "dead-code"
+file_path = "services.py"
+title = "calculate_shipping"
 
 [[expected]]
 detector = "inline-comment-drift"
