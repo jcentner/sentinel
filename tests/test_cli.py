@@ -935,7 +935,6 @@ class TestCompatibilityCommand:
         result = runner.invoke(main, ["compatibility", "-d", "test-coherence"])
         assert result.exit_code == 0
         assert "test-coherence" in result.output
-        assert "Recommended:" in result.output
         assert "4b-local" in result.output
 
     def test_compatibility_single_model(self, runner):

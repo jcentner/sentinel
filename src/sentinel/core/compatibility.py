@@ -227,119 +227,32 @@ COMPATIBILITY_MATRIX: list[CompatibilityEntry] = [
        "Not yet benchmarked as judge (benchmark skips judge)."),
 
     # ── semantic-drift (LLM-assisted, basic tier) ────────────────
-    _e("semantic-drift", "4b-local", "basic", QualityRating.GOOD, "<15%",
-       "Binary signal is robust even for small models. Finds real doc-code drift.",
-       "2026-04-11"),
-    _e("semantic-drift", "9b-local", "basic", QualityRating.GOOD, "<15%",
-       "Same quality as 4B but 2-3× slower on 8 GB VRAM. No advantage.",
-       "2026-04-11"),
-    _e("semantic-drift", "cloud-nano", "basic", QualityRating.EXCELLENT, "<10%",
-       "Fastest and most precise. Finds the same issues with fewer false signals.",
-       "2026-04-11"),
-    # ── semantic-drift: cloud models ────
-    # All three cloud models produce identical findings on sample-repo (1 each).
-    # The signal is binary and robust — model choice doesn't matter for this detector.
-    _e("semantic-drift", "cloud-small", "basic", QualityRating.GOOD, "<15%",
-       "Same 1 finding as nano on sample-repo. No measurable quality difference.",
-       "2026-04-13"),
-    _e("semantic-drift", "cloud-frontier", "basic", QualityRating.GOOD, "<15%",
-       "Same 1 finding as nano on sample-repo. No measurable quality difference.",
-       "2026-04-13"),
-    _e("semantic-drift", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
-       "Enhanced mode (structured explanations) not yet benchmarked with cloud-nano"),
-    _e("semantic-drift", "cloud-small", "standard", QualityRating.UNTESTED, "?",
-       "Enhanced mode not yet benchmarked"),
-    _e("semantic-drift", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
-       "Enhanced mode not yet benchmarked"),
+    # All entries reset 2026-04-14: old benchmarks purged (pre-expanded sample-repo).
+    # Phase 1 benchmarks will populate these with empirical data.
+    *[_e("semantic-drift", mc, "basic", QualityRating.UNTESTED, "?",
+         "Awaiting Phase 1 benchmark (old data purged)")
+      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
+    *[_e("semantic-drift", mc, "standard", QualityRating.UNTESTED, "?",
+         "Enhanced mode not yet benchmarked")
+      for mc in ["cloud-nano", "cloud-small", "cloud-frontier"]],
 
     # ── test-coherence (LLM-assisted, basic tier) ────────────────
-    _e("test-coherence", "4b-local", "basic", QualityRating.POOR, "~40%",
-       "High FP rate: flags CLI tests, mock-based tests, and simple serialization tests "
-       "as stale. Not recommended — use a stronger model or skip this detector.",
-       "2026-04-11"),
-    _e("test-coherence", "9b-local", "basic", QualityRating.FAIR, "~30%",
-       "Somewhat better than 4B but still noisy. Marginal improvement does not justify "
-       "2-3× slower speed on 8 GB VRAM.",
-       "2026-04-11"),
-    _e("test-coherence", "cloud-nano", "basic", QualityRating.GOOD, "~15%",
-       "Significantly more precise. Correctly handles CLI runners, mocks, and simple tests. "
-       "Minimum recommended model for this detector.",
-       "2026-04-11"),
-    # ── test-coherence: cloud models ────
-    # nano=2 findings, mini=1, gpt-5.4=1 on sample-repo. nano is slightly more
-    # aggressive. All produce the same core signal (test_main_returns_data).
-    # Rated identically — sample size too small to differentiate.
-    _e("test-coherence", "cloud-small", "basic", QualityRating.GOOD, "~15%",
-       "1 finding on sample-repo (same core signal as nano). "
-       "Sample size too small to distinguish from nano.",
-       "2026-04-13"),
-    _e("test-coherence", "cloud-frontier", "basic", QualityRating.GOOD, "~15%",
-       "1 finding on sample-repo. Same as mini. "
-       "Sample size too small to distinguish from nano.",
-       "2026-04-13"),
-    _e("test-coherence", "cloud-nano", "standard", QualityRating.UNTESTED, "?",
-       "Enhanced mode (structured gap analysis) not yet benchmarked"),
-    _e("test-coherence", "cloud-small", "standard", QualityRating.UNTESTED, "?",
-       "Enhanced mode not yet benchmarked"),
-    _e("test-coherence", "cloud-frontier", "standard", QualityRating.UNTESTED, "?",
-       "Enhanced mode not yet benchmarked"),
+    *[_e("test-coherence", mc, "basic", QualityRating.UNTESTED, "?",
+         "Awaiting Phase 1 benchmark (old data purged)")
+      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
+    *[_e("test-coherence", mc, "standard", QualityRating.UNTESTED, "?",
+         "Enhanced mode not yet benchmarked")
+      for mc in ["cloud-nano", "cloud-small", "cloud-frontier"]],
 
     # ── inline-comment-drift (LLM-assisted, basic tier) ──────────
-    # sample-repo results: nano=5, mini=2, gpt-5.4=4 findings.
-    # Nano is most aggressive. Sample is tiny (3 source files) —
-    # variation is within noise, not statistically meaningful.
-    _e("inline-comment-drift", "4b-local", "basic", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked with local models.",
-       "2026-04-13"),
-    _e("inline-comment-drift", "9b-local", "basic", QualityRating.UNTESTED, "?",
-       "Not yet benchmarked with local models."),
-    _e("inline-comment-drift", "cloud-nano", "basic", QualityRating.FAIR, "~40%",
-       "5 findings on sample-repo (3 TP, 2 FP = 60% precision). "
-       "16 findings on pip-tools (no LLM ground truth). "
-       "Most aggressive cloud model for ICD. Very slow (~30s on 3-file fixture).",
-       "2026-04-13"),
-    _e("inline-comment-drift", "cloud-small", "basic", QualityRating.EXCELLENT, "<10%",
-       "2 findings on sample-repo (2 TP, 0 FP = 100% precision). "
-       "8 findings on pip-tools. Most selective cloud model. "
-       "Very slow (~303s on pip-tools due to serial per-function LLM calls).",
-       "2026-04-13"),
-    _e("inline-comment-drift", "cloud-frontier", "basic", QualityRating.UNTESTED, "?",
-       "Not re-benchmarked with updated ground truth.",
-       "2026-04-13"),
+    *[_e("inline-comment-drift", mc, "basic", QualityRating.UNTESTED, "?",
+         "Awaiting Phase 1 benchmark (old data purged)")
+      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
 
     # ── intent-comparison (LLM-assisted, advanced tier) ──────────
-    # ICD v2 + class-aware matching + FP reduction filters (4 gates:
-    # structural, self-negating, specificity, evidence quotes).
-    # Precision measured via manual TP/FP annotation on 3 repos:
-    # sample-repo (N=1 TP fixture), pip-tools, sentinel self-scan.
-    # "Real repos" = pip-tools + sentinel (excludes synthetic sample-repo).
-    _e("intent-comparison", "4b-local", "advanced", QualityRating.UNTESTED, "n/a",
-       "Prior benchmarks stale (pre-class-aware-matching). "
-       "Needs re-benchmark with current detector code on Ollama.",
-       "2026-04-14"),
-    _e("intent-comparison", "9b-local", "advanced", QualityRating.UNTESTED, "n/a",
-       "Prior benchmarks stale (pre-class-aware-matching). "
-       "Needs re-benchmark with current detector code on Ollama.",
-       "2026-04-14"),
-    _e("intent-comparison", "cloud-nano", "advanced", QualityRating.POOR, "~98%",
-       "gpt-5.4-nano: 1/60 TP on real repos (~2% precision). "
-       "20 findings on pip-tools (1 TP), 39 on sentinel (0 TP). "
-       "Dominant FP: hallucinated test assertions, misread code paths.",
-       "2026-04-14",
-       tp=1, n=60, repos="pip-tools, sentinel"),
-    _e("intent-comparison", "cloud-small", "advanced", QualityRating.POOR, "~96%",
-       "gpt-5.4-mini: 1/24 TP on real repos (4% precision). "
-       "8 findings on pip-tools (1 TP), 16 on sentinel (0 TP). "
-       "FP patterns: parameter confusion, incomplete call-chain analysis.",
-       "2026-04-14",
-       tp=1, n=24, repos="pip-tools, sentinel"),
-    _e("intent-comparison", "cloud-frontier", "advanced", QualityRating.POOR, "~57%",
-       "gpt-5.4: 3/7 TP on real repos (43% precision). "
-       "2 on pip-tools (1 TP), 5 on sentinel (2 TP). "
-       "Best available but still >40% FP. Found real docstring bugs "
-       "(DFS/BFS mismatch, incomplete return docs).",
-       "2026-04-14",
-       tp=3, n=7, repos="pip-tools, sentinel"),
+    *[_e("intent-comparison", mc, "advanced", QualityRating.UNTESTED, "?",
+         "Awaiting Phase 1 benchmark (old data purged)")
+      for mc in ["4b-local", "9b-local", "cloud-nano", "cloud-small", "cloud-frontier"]],
 ]
 
 
