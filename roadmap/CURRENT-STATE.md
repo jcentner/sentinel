@@ -1,74 +1,60 @@
 # Current State — Sentinel
 
-> Last updated: Session 50 — CI coverage fixed, benchmark integrity documented, LLM detector evaluation
+> Last updated: Session 51 — ADR-018 benchmark rigor, expanded sample-repo, richer compatibility metrics
 
-**Phase Status**: Blocked: Phase 15 ICD precision is Poor on all non-frontier models (best: gpt-5.4 at 43%). Comprehensive evaluation completed (docs/analysis/llm-detector-evaluation.md). Awaiting human decision: (a) close phase with honest Poor ratings and ICD disabled by default, (b) implement two-pass verification to target hallucination FP, or (c) proceed to vision expansion.
+**Phase Status**: Blocked: Phase 15 ICD precision is Poor on all non-frontier models. Benchmark infrastructure now strengthened (ADR-018). Awaiting human decision: (a) close phase with honest Poor ratings and ICD disabled by default, (b) proceed to vision expansion, or (c) execute benchmarking plan first.
 
 ## Latest Session Summary
 
 ### Current Objective
-Fix CI coverage failure, document benchmark integrity requirements, comprehensively evaluate all LLM detector prompts/context quality, address docs-drift benchmark gap.
+Codify benchmark rigor as a design decision. Expand sample-repo for meaningful LLM detector benchmarks. Show richer metrics (precision, raw counts, sample size) on the detectors page.
 
 ### What Was Accomplished
 
-#### CI Coverage Fixed (81% → 85%)
-- **Root cause**: CI installed `[dev,web,detectors]` but not `[multilang]`. Tree-sitter tests (32) were skipped in CI, causing extractors.py coverage to drop from 87% to 45%.
-- **Fix**: Added `multilang` to CI install. Added 13 new tests (7 for `findings` CLI, 3 for `prune` CLI, 3 for `prune_old_data` store).
-- **Result**: 1435 tests pass, coverage 85.23% (threshold: 85%).
+#### ADR-018: Benchmark Rigor as Core Engineering Discipline
+- Codified that FP rate alone is insufficient — precision, recall, raw counts, and sample size all matter
+- Minimum sample requirements: N<5 = raw counts only, N≥10 across ≥2 repos = "Established"
+- Ground truth files are first-class engineering artifacts
+- Strengthens ADR-016 (benchmark-driven model quality)
 
-#### Benchmark Integrity Requirements Documented
-- Added non-negotiable rules to `benchmarks/README.md`: empirical only, no estimates, statistical significance (N≥5 for rates), synthesized data is not evidence, separate deterministic/LLM metrics, document provenance.
-- Fixed TD-057 description that said "Local 4B/9B=Good (<25% est)" — corrected to UNTESTED.
-- Fixed model-benchmarks.md that said "FP rate (estimated)" — corrected to "(measured)".
-- Tracked as TD-060 for ongoing enforcement.
+#### Expanded Sample-Repo (3 → 10 source files, 37 → 85 ground truth TPs)
+- New modules: `utils.py`, `models.py`, `handlers.py`, `services.py`
+- New tests: `test_utils.py`, `test_handlers.py`, `test_services.py`
+- New docs: `docs/guides/api-reference.md`, `docs/architecture.md`
+- Each file contains a mix of seeded drift issues and correct code (true negatives)
+- LLM detector ground truth: semantic-drift=10, test-coherence=15, inline-comment-drift=18, intent-comparison=9
 
-#### Comprehensive LLM Detector Evaluation
-Created `docs/analysis/llm-detector-evaluation.md` with full analysis of all 5 LLM-assisted detectors:
+#### Richer Compatibility Matrix
+- `CompatibilityEntry` now has `tp_count`, `finding_count`, `repos_tested` fields
+- Detectors page shows raw counts (`3/7 TP`) when available, falls back to FP rate
+- ICD entries now show precise counts with repos tested
 
-| Detector | Assessment | Key Finding |
-|----------|-----------|-------------|
-| semantic-drift | ✅ Well-designed | Works across all model tiers, no prompt changes needed |
-| test-coherence | ✅ Good design | 4B fails because task requires understanding test framework patterns |
-| inline-comment-drift | ✅ Solid | Nano struggles with "incomplete ≠ wrong" distinction; slow (serial calls) |
-| intent-comparison | ❌ Over-scoped | 4-way triangulation exceeds model capacity; dominant FP is hallucinated evidence |
-| docs-drift (LLM) | ❓ Unbenchmarked | No prompt adaptation, no capability_tier, no benchmark data |
+#### Ground Truth Gap Documentation
+- Both real-repo ground truth files (sentinel, pip-tools) now document the LLM detector annotation gap
+- TD-061 filed: LLM detectors have no real-repo ground truth (High severity)
+- Benchmarking plan written at docs/analysis/benchmarking-plan.md
 
-Key cross-cutting findings:
-- Context truncation (1500 chars) is a hidden FP driver — models flag "missing behavior" that exists past the truncation
-- Binary prompts are validated as right default for 3 of 4 detectors (ADR-016 approach confirmed)
-- ICD's fundamental problem is task scope, not prompting — two-pass verification is most promising direction
-- The "basic = binary signal" approach could go further: consider auto-disabling POOR-rated detector×model combos
-
-#### docs-drift Benchmark Gap Addressed
-- Added docs-drift to LLM-assisted matrix (all ❓ Untested)
-- Updated hybrid note explaining when LLM path activates and what users should know
-- Created TD-059 to track: add capability_tier, prompt adaptation, benchmarks
-
-### Key Commits This Session (Session 50)
-- `7a20fb6` fix(ci): add multilang deps + tests for findings/prune to pass 85% coverage
-- `12d484b` docs(benchmarks): add integrity requirements, LLM detector evaluation, fix estimated ratings
-- `0dbf191` chore(checkpoint): Session 50 — CI fix, benchmark integrity, LLM detector eval
-- `05664fc` fix(docs): address reviewer findings — stale test counts, ICD estimate label, test flakiness
+### Key Commits This Session
+- `b036604` feat(benchmarks): ADR-018 benchmark rigor, expanded sample-repo, richer metrics
 
 ### Repository State
-- **Tests**: 1435 passing (13 new)
-- **Coverage**: 85.23% (CI threshold: 85%)
-- **CLI commands**: 21
-- **Web routes**: 21
+- **Tests**: 1401 passing, 37 skipped (tree-sitter)
+- **Coverage**: ~85% (unchanged — no source code changes)
+- **Ruff + mypy strict**: clean
 - **VISION-LOCK**: v6.2 (Phase 15)
 
 ### What Remains / Next Priority
-1. **Phase 15 decision**: ICD confirmed as fundamentally over-scoped at current capability levels. Options: (a) close phase with honest Poor ratings and ICD disabled by default, (b) implement two-pass verification to target hallucination FP.
-2. **TD-059**: Benchmark docs-drift LLM path, add prompt adaptation and capability_tier.
-3. **TD-060**: Enforce benchmark integrity on future rating claims.
-4. **4b/9b re-benchmark**: Local model benchmarks stale — need dGPU system.
-5. **Performance**: inline-comment-drift serial execution (~303s on pip-tools) needs async batching.
+1. **Execute benchmarking plan Phase 1**: Run sample-repo benchmarks across all 5 model classes — this can be done immediately with the expanded ground truth
+2. **Execute benchmarking plan Phase 2**: Run LLM detectors on real repos (sentinel, pip-tools), annotate findings, build ground truth
+3. **Phase 15 decision**: Close with honest ratings or proceed to vision expansion
+4. **TD-059**: Benchmark docs-drift LLM path
+5. **TD-061**: Fill real-repo LLM detector ground truth
 
 ### Decisions Made
-- Benchmark integrity requirements are non-negotiable (documented in benchmarks/README.md)
-- Estimated ratings are not acceptable — mark as ❓ Untested or provide empirical data
-- ICD's dominant FP pattern (hallucinated evidence) is a model capacity issue, not a prompt issue
-- Binary prompts are the correct default for all LLM detectors (ADR-016 validated)
+- ADR-018 accepted: benchmark rigor is non-negotiable engineering discipline
+- FP rate alone is insufficient for quality ratings — precision, recall, raw counts, sample size all matter
+- Ground truth is a first-class artifact — the benchmark fixture needs to be big enough for statistical significance
+- Current LLM detector ratings on real repos are informal and need reproducible benchmarks
 
 ## Vision Expansion Proposal
 
